@@ -1,0 +1,19 @@
+target/
+*.class
+
+# logs
+*.log
+
+# env
+.env
+
+# editor
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# build tools
+.mvn/wrapper/maven-wrapper.jar
+.gradle/
+build/

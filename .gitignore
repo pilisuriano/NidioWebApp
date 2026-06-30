@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# build outputs
+dist/
+build/
+target/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ML artifacts
+*.pkl
+*.joblib
+
+# editor
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,25 @@
+# datasets
+data/raw/
+data/processed/
+
+# modelos serializados
+src/models/artifacts/*.pkl
+src/models/artifacts/*.joblib
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# env
+.env
+
+# notebooks checkpoints
+.ipynb_checkpoints/
+
+# editor
+.vscode/
+.idea/
+.DS_Store
