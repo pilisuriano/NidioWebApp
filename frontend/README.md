@@ -1,45 +1,32 @@
-# Nidio — Frontend
+# Nidio — Frontend (Épica 4)
 
-Épica 4: cliente React + Vite (deploy en Vercel).
+Cliente web de Nidio: React + Vite (JavaScript), Tailwind CSS 4, React Router, Axios y React Leaflet.
+
+Consume la API REST del backend (Spring Boot, puerto 8080). Ver contratos en [`docs/api/endpoints.md`](../docs/api/endpoints.md).
+
+## Correr localmente
+
+**Prerequisitos:** Node.js 20+, y el backend + ml-service corriendo (ver README de la raíz).
+
+```bash
+cp .env.example .env   # VITE_API_URL=http://localhost:8080
+npm install
+npm run dev            # http://localhost:5173
+```
+
+## Scripts
+
+- `npm run dev` — servidor de desarrollo (puerto 5173).
+- `npm run build` — build de producción.
+- `npm run lint` — pendiente de reinstalar (ver nota abajo).
 
 ## Estructura
 
-- `src/components/` — Mapas, Filtros, Cards, etc.
-- `src/hooks/` — Lógica de estado personalizada
-- `src/services/` — Llamadas a la API (axios/fetch)
-- `src/utils/` — Conversión de datos/geoespacial
-- `src/__tests__/` — Tests de componentes
+- `src/lib/api.js` — cliente Axios + shapes del contrato REST (JWT en `Authorization`).
+- `src/lib/auth.jsx` — contexto de sesión (`AuthProvider`, `useAuth`, `RequireAuth`).
+- `src/pages/` — Dashboard, Mapa (heatmaps + propiedades), Valuación, Life Score, Mis búsquedas, Perfil y auth.
+- `src/components/` — layout y componentes de UI.
 
-## Librerías clave
+Los datos que se ven son sintéticos (solo CABA), sembrados por la migración `V2__seed_synthetic_caba.sql` del backend.
 
-- `react-router-dom` — routing entre páginas
-- `axios` — llamadas a la API (capa `services/`)
-- `react-leaflet` / `leaflet` — mapas (Life Score, exploración)
-- `leaflet.heat` — heatmaps de precios por m²
-
-## Desarrollo
-
-```bash
-cp .env.example .env
-npm install
-npm run dev
-```
-
----
-
-# React + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+**Nota:** el frontend se migró de TypeScript a JavaScript (decisión del proyecto). El CI (`frontend-ci.yml`) todavía invoca `npm run lint` y `npm run test`, pero ninguno de los dos scripts existe en `package.json` — hay que reinstalar un linter JS (`oxlint`, como estaba definido originalmente) y agregar tests, o ajustar el workflow mientras tanto.
