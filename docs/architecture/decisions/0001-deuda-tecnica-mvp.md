@@ -14,6 +14,12 @@ Registro de atajos tomados durante la implementación inicial (Auth + Épicas 2-
 
 Durante la implementación había un proceso del backend corriendo en background con el código anterior (servicios en `TODO`, sin los endpoints nuevos). Se reemplazó por el proceso con el código actual, pero si en algún momento el backend responde con comportamiento viejo (por ejemplo, un endpoint documentado que da 404), lo primero a chequear es que no haya dos procesos de `spring-boot:run` compitiendo por el puerto 8080 (`lsof -i :8080` en Mac/Linux).
 
-## Lint y tests de frontend pendientes
+## ~~Lint y tests de frontend pendientes~~ (resuelto)
 
-Ver la nota en [`frontend/README.md`](../../frontend/README.md): tras migrar de TypeScript a JavaScript, `package.json` quedó sin script de `lint` ni de `test`, pero `frontend-ci.yml` todavía los invoca. Hay que reinstalar un linter JS (`oxlint`, como estaba definido en la propuesta original) y agregar tests antes de que el CI corra en verde.
+Se reinstaló `oxlint` (`npm run lint`) y `vitest` + `@testing-library/react` (`npm run test`), con tests mínimos en `src/__tests__/`. Los 3 pasos de `frontend-ci.yml` (lint, test, build) se verificaron localmente y pasan.
+
+## Los 3 workflows de CI fallaban por motivos independientes (resuelto el 08/07)
+
+- **frontend-ci:** los scripts `lint`/`test` no existían (ver punto anterior).
+- **backend-ci:** `AuthServiceTest` es `@SpringBootTest` (contexto completo, conecta a Postgres real vía Flyway), pero el workflow no tenía ningún servicio de base de datos. Se agregó un `services: postgres` con imagen `postgis/postgis:16-3.4` a `backend-ci.yml`. **Sin verificar end-to-end** (no hay Docker ni acceso a Maven Central desde este entorno) — conviene mirar el run de Actions después del próximo push para confirmar que levanta bien.
+- **ml-service-ci:** `tests/` solo tenía un `.gitkeep`, cero tests reales. `pytest` sin tests devuelve exit code 5, que CI trata como falla. Se agregaron `tests/test_valuation.py` y `tests/test_life_score.py` (10 tests, corridos y verificados localmente) más un `pytest.ini` con `pythonpath = .` para que el import `from src...` resuelva igual que en `uvicorn`.

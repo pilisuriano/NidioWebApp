@@ -18,7 +18,8 @@ npm run dev            # http://localhost:5173
 
 - `npm run dev` — servidor de desarrollo (puerto 5173).
 - `npm run build` — build de producción.
-- `npm run lint` — pendiente de reinstalar (ver nota abajo).
+- `npm run lint` — `oxlint`.
+- `npm run test` — `vitest run`.
 
 ## Estructura
 
@@ -29,4 +30,4 @@ npm run dev            # http://localhost:5173
 
 Los datos que se ven son sintéticos (solo CABA), sembrados por la migración `V2__seed_synthetic_caba.sql` del backend.
 
-**Nota:** el frontend se migró de TypeScript a JavaScript (decisión del proyecto). El CI (`frontend-ci.yml`) todavía invoca `npm run lint` y `npm run test`, pero ninguno de los dos scripts existe en `package.json` — hay que reinstalar un linter JS (`oxlint`, como estaba definido originalmente) y agregar tests, o ajustar el workflow mientras tanto.
+**Nota:** el frontend se migró de TypeScript a JavaScript (decisión del proyecto). `oxlint` y `vitest`/`@testing-library/react` se reinstalaron para que `npm run lint` y `npm run test` volvieran a existir, con tests mínimos en `src/__tests__/`.
