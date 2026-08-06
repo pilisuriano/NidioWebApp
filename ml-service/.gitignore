@@ -2,10 +2,6 @@
 data/raw/
 data/processed/
 
-# modelos serializados
-src/models/artifacts/*.pkl
-src/models/artifacts/*.joblib
-
 # python
 __pycache__/
 *.pyc
