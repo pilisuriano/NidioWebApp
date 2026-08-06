@@ -122,9 +122,21 @@ def predict_valuation(request):
     else:
         minimo, maximo = resultado["rango_min"], resultado["rango_max"]
 
+    # predecir_propiedad_nueva() devuelve los factores con claves en espanol
+    # (factor/contribucion/direccion) -- se traducen aca para que calcen con el
+    # contrato /predict, que esta en ingles/camelCase como el resto de la API.
+    explicacion = [
+        {
+            "factor": item["factor"],
+            "contribution": item["contribucion"],
+            "direction": item["direccion"],
+        }
+        for item in resultado["explicacion"]
+    ]
+
     return {
         "min": minimo,
         "max": maximo,
-        "explanation": resultado["explicacion"],
+        "explanation": explicacion,
         "explanation_text": resultado["explicacion_texto"],
     }
