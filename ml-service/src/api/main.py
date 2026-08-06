@@ -42,7 +42,6 @@ class LifeScoreResponse(BaseModel):
 def health():
     return {"status": "ok"}
 
-
 @app.post("/predict", response_model=ValuationResponse)
 def predict(request: ValuationRequest):
     try:

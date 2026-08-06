@@ -28,7 +28,7 @@ Convenciones:
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
@@ -67,7 +67,14 @@ class ValuationRequest(BaseModel):
     has_pool: Optional[bool] = None
     has_garage: Optional[bool] = None
     building_amenities: Optional[bool] = None
-    security_24h: Optional[bool] = None
+    # OJO -- alias EXPLICITO, no se puede dejar que alias_generator=to_camel lo derive
+    # solo (bug real encontrado 07/08/2026, ver bitacora): to_camel("security_24h")
+    # da "security24H" (con H mayuscula, por como Python .title() trata el limite
+    # entre un digito y la letra siguiente), pero el JSON real que manda Java/el
+    # frontend usa "security24h" (h minuscula, nombre literal del campo Java) -- sin
+    # este alias explicito, este campo nunca se poblaba desde ningun request HTTP
+    # real, quedaba siempre en None/False en silencio (sin error).
+    security_24h: Optional[bool] = Field(default=None, alias="security24h")
     bright: Optional[bool] = None
     apto_credito: Optional[bool] = None
     furnished: Optional[bool] = None

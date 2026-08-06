@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Switch } from "@/components/ui/Switch";
 import { Calculator, CheckCircle2, AlertCircle, AlertTriangle, Info, ArrowLeft } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
@@ -18,6 +19,58 @@ const PROPERTY_TYPES = [{
   value: "PH",
   label: "PH"
 }];
+// Mismos 4 valores que espera el backend/modelo (ver ValuationCreateRequest.java y
+// valuation.py::_CONDITION_MAP) -- "" (no especifica) no se manda, queda en null.
+const PROPERTY_CONDITIONS = [{
+  value: "",
+  label: "No especifica"
+}, {
+  value: "NEW",
+  label: "A estrenar"
+}, {
+  value: "USED_GOOD_CONDITION",
+  label: "Usado, buen estado"
+}, {
+  value: "NEEDS_RENOVATION",
+  label: "A reciclar"
+}];
+// Características opcionales -- ninguna es obligatoria, pero el modelo SÍ las usa
+// (via SHAP) cuando están disponibles y da una estimación más ajustada (ver
+// bitácora del modelo: cochera/amenities mueven la predicción varias decenas de
+// USD). Nombres de campo en camelCase, iguales a ValuationCreateRequest.java.
+const AMENITY_SWITCHES = [{
+  field: "hasPool",
+  label: "Pileta"
+}, {
+  field: "hasGarage",
+  label: "Cochera"
+}, {
+  field: "buildingAmenities",
+  label: "Amenities del edificio"
+}, {
+  field: "security24h",
+  label: "Seguridad 24hs"
+}, {
+  field: "bright",
+  label: "Luminoso"
+}, {
+  field: "aptoCredito",
+  label: "Apto crédito"
+}, {
+  field: "furnished",
+  label: "Amoblado"
+}];
+// Cotización pública del dólar blue (ver dolarapi.com) -- se usa SOLO del lado del
+// frontend, para 2 cosas puntuales, ninguna de las cuales toca el backend/ml-service
+// (que siguen trabajando 100% en USD, sin excepciones, ver bitácora 6.41 adendum):
+//   1. Convertir a USD el "precio publicado" que el usuario carga en ARS para
+//      alquiler (más natural que pedirle el precio en dólares para un alquiler).
+//   2. Mostrar, además del rango en USD (el valor real que devuelve el modelo),
+//      un equivalente aproximado en ARS para alquiler (pedido explícito de Pili).
+// Si la cotización no se pudo obtener, se deshabilita la carga de precio publicado
+// en alquiler (no se puede convertir) y no se muestra el equivalente en ARS -- se seguí
+// pudiendo usar el resto del formulario en USD/sin precio publicado sin problema.
+const BLUE_RATE_URL = "https://dolarapi.com/v1/dolares/blue";
 function ResultBadge({
   result
 }) {
@@ -51,11 +104,32 @@ export default function Valuacion() {
   const [surfaceM2, setSurfaceM2] = useState(searchParams.get("surfaceM2") ?? "");
   const [rooms, setRooms] = useState(Number(searchParams.get("rooms")) || 2);
   const [declaredPrice, setDeclaredPrice] = useState("");
+  // Características opcionales (ver AMENITY_SWITCHES/PROPERTY_CONDITIONS arriba).
+  const [totalSurfaceM2, setTotalSurfaceM2] = useState("");
+  const [bathrooms, setBathrooms] = useState("");
+  const [propertyCondition, setPropertyCondition] = useState("");
+  const [expensesUsd, setExpensesUsd] = useState("");
+  const [amenities, setAmenities] = useState({
+    hasPool: false,
+    hasGarage: false,
+    buildingAmenities: false,
+    security24h: false,
+    bright: false,
+    aptoCredito: false,
+    furnished: false
+  });
+  const toggleAmenity = field => setAmenities(prev => ({
+    ...prev,
+    [field]: !prev[field]
+  }));
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   // Se recuerda con qué parámetros se calculó el resultado que se muestra.
   const [lastRequest, setLastRequest] = useState(null);
+  // Cotización dólar blue -- null mientras carga o si falló (ver BLUE_RATE_URL arriba).
+  const [blueRate, setBlueRate] = useState(null);
+  const [blueRateError, setBlueRateError] = useState(false);
   useEffect(() => {
     api.get("/api/neighborhoods").then(res => {
       setNeighborhoods(res.data);
@@ -63,26 +137,65 @@ export default function Valuacion() {
     }).catch(() => setError("No se pudieron cargar los barrios"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    fetch(BLUE_RATE_URL).then(res => {
+      if (!res.ok) throw new Error(`dolarapi respondió ${res.status}`);
+      return res.json();
+    }).then(data => {
+      if (typeof data.venta === "number") setBlueRate(data.venta);else throw new Error("respuesta sin campo 'venta'");
+    }).catch(() => setBlueRateError(true));
+  }, []);
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    // El precio publicado para ALQUILER se carga en ARS (lo más natural para
+    // alguien buscando en Argentina), pero el backend/modelo trabajan siempre
+    // en USD, sin excepciones (ver bitácora 6.41 adendum) -- se convierte acá,
+    // del lado del cliente, con la cotización del dólar blue. El backend nunca
+    // recibe ni calcula nada en ARS.
+    let declaredUsd = null;
+    if (declaredPrice) {
+      const raw = Number(declaredPrice);
+      if (operationType === "RENT") {
+        if (!blueRate) {
+          setError("No se pudo obtener la cotización del dólar para convertir el precio publicado. Probá de nuevo en un momento, o dejá ese campo vacío.");
+          return;
+        }
+        declaredUsd = raw / blueRate;
+      } else {
+        declaredUsd = raw;
+      }
+    }
     setSubmitting(true);
     try {
-      const declared = declaredPrice ? Number(declaredPrice) : null;
       const res = await api.post("/api/valuations", {
         operationType,
         propertyType,
         neighborhoodId: Number(neighborhoodId),
         surfaceM2: Number(surfaceM2),
         rooms,
-        declaredPrice: declared
+        declaredPrice: declaredUsd,
+        totalSurfaceM2: totalSurfaceM2 ? Number(totalSurfaceM2) : null,
+        bathrooms: bathrooms ? Number(bathrooms) : null,
+        propertyCondition: propertyCondition || null,
+        expensesUsd: expensesUsd ? Number(expensesUsd) : null,
+        ...amenities
       });
       setResult(res.data);
       setLastRequest({
         operationType,
-        declaredPrice: declared,
+        // Precio tal cual lo tipeó el usuario (ARS para alquiler, USD para venta) --
+        // se usa solo para mostrarle "Tu precio" con la unidad que él cargó.
+        declaredPriceInput: declaredPrice ? Number(declaredPrice) : null,
+        // Mismo precio ya convertido a USD -- es lo que se compara contra el
+        // rango estimado (que también viene siempre en USD del backend).
+        declaredPrice: declaredUsd,
         neighborhoodName: neighborhoods.find(n => String(n.id) === neighborhoodId)?.name ?? "",
-        surfaceM2: Number(surfaceM2)
+        surfaceM2: Number(surfaceM2),
+        // Cotización usada en ESTE cálculo puntual, para que el equivalente en
+        // ARS que se muestra abajo no cambie solo si blueRate se actualiza
+        // mientras el usuario sigue mirando un resultado ya calculado.
+        blueRateUsed: operationType === "RENT" ? blueRate : null
       });
     } catch (err) {
       setError(apiErrorMessage(err, "No se pudo calcular la valuación"));
@@ -90,9 +203,14 @@ export default function Valuacion() {
       setSubmitting(false);
     }
   }
-  const currency = lastRequest?.operationType === "RENT" ? "ARS/mes" : "USD";
+  // El backend/modelo devuelven TODO en USD, venta y alquiler por igual (ver
+  // bitácora 6.41 adendum) -- el equivalente en ARS de más abajo es puramente
+  // decorativo, nunca reemplaza al valor real en USD.
+  const currency = "USD" + (lastRequest?.operationType === "RENT" ? "/mes" : "");
   const estimatedMid = result ? (result.estimatedMin + result.estimatedMax) / 2 : 0;
   const priceM2 = result && lastRequest && lastRequest.surfaceM2 > 0 ? estimatedMid / lastRequest.surfaceM2 : null;
+  const showArs = lastRequest?.operationType === "RENT" && !!lastRequest?.blueRateUsed;
+  const toArs = usd => usd * (lastRequest?.blueRateUsed ?? 0);
   // Posición del precio declarado dentro de la barra (25%-75% representa el rango estimado).
   let declaredPct = null;
   if (result && lastRequest?.declaredPrice != null) {
@@ -150,7 +268,7 @@ export default function Valuacion() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="surface">
-                      SUPERFICIE (M²)
+                      SUPERFICIE CUBIERTA (M²)
                     </label>
                     <Input id="surface" placeholder="Ej: 45" type="number" min={10} required value={surfaceM2} onChange={e => setSurfaceM2(e.target.value)} />
                   </div>
@@ -177,9 +295,60 @@ export default function Valuacion() {
                     <span className="absolute left-3 top-2.5 text-sm font-bold text-on-surface-variant">
                       {operationType === "SALE" ? "USD" : "ARS"}
                     </span>
-                    <Input id="declared" placeholder="Ingresa el precio para comparar" className="pl-12" type="number" min={0} value={declaredPrice} onChange={e => setDeclaredPrice(e.target.value)} />
+                    <Input id="declared" placeholder="Ingresa el precio para comparar" className="pl-12" type="number" min={0} value={declaredPrice} onChange={e => setDeclaredPrice(e.target.value)} disabled={operationType === "RENT" && blueRateError} />
                   </div>
-                  <p className="text-xs text-on-surface-variant italic">Permite detectar sobre/subvaluaciones contra el rango estimado.</p>
+                  <p className="text-xs text-on-surface-variant italic">
+                    Permite detectar sobre/subvaluaciones contra el rango estimado.
+                    {operationType === "RENT" && (blueRateError ? " No se pudo obtener la cotización del dólar en este momento -- este campo queda deshabilitado hasta que se pueda convertir a USD." : blueRate ? ` Se convierte a USD con la cotización blue actual (1 USD ≈ $${formatNumber(blueRate)}).` : " Obteniendo cotización del dólar…")}
+                  </p>
+                </div>
+
+                {/* Características opcionales -- no son obligatorias, pero el modelo
+                    las aprovecha (SHAP) para un rango más ajustado. */}
+                <div className="space-y-4 pt-2 border-t border-outline-variant">
+                  <p className="text-xs font-bold text-outline uppercase tracking-widest pt-4">
+                    Características adicionales (opcional)
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="totalSurface">
+                        SUPERFICIE TOTAL (M²)
+                      </label>
+                      <Input id="totalSurface" placeholder="Ej: 50" type="number" min={0} value={totalSurfaceM2} onChange={e => setTotalSurfaceM2(e.target.value)} />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="bathrooms">
+                        BAÑOS
+                      </label>
+                      <Input id="bathrooms" placeholder="Ej: 1" type="number" min={0} value={bathrooms} onChange={e => setBathrooms(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="condition">
+                        ESTADO
+                      </label>
+                      <select id="condition" value={propertyCondition} onChange={e => setPropertyCondition(e.target.value)} className="w-full h-10 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary">
+                        {PROPERTY_CONDITIONS.map(c => <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="expenses">
+                        EXPENSAS (USD)
+                      </label>
+                      <Input id="expenses" placeholder="Ej: 120" type="number" min={0} value={expensesUsd} onChange={e => setExpensesUsd(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    {AMENITY_SWITCHES.map(({
+                    field,
+                    label
+                  }) => <Switch key={field} checked={amenities[field]} onCheckedChange={() => toggleAmenity(field)} label={label} />)}
+                  </div>
                 </div>
 
                 {error && <div className="bg-error-container text-on-error-container text-sm rounded-lg p-3 flex items-start gap-2">
@@ -222,14 +391,17 @@ export default function Valuacion() {
                       <span className="text-xl font-bold text-on-surface-variant mt-2">{currency}</span>
                       <span className="text-6xl font-bold text-on-surface tracking-tighter">{formatNumber(estimatedMid)}</span>
                     </div>
+                    {showArs && <p className="text-sm text-on-surface-variant mt-2">
+                        ≈ ARS {formatNumber(toArs(estimatedMid))}/mes (cotización dólar blue del momento del cálculo: ${formatNumber(lastRequest.blueRateUsed)})
+                      </p>}
                   </div>
 
                   {/* Barra de rango */}
                   <div className="mb-12 relative px-4">
-                    {declaredPct != null && lastRequest?.declaredPrice != null && <div className="absolute -top-8 transform -translate-x-1/2 bg-inverse-surface text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap" style={{
+                    {declaredPct != null && lastRequest?.declaredPriceInput != null && <div className="absolute -top-8 transform -translate-x-1/2 bg-inverse-surface text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap" style={{
                   left: `${declaredPct}%`
                 }}>
-                        Tu precio: {formatNumber(lastRequest.declaredPrice)}
+                        Tu precio: {lastRequest.operationType === "RENT" ? "ARS" : "USD"} {formatNumber(lastRequest.declaredPriceInput)}
                         <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-inverse-surface"></div>
                       </div>}
 
@@ -261,11 +433,13 @@ export default function Valuacion() {
                       <p className="text-xs text-on-surface-variant">Mínimo estimado</p>
                       <p className="text-lg font-bold text-on-surface">{formatNumber(result.estimatedMin)}</p>
                       <p className="text-[10px] font-mono text-on-surface-variant">{currency}</p>
+                      {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ ARS {formatNumber(toArs(result.estimatedMin))}</p>}
                     </div>
                     <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
                       <p className="text-xs text-on-surface-variant">Máximo estimado</p>
                       <p className="text-lg font-bold text-on-surface">{formatNumber(result.estimatedMax)}</p>
                       <p className="text-[10px] font-mono text-on-surface-variant">{currency}</p>
+                      {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ ARS {formatNumber(toArs(result.estimatedMax))}</p>}
                     </div>
                   </div>
 
