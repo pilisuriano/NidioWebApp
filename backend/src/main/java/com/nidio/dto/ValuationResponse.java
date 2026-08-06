@@ -16,4 +16,5 @@ public class ValuationResponse {
     private BigDecimal estimatedMax;
     private ValuationResult result;
     private Instant createdAt;
+    private String explanationText;
 }

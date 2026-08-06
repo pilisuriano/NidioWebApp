@@ -35,4 +35,18 @@ public class ValuationCreateRequest {
     private Integer rooms;
 
     private BigDecimal declaredPrice;
+
+    // Caracteristicas opcionales -- si se cargan, la estimacion es mas precisa (el
+    // modelo las usa via SHAP). Ninguna es obligatoria.
+    private BigDecimal totalSurfaceM2;
+    private Integer bathrooms;
+    private String propertyCondition;
+    private BigDecimal expensesUsd;
+    private Boolean hasPool;
+    private Boolean hasGarage;
+    private Boolean buildingAmenities;
+    private Boolean security24h;
+    private Boolean bright;
+    private Boolean aptoCredito;
+    private Boolean furnished;
 }

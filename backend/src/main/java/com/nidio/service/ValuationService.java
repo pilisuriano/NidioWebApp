@@ -40,7 +40,19 @@ public class ValuationService {
                 request.getPropertyType(),
                 neighborhood.getName(),
                 request.getSurfaceM2(),
-                request.getRooms()));
+                request.getRooms(),
+                request.getTotalSurfaceM2(),
+                request.getBathrooms(),
+                request.getPropertyCondition(),
+                request.getExpensesUsd(),
+                request.getHasPool(),
+                request.getHasGarage(),
+                request.getBuildingAmenities(),
+                request.getSecurity24h(),
+                request.getBright(),
+                request.getAptoCredito(),
+                request.getFurnished(),
+                request.getDeclaredPrice()));
 
         ValuationRequest valuation = ValuationRequest.builder()
                 .user(user)
@@ -52,6 +64,7 @@ public class ValuationService {
                 .declaredPrice(request.getDeclaredPrice())
                 .estimatedMin(prediction.min())
                 .estimatedMax(prediction.max())
+                .explanationText(prediction.explanationText())
                 .result(compare(request.getDeclaredPrice(), prediction.min(), prediction.max()))
                 .build();
         valuation = valuationRequestRepository.save(valuation);
@@ -104,6 +117,7 @@ public class ValuationService {
                 valuation.getEstimatedMin(),
                 valuation.getEstimatedMax(),
                 valuation.getResult(),
-                valuation.getCreatedAt());
+                valuation.getCreatedAt(),
+                valuation.getExplanationText());
     }
 }

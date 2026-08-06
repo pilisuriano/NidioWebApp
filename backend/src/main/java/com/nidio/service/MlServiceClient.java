@@ -40,11 +40,26 @@ public class MlServiceClient {
             PropertyType propertyType,
             String neighborhood,
             BigDecimal surfaceM2,
-            Integer rooms
+            Integer rooms,
+            BigDecimal totalSurfaceM2,
+            Integer bathrooms,
+            String propertyCondition,
+            BigDecimal expensesUsd,
+            Boolean hasPool,
+            Boolean hasGarage,
+            Boolean buildingAmenities,
+            Boolean security24h,
+            Boolean bright,
+            Boolean aptoCredito,
+            Boolean furnished,
+            BigDecimal declaredPrice
     ) {
     }
 
-    public record PredictResponse(BigDecimal min, BigDecimal max) {
+    public record ExplanationFactor(String factor, BigDecimal contribution, String direction) {
+    }
+
+    public record PredictResponse(BigDecimal min, BigDecimal max, List<ExplanationFactor> explanation, String explanationText) {
     }
 
     public record LifeScoreMlRequest(double lat, double lon, Map<POICategory, Integer> weights) {

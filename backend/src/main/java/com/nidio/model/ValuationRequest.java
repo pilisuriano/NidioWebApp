@@ -58,6 +58,9 @@ public class ValuationRequest {
     @Column(length = 20)
     private ValuationResult result;
 
+    @Column(name = "explanation_text")
+    private String explanationText;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
