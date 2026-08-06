@@ -1,0 +1,284 @@
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Calculator, CheckCircle2, AlertCircle, AlertTriangle, Info, ArrowLeft } from "lucide-react";
+import { api, apiErrorMessage } from "@/lib/api";
+import { formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
+const PROPERTY_TYPES = [{
+  value: "APARTMENT",
+  label: "Departamento"
+}, {
+  value: "HOUSE",
+  label: "Casa"
+}, {
+  value: "PH",
+  label: "PH"
+}];
+function ResultBadge({
+  result
+}) {
+  if (result === "FAIR") {
+    return <Badge variant="good" className="px-3 py-1.5 gap-1.5 text-sm border border-good-value/20 bg-good-value/5">
+        <CheckCircle2 className="w-4 h-4" /> DENTRO DEL RANGO
+      </Badge>;
+  }
+  if (result === "OVERVALUED") {
+    return <Badge variant="alert" className="px-3 py-1.5 gap-1.5 text-sm">
+        <AlertTriangle className="w-4 h-4" /> SOBRE EL RANGO
+      </Badge>;
+  }
+  if (result === "UNDERVALUED") {
+    return <Badge variant="secondary" className="px-3 py-1.5 gap-1.5 text-sm bg-secondary/10 text-secondary border border-secondary/20">
+        <Info className="w-4 h-4" /> BAJO EL RANGO
+      </Badge>;
+  }
+  return null;
+}
+export default function Valuacion() {
+  const [searchParams] = useSearchParams();
+  // Llegando desde "Publicar" (link "¿No sabés qué precio poner?"): se
+  // precarga con lo que ya había cargado en el aviso, y se muestra un link
+  // para volver ahí sin perder esos datos (quedaron guardados en sessionStorage).
+  const fromPublicar = searchParams.get("from") === "publicar";
+  const [neighborhoods, setNeighborhoods] = useState([]);
+  const [operationType, setOperationType] = useState(searchParams.get("operationType") ?? "SALE");
+  const [propertyType, setPropertyType] = useState(searchParams.get("propertyType") ?? "APARTMENT");
+  const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhoodId") ?? "");
+  const [surfaceM2, setSurfaceM2] = useState(searchParams.get("surfaceM2") ?? "");
+  const [rooms, setRooms] = useState(Number(searchParams.get("rooms")) || 2);
+  const [declaredPrice, setDeclaredPrice] = useState("");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  // Se recuerda con qué parámetros se calculó el resultado que se muestra.
+  const [lastRequest, setLastRequest] = useState(null);
+  useEffect(() => {
+    api.get("/api/neighborhoods").then(res => {
+      setNeighborhoods(res.data);
+      if (!neighborhoodId && res.data.length > 0) setNeighborhoodId(String(res.data[0].id));
+    }).catch(() => setError("No se pudieron cargar los barrios"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const declared = declaredPrice ? Number(declaredPrice) : null;
+      const res = await api.post("/api/valuations", {
+        operationType,
+        propertyType,
+        neighborhoodId: Number(neighborhoodId),
+        surfaceM2: Number(surfaceM2),
+        rooms,
+        declaredPrice: declared
+      });
+      setResult(res.data);
+      setLastRequest({
+        operationType,
+        declaredPrice: declared,
+        neighborhoodName: neighborhoods.find(n => String(n.id) === neighborhoodId)?.name ?? "",
+        surfaceM2: Number(surfaceM2)
+      });
+    } catch (err) {
+      setError(apiErrorMessage(err, "No se pudo calcular la valuación"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  const currency = lastRequest?.operationType === "RENT" ? "ARS/mes" : "USD";
+  const estimatedMid = result ? (result.estimatedMin + result.estimatedMax) / 2 : 0;
+  const priceM2 = result && lastRequest && lastRequest.surfaceM2 > 0 ? estimatedMid / lastRequest.surfaceM2 : null;
+  // Posición del precio declarado dentro de la barra (25%-75% representa el rango estimado).
+  let declaredPct = null;
+  if (result && lastRequest?.declaredPrice != null) {
+    const span = result.estimatedMax - result.estimatedMin || 1;
+    const t = (lastRequest.declaredPrice - result.estimatedMin) / span;
+    declaredPct = Math.max(2, Math.min(98, 25 + t * 50));
+  }
+  return <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {fromPublicar && <Link to="/publicar" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+          <ArrowLeft className="w-4 h-4" /> Volver a publicar
+        </Link>}
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold text-on-surface">Tasación</h1>
+        <p className="text-on-surface-variant max-w-2xl">
+          Estimá el rango de valor de mercado de una propiedad en CABA. El resultado es un rango, no un valor exacto.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Form */}
+        <div className="lg:col-span-5">
+          <Card>
+            <CardContent className="p-6 space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Operación */}
+                <div className="flex rounded-md border border-outline-variant p-1 bg-surface-container-low">
+                  {["SALE", "RENT"].map(op => <button key={op} type="button" onClick={() => setOperationType(op)} className={cn("flex-1 rounded text-sm py-2 transition-all", operationType === op ? "font-bold bg-primary text-on-primary shadow-sm" : "font-medium text-on-surface-variant hover:text-on-surface")}>
+                      {op === "SALE" ? "Compra" : "Alquiler"}
+                    </button>)}
+                </div>
+
+                {/* Tipo */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-outline uppercase tracking-widest">TIPO DE PROPIEDAD</label>
+                  <div className="flex gap-2">
+                    {PROPERTY_TYPES.map(t => <button key={t.value} type="button" onClick={() => setPropertyType(t.value)} className={cn("flex-1 text-sm py-2 rounded-md transition-all", propertyType === t.value ? "border-2 border-primary bg-primary/5 text-primary font-bold" : "border border-outline-variant hover:border-outline text-on-surface-variant font-medium")}>
+                        {t.label}
+                      </button>)}
+                  </div>
+                </div>
+
+                {/* Barrio */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="barrio">
+                    BARRIO (CABA)
+                  </label>
+                  <select id="barrio" value={neighborhoodId} onChange={e => setNeighborhoodId(e.target.value)} required className="w-full h-10 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary">
+                    {neighborhoods.map(n => <option key={n.id} value={n.id}>
+                        {n.name}
+                      </option>)}
+                  </select>
+                </div>
+
+                {/* Superficie y ambientes */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="surface">
+                      SUPERFICIE (M²)
+                    </label>
+                    <Input id="surface" placeholder="Ej: 45" type="number" min={10} required value={surfaceM2} onChange={e => setSurfaceM2(e.target.value)} />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-outline uppercase tracking-widest">AMBIENTES</label>
+                    <div className="flex border border-outline-variant rounded-md overflow-hidden bg-surface-container-lowest h-10">
+                      <button type="button" onClick={() => setRooms(Math.max(1, rooms - 1))} className="px-3 hover:bg-surface-container transition-colors border-r border-outline-variant">
+                        -
+                      </button>
+                      <input type="text" value={rooms} readOnly className="w-full text-center font-bold text-sm bg-transparent outline-none" />
+                      <button type="button" onClick={() => setRooms(Math.min(8, rooms + 1))} className="px-3 hover:bg-surface-container transition-colors border-l border-outline-variant">
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Precio declarado */}
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="declared">
+                    PRECIO PUBLICADO (OPCIONAL)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-sm font-bold text-on-surface-variant">
+                      {operationType === "SALE" ? "USD" : "ARS"}
+                    </span>
+                    <Input id="declared" placeholder="Ingresa el precio para comparar" className="pl-12" type="number" min={0} value={declaredPrice} onChange={e => setDeclaredPrice(e.target.value)} />
+                  </div>
+                  <p className="text-xs text-on-surface-variant italic">Permite detectar sobre/subvaluaciones contra el rango estimado.</p>
+                </div>
+
+                {error && <div className="bg-error-container text-on-error-container text-sm rounded-lg p-3 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{error}</span>
+                  </div>}
+
+                <Button type="submit" disabled={submitting || !neighborhoodId} className="w-full h-12 text-base gap-2 disabled:opacity-60">
+                  <Calculator className="w-5 h-5" />
+                  {submitting ? "Calculando…" : "Calcular valuación"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Result */}
+        <div className="lg:col-span-7">
+          <Card className="h-full flex flex-col">
+            <CardContent className="p-8 flex-1 flex flex-col">
+              {!result ? <div className="flex-1 flex flex-col items-center justify-center text-center text-on-surface-variant gap-4 py-20">
+                  <Calculator className="w-16 h-16 text-surface-dim" />
+                  <p className="font-mono text-sm max-w-xs">
+                    Completá el formulario y calculá una valuación para ver el rango estimado acá.
+                  </p>
+                </div> : <>
+                  <div className="flex justify-between items-start mb-8">
+                    <div>
+                      <h3 className="text-xs font-bold text-outline uppercase tracking-widest mb-1">RESULTADO DEL ANÁLISIS</h3>
+                      <h2 className="text-2xl font-bold text-on-surface">
+                        {lastRequest?.neighborhoodName} · {formatNumber(lastRequest?.surfaceM2 ?? 0)} m²
+                      </h2>
+                    </div>
+                    <ResultBadge result={result.result} />
+                  </div>
+
+                  <div className="text-center mb-12">
+                    <p className="text-xs font-bold text-outline uppercase tracking-widest mb-2">VALOR ESTIMADO SUGERIDO</p>
+                    <div className="flex items-start justify-center gap-2">
+                      <span className="text-xl font-bold text-on-surface-variant mt-2">{currency}</span>
+                      <span className="text-6xl font-bold text-on-surface tracking-tighter">{formatNumber(estimatedMid)}</span>
+                    </div>
+                  </div>
+
+                  {/* Barra de rango */}
+                  <div className="mb-12 relative px-4">
+                    {declaredPct != null && lastRequest?.declaredPrice != null && <div className="absolute -top-8 transform -translate-x-1/2 bg-inverse-surface text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap" style={{
+                  left: `${declaredPct}%`
+                }}>
+                        Tu precio: {formatNumber(lastRequest.declaredPrice)}
+                        <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-inverse-surface"></div>
+                      </div>}
+
+                    <div className="h-4 flex rounded-full overflow-hidden mb-2 relative">
+                      <div className="h-full bg-alert-price/30 w-1/4"></div>
+                      <div className="h-full bg-primary w-2/4"></div>
+                      <div className="h-full bg-alert-price/30 w-1/4"></div>
+                      {declaredPct != null && <div className="absolute top-0 bottom-0 w-1 bg-inverse-surface shadow-[0_0_0_2px_#fff]" style={{
+                    left: `${declaredPct}%`
+                  }}></div>}
+                    </div>
+                    <div className="flex justify-between text-xs font-mono text-on-surface-variant">
+                      <span>{formatNumber(result.estimatedMin)}</span>
+                      <span className="font-bold text-primary text-center">RANGO<br />ESTIMADO</span>
+                      <span>{formatNumber(result.estimatedMax)}</span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-4 mb-8">
+                    <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
+                      <p className="text-xs text-on-surface-variant">Precio x m² (est.)</p>
+                      <p className="text-lg font-bold text-on-surface">
+                        {priceM2 != null ? formatNumber(priceM2) : "—"}
+                      </p>
+                      <p className="text-[10px] font-mono text-on-surface-variant">{currency}/m²</p>
+                    </div>
+                    <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
+                      <p className="text-xs text-on-surface-variant">Mínimo estimado</p>
+                      <p className="text-lg font-bold text-on-surface">{formatNumber(result.estimatedMin)}</p>
+                      <p className="text-[10px] font-mono text-on-surface-variant">{currency}</p>
+                    </div>
+                    <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
+                      <p className="text-xs text-on-surface-variant">Máximo estimado</p>
+                      <p className="text-lg font-bold text-on-surface">{formatNumber(result.estimatedMax)}</p>
+                      <p className="text-[10px] font-mono text-on-surface-variant">{currency}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto pt-6 border-t border-outline-variant">
+                    <p className="text-sm text-on-surface-variant italic text-center">
+                      Estimación generada con datos sintéticos de demo (consulta #{result.id}). Quedó guardada en{" "}
+                      <span className="font-bold">Mis búsquedas</span>.
+                    </p>
+                  </div>
+                </>}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>;
+}

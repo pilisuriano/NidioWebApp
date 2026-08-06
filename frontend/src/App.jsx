@@ -1,122 +1,93 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { MainLayout } from "./components/layout/MainLayout";
+import { AuthLayout } from "./components/layout/AuthLayout";
+import { AdminLayout } from "./components/layout/AdminLayout";
+import { AuthProvider, RequireAuth, RequireAdmin, RequireNotProfessional } from "./lib/auth";
+import { FavoritesProvider } from "./lib/favorites";
+import { ScrollToTop } from "./components/ScrollToTop";
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import Recover from "./pages/auth/Recover";
+import ResetPassword from "./pages/auth/ResetPassword";
+import VerifyEmail from "./pages/auth/VerifyEmail";
+import Dashboard from "./pages/Dashboard";
+import MapPage from "./pages/MapPage";
+import PropertyListing from "./pages/PropertyListing";
+import PropertyDetail from "./pages/PropertyDetail";
+import Valuacion from "./pages/Valuacion";
+import LifeScore from "./pages/LifeScore";
+import Favoritos from "./pages/Favoritos";
+import MisPublicaciones from "./pages/MisPublicaciones";
+import Perfil from "./pages/Perfil";
+import Terminos from "./pages/Terminos";
+import Privacidad from "./pages/Privacidad";
+import Publicar from "./pages/Publicar";
+import AdminMetrics from "./pages/admin/AdminMetrics";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminProperties from "./pages/admin/AdminProperties";
+export default function App() {
+  return <AuthProvider>
+      <FavoritesProvider>
+        <BrowserRouter>
+          <ScrollToTop />
+          <Routes>
+            {/* Rutas principales: Inicio y Mapa son públicas, el resto requiere sesión */}
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="mapa" element={<MapPage />} />
+              <Route path="propiedades" element={<PropertyListing />} />
+              <Route path="propiedades/:id" element={<PropertyDetail />} />
+              <Route path="tasacion" element={<RequireAuth>
+                    <Valuacion />
+                  </RequireAuth>} />
+              <Route path="life-score" element={<RequireAuth>
+                    <RequireNotProfessional>
+                      <LifeScore />
+                    </RequireNotProfessional>
+                  </RequireAuth>} />
+              <Route path="favoritos" element={<RequireAuth>
+                    <RequireNotProfessional>
+                      <Favoritos />
+                    </RequireNotProfessional>
+                  </RequireAuth>} />
+              <Route path="mis-publicaciones" element={<RequireAuth>
+                    <MisPublicaciones />
+                  </RequireAuth>} />
+              <Route path="perfil" element={<RequireAuth>
+                    <Perfil />
+                  </RequireAuth>} />
+              <Route path="terminos" element={<Terminos />} />
+              <Route path="privacidad" element={<Privacidad />} />
+              <Route path="publicar" element={<RequireAuth>
+                    <Publicar />
+                  </RequireAuth>} />
+            </Route>
 
-function App() {
-  const [count, setCount] = useState(0)
+            {/* Panel de administración: requiere sesión con rol ADMIN */}
+            <Route path="/admin" element={<RequireAdmin>
+                  <AdminLayout />
+                </RequireAdmin>}>
+              <Route index element={<AdminMetrics />} />
+              <Route path="usuarios" element={<AdminUsers />} />
+              <Route path="propiedades" element={<AdminProperties />} />
+            </Route>
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+            {/* Auth */}
+            <Route path="/auth" element={<AuthLayout />}>
+              <Route index element={<Navigate to="/auth/login" replace />} />
+              <Route path="login" element={<Login />} />
+              <Route path="registro" element={<Register />} />
+              <Route path="recuperar" element={<Recover />} />
+              <Route path="restablecer" element={<ResetPassword />} />
+              <Route path="verificar" element={<VerifyEmail />} />
+            </Route>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <ToastContainer position="bottom-right" autoClose={3000} theme="colored" />
+        </BrowserRouter>
+      </FavoritesProvider>
+    </AuthProvider>;
 }
-
-export default App

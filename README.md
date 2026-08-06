@@ -22,7 +22,7 @@ Monorepo compuesto por tres servicios independientes:
 
 ## Stack
 
-- **Frontend**: React + Vite, React Router, Axios, React Leaflet + Leaflet.heat. JavaScript (sin TypeScript).
+- **Frontend**: React + Vite, React Router, Axios, React Leaflet, Tailwind CSS, Recharts. JavaScript (sin TypeScript).
 - **Backend**: Spring Boot (Java) + Maven. Spring Web, Spring Data JPA, Spring Security, Validation, driver PostgreSQL, Hibernate Spatial, Flyway, JWT (jjwt), Lombok.
 - **ML Service**: Python + FastAPI. pandas, numpy, scikit-learn, joblib, geopandas, osmnx, shapely, sqlalchemy, psycopg2-binary, python-dotenv, pytest.
 - **Base de datos**: PostgreSQL + PostGIS.
@@ -84,8 +84,12 @@ Cronograma de 6 sprints de 2 semanas vía Jira (plazo realista: diciembre).
 
 - [x] Documentación formal (propuesta de tema + informe)
 - [x] Scaffolding de los tres servicios
-- [ ] ERD de la base de datos sintética
-- [ ] Wireframes de la interfaz
-- [ ] Pipeline de preprocesamiento de datos (limpieza IQR, filtrado geográfico a CABA) y generador de datos sintéticos placeholder
-- [ ] Componente de mapas con heatmap en frontend
-- [ ] Auth end-to-end (Épica 1)
+- [x] ERD de la base de datos sintética
+- [x] Wireframes de la interfaz (UI implementada sobre el export de AI Studio)
+- [x] Datos sintéticos placeholder de CABA (migración `V2__seed_synthetic_caba.sql`: 20 barrios, precios m², zonas de ruido/seguridad, 80 propiedades) — pendiente el pipeline real (limpieza IQR, Kaggle + IDECBA)
+- [x] Componente de mapas con heatmap en frontend (React Leaflet: precios, ruido, seguridad)
+- [x] Auth end-to-end (Épica 1)
+- [x] Backend conectado al frontend y a ml-service (`/predict` y `/life-score` con lógica sintética temporal)
+- [x] Frontend migrado de TypeScript a JavaScript (el export de AI Studio había venido en TS)
+- [ ] Modelo de valuación real y Life Score con OSMnx en ml-service
+- [ ] Reinstalar linter JS (`oxlint`) y tests de frontend — el CI (`frontend-ci.yml`) invoca `npm run lint`/`npm run test`, que no existen todavía en `package.json`
