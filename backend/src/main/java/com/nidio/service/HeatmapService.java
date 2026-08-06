@@ -7,6 +7,7 @@ import com.nidio.dto.NoiseZoneProperties;
 import com.nidio.dto.SecurityZoneProperties;
 import com.nidio.model.NeighborhoodPriceM2;
 import com.nidio.model.OperationType;
+import com.nidio.model.PriceCondition;
 import com.nidio.repository.NeighborhoodPriceM2Repository;
 import com.nidio.repository.NoiseZoneRepository;
 import com.nidio.repository.SecurityZoneRepository;
@@ -32,10 +33,12 @@ public class HeatmapService {
     private final SecurityZoneRepository securityZoneRepository;
 
     @Transactional(readOnly = true)
-    public GeoJsonFeatureCollection<NeighborhoodPriceProperties> getPriceHeatmap(OperationType operationType) {
-        // Último período disponible por barrio (HU-08, HU-09).
+    public GeoJsonFeatureCollection<NeighborhoodPriceProperties> getPriceHeatmap(
+            OperationType operationType, Integer rooms, PriceCondition condition) {
+        // Último período disponible por barrio, para el segmento elegido
+        // (ambientes + usado/a estrenar) (HU-08, HU-09).
         Map<Long, NeighborhoodPriceM2> latestByNeighborhood = neighborhoodPriceM2Repository
-                .findByOperationType(operationType).stream()
+                .findByOperationTypeAndRoomsAndCondition(operationType, rooms, condition).stream()
                 .collect(Collectors.toMap(
                         p -> p.getNeighborhood().getId(),
                         p -> p,
@@ -60,7 +63,10 @@ public class HeatmapService {
         return new GeoJsonFeatureCollection<>(noiseZoneRepository.findAll().stream()
                 .map(z -> new GeoJsonFeature<>(
                         GeoJsonMapper.toGeometry(z.getArea()),
-                        new NoiseZoneProperties(z.getId(), z.getNoiseLevel())))
+                        new NoiseZoneProperties(
+                                z.getId(),
+                                z.getNoiseLevel(),
+                                z.getNeighborhood() != null ? z.getNeighborhood().getName() : null)))
                 .toList());
     }
 
@@ -69,7 +75,11 @@ public class HeatmapService {
         return new GeoJsonFeatureCollection<>(securityZoneRepository.findAll().stream()
                 .map(z -> new GeoJsonFeature<>(
                         GeoJsonMapper.toGeometry(z.getArea()),
-                        new SecurityZoneProperties(z.getId(), z.getCrimeCount(), z.getSecurityIndex())))
+                        new SecurityZoneProperties(
+                                z.getId(),
+                                z.getCrimeCount(),
+                                z.getSecurityIndex(),
+                                z.getNeighborhood() != null ? z.getNeighborhood().getName() : null)))
                 .toList());
     }
 }

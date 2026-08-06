@@ -1,0 +1,4 @@
+ALTER TABLE "user"
+    ADD COLUMN last_name VARCHAR(255),
+    ADD COLUMN dni VARCHAR(20),
+    ADD COLUMN phone VARCHAR(30);

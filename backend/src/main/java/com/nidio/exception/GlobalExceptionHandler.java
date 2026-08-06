@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +24,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    @ExceptionHandler(InvalidRegistrationException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRegistration(InvalidRegistrationException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleEmailAlreadyExists(EmailAlreadyExistsException ex, HttpServletRequest request) {
         return errorResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
@@ -35,6 +41,59 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidResetTokenException.class)
     public ResponseEntity<ErrorResponse> handleInvalidResetToken(InvalidResetTokenException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidVerificationTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidVerificationToken(InvalidVerificationTokenException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ErrorResponse> handleEmailNotVerified(EmailNotVerifiedException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+    }
+
+    // 423 (Locked) y no 403 a propósito: el frontend usa el status 403 de
+    // login para saber cuándo ofrecer "reenviar verificación", y una cuenta
+    // desactivada por un admin no tiene nada que ver con eso.
+    @ExceptionHandler(AccountDisabledException.class)
+    public ResponseEntity<ErrorResponse> handleAccountDisabled(AccountDisabledException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.LOCKED, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(AdminOperationException.class)
+    public ResponseEntity<ErrorResponse> handleAdminOperation(AdminOperationException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFile(InvalidFileException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, "El archivo es muy grande (máx. 5MB)", request);
+    }
+
+    @ExceptionHandler(PropertyNotContactableException.class)
+    public ResponseEntity<ErrorResponse> handlePropertyNotContactable(PropertyNotContactableException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(PropertyNotFavoritableException.class)
+    public ResponseEntity<ErrorResponse> handlePropertyNotFavoritable(PropertyNotFavoritableException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(AddressValidationException.class)
+    public ResponseEntity<ErrorResponse> handleAddressValidation(AddressValidationException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(PropertyDeactivatedByAdminException.class)
+    public ResponseEntity<ErrorResponse> handlePropertyDeactivatedByAdmin(PropertyDeactivatedByAdminException ex, HttpServletRequest request) {
         return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 

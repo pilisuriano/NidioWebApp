@@ -1,18 +1,54 @@
 import { useNavigate, Link } from "react-router-dom";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { ShieldCheck, Key, LogOut, ChevronRight, History } from "lucide-react";
+import { Input } from "@/components/ui/Input";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LogoUploader } from "@/components/ui/LogoUploader";
+import { LogOut, ChevronRight, History, CheckCircle2, AlertCircle, BadgeCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { apiErrorMessage } from "@/lib/api";
 export default function Perfil() {
   const {
     user,
-    logout
+    logout,
+    updateProfile
   } = useAuth();
   const navigate = useNavigate();
+  const [name, setName] = useState(user?.name ?? "");
+  const [dni, setDni] = useState(user?.dni ?? "");
+  const [businessName, setBusinessName] = useState(user?.businessName ?? "");
+  const [cuit, setCuit] = useState(user?.cuit ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [logoUrl, setLogoUrl] = useState(user?.logoUrl ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
+  const isProfessional = user?.accountType === "PROFESSIONAL";
   async function handleLogout() {
+    setConfirmingLogout(false);
     await logout();
     navigate("/auth/login");
+  }
+  async function handleSave(e) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+    setSaving(true);
+    try {
+      await updateProfile({
+        name,
+        dni,
+        phone,
+        ...(isProfessional ? { logoUrl, businessName, cuit } : {})
+      });
+      setSuccess(true);
+    } catch (err) {
+      setError(apiErrorMessage(err, "No se pudieron guardar los cambios"));
+    } finally {
+      setSaving(false);
+    }
   }
   return <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       {/* Header */}
@@ -28,43 +64,80 @@ export default function Perfil() {
         <div className="lg:col-span-2">
           <Card className="h-full">
             <CardContent className="p-8">
-              <div className="flex justify-between items-start mb-8">
+              <form onSubmit={handleSave} className="space-y-10">
+                {error && <div className="bg-error-container text-on-error-container text-sm rounded-lg p-3 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{error}</span>
+                  </div>}
+                {success && <div className="bg-good-value/10 text-good-value text-sm rounded-lg p-3 flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>Cambios guardados correctamente.</span>
+                  </div>}
+
+                {/* Logo de cuenta profesional: se muestra junto al check de
+                    verificado en el cartel "Publicado por" de tus avisos. */}
+                {isProfessional && <div>
+                    <h2 className="text-lg font-bold text-primary flex items-center gap-1.5">
+                      Cuenta profesional <BadgeCheck className="w-4 h-4" />
+                    </h2>
+                    <p className="text-xs font-mono text-on-surface-variant mt-1 mb-5">Este logo aparece en los avisos que publiques.</p>
+                    <LogoUploader logoUrl={logoUrl} onChange={setLogoUrl} />
+                  </div>}
+
                 <div>
-                  <h2 className="text-lg font-bold text-primary flex items-center gap-2">
-                    Detalles de la cuenta
-                  </h2>
-                  <p className="text-xs font-mono text-on-surface-variant mt-1">Información personal registrada</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
-                <div className="space-y-1 border-b border-outline-variant/50 pb-2">
-                  <p className="text-xs font-bold text-outline uppercase tracking-widest">NOMBRE COMPLETO</p>
-                  <p className="text-base font-mono text-on-surface">{user?.name}</p>
-                </div>
-
-                <div className="space-y-1 border-b border-outline-variant/50 pb-2">
-                  <p className="text-xs font-bold text-outline uppercase tracking-widest">CORREO ELECTRÓNICO</p>
-                  <p className="text-base font-mono text-on-surface">{user?.email}</p>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-bold text-outline uppercase tracking-widest">TIPO DE CUENTA</p>
-                  <div>
-                    <Badge className="bg-primary/10 text-primary border border-primary/20 tracking-widest text-[10px]">
-                      USUARIO NIDIO
-                    </Badge>
+                  {isProfessional
+                    ? <>
+                        <h2 className="text-lg font-bold text-primary">Empresa</h2>
+                        <p className="text-xs font-mono text-on-surface-variant mt-1 mb-5">Completá los datos de tu empresa.</p>
+                      </>
+                    : <>
+                        <h2 className="text-lg font-bold text-primary">Personales</h2>
+                        <p className="text-xs font-mono text-on-surface-variant mt-1 mb-5">Completá tus datos personales.</p>
+                      </>}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {isProfessional
+                      ? <>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="businessName">Nombre de la empresa</label>
+                            <Input id="businessName" required value={businessName} onChange={e => setBusinessName(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="cuit">CUIT</label>
+                            <Input id="cuit" value={cuit} onChange={e => setCuit(e.target.value)} />
+                          </div>
+                        </>
+                      : <>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="name">Nombre y Apellido</label>
+                            <Input id="name" required value={name} onChange={e => setName(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="dni">Documento</label>
+                            <Input id="dni" value={dni} onChange={e => setDni(e.target.value)} />
+                          </div>
+                        </>}
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-outline uppercase tracking-widest">ID DE USUARIO</p>
-                  <p className="text-base font-mono text-on-surface">#{user?.id}</p>
+                <div>
+                  <h2 className="text-lg font-bold text-primary">Contacto</h2>
+                  <p className="text-xs font-mono text-on-surface-variant mt-1 mb-5">Estos datos son para que podamos contactarte.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="email">Email</label>
+                      <Input id="email" value={user?.email ?? ""} disabled className="bg-surface-container-low text-on-surface-variant" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="phone">Teléfono</label>
+                      <Input id="phone" type="tel" placeholder="11 1234 5678" value={phone} onChange={e => setPhone(e.target.value)} />
+                    </div>
+                  </div>
                 </div>
-              </div>
+
+                <Button type="submit" disabled={saving} className="bg-primary-container text-on-primary-container hover:bg-primary-container/90 disabled:opacity-60">
+                  {saving ? "Guardando…" : "Guardar cambios"}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </div>
@@ -88,13 +161,8 @@ export default function Perfil() {
                 </p>
               </div>
 
-              <div className="mt-8 space-y-3">
-                <Link to="/auth/recuperar">
-                  <Button variant="outline" className="w-full gap-2 text-primary border-primary hover:bg-primary/5">
-                    <Key className="w-4 h-4" /> Cambiar contraseña
-                  </Button>
-                </Link>
-                <Button onClick={handleLogout} className="w-full gap-2 bg-primary text-white border-none">
+              <div className="mt-8">
+                <Button onClick={() => setConfirmingLogout(true)} className="w-full gap-2 bg-primary text-white border-none">
                   <LogOut className="w-4 h-4" /> Cerrar sesión
                 </Button>
               </div>
@@ -102,5 +170,15 @@ export default function Perfil() {
           </Card>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmingLogout}
+        title="¿Cerrar sesión?"
+        description="Vas a tener que volver a iniciar sesión para acceder a tu cuenta."
+        confirmLabel="Cerrar sesión"
+        variant="danger"
+        onConfirm={handleLogout}
+        onCancel={() => setConfirmingLogout(false)}
+      />
     </div>;
 }

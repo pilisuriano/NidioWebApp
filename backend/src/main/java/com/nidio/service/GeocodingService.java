@@ -28,6 +28,21 @@ public class GeocodingService {
 
     private final NeighborhoodRepository neighborhoodRepository;
 
+    // Usado por "Publicar" (createProperty/updateProperty): el barrio ya lo
+    // eligió el usuario en un <select> aparte, así que geocodificamos directo
+    // contra SU boundary en vez de tratar de adivinarlo con el texto libre de
+    // la dirección (ver geocode(String) de abajo, que sí adivina por texto y
+    // por eso casi siempre erraba: la dirección típica, ej. "Montes de Oca
+    // 1234", no repite el nombre del barrio).
+    public LocationDto geocode(String address, Neighborhood neighborhood) {
+        double jitterLat = jitter(address.hashCode());
+        double jitterLon = jitter(Integer.rotateLeft(address.hashCode(), 16));
+        Point centroid = neighborhood.getBoundary().getCentroid();
+        return new LocationDto(centroid.getY() + jitterLat, centroid.getX() + jitterLon);
+    }
+
+    // Usado por "nearby" (búsqueda libre por dirección, sin neighborhoodId):
+    // intenta adivinar el barrio buscando su nombre dentro del texto.
     @Transactional(readOnly = true)
     public LocationDto geocode(String address) {
         String normalized = normalize(address);

@@ -61,3 +61,72 @@ body {
   color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Pill de precio + puntito de ubicación sobre cada propiedad en el mapa
+   (estilo Zillow: el precio se lee directo, y el punto marca la ubicación
+   exacta debajo). Ambos son el contenido de un Marker con divIcon (no un
+   CircleMarker + Tooltip "permanent"), posicionados absolutos sobre el
+   mismo punto de anclaje — así el pill entero (y el punto) son el target
+   clickeable. */
+.price-pill-icon {
+  background: none;
+  border: none;
+}
+.price-dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+.price-dot--selected {
+  background: #e0af00;
+}
+.price-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, calc(-100% - 10px));
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: var(--radius-lg);
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.price-pill--selected {
+  background: #e0af00;
+  color: var(--color-on-surface);
+}
+
+/* Pin de ubicación (mapa embebido de PropertyDetail): círculo sólido con
+   halo, sin depender del ícono PNG default de Leaflet. */
+.location-pin-icon {
+  background: none;
+  border: none;
+}
+.location-pin {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 100, 124, 0.25), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* El buscador (MapPage) ocupa la esquina superior izquierda del mapa, donde
+   Leaflet pone el control de zoom por defecto: se lo baja para que no quede
+   tapado ni se superponga con la barra de búsqueda. */
+.leaflet-top.leaflet-left {
+  top: 156px;
+}

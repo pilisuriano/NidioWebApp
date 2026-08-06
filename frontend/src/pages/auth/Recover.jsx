@@ -4,8 +4,12 @@ import { Input } from "@/components/ui/Input";
 import { Mail, ArrowRight, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { api, apiErrorMessage } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 export default function Recover() {
-  const [email, setEmail] = useState("");
+  const { user } = useAuth();
+  // Si venís logueado (ej. desde "Cambiar contraseña" en Perfil), solo tiene
+  // sentido mandar el link a TU cuenta: se precarga y se bloquea el email.
+  const [email, setEmail] = useState(user?.email ?? "");
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState(null);
@@ -43,7 +47,7 @@ export default function Recover() {
               <Mail className="h-4 w-4" />
               Email
             </label>
-            <Input id="email" type="email" placeholder="tu@email.com" required className="py-3 h-12" value={email} onChange={e => setEmail(e.target.value)} />
+            <Input id="email" type="email" placeholder="tu@email.com" required disabled={!!user} className={`py-3 h-12 ${user ? "bg-surface-container-low text-on-surface-variant" : ""}`} value={email} onChange={e => setEmail(e.target.value)} />
           </div>
 
           <Button type="submit" disabled={submitting} className="w-full h-12 text-lg gap-2 bg-primary-container text-on-primary-container hover:bg-primary-container/90 disabled:opacity-60">

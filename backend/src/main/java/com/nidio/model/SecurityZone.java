@@ -31,4 +31,9 @@ public class SecurityZone {
 
     @Column(name = "security_index", nullable = false)
     private BigDecimal securityIndex;
+
+    /** Barrio al que corresponde la zona (nullable: linkeado por match espacial en V9). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "neighborhood_id")
+    private Neighborhood neighborhood;
 }

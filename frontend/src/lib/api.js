@@ -23,11 +23,15 @@ api.interceptors.request.use(config => {
   }
   return config;
 });
+const PUBLIC_PATHS = ["/", "/mapa", "/propiedades"];
 api.interceptors.response.use(response => response, error => {
-  // JWT vencido o inválido: se descarta la sesión y se vuelve al login.
+  // JWT vencido o inválido: se descarta la sesión. Solo se fuerza el login
+  // si la página actual efectivamente requiere sesión (las públicas ignoran el 401).
   if (error.response?.status === 401 && !error.config?.url?.startsWith("/api/auth/")) {
     setToken(null);
-    if (!window.location.pathname.startsWith("/auth")) {
+    const path = window.location.pathname;
+    const isPublic = PUBLIC_PATHS.includes(path) || path.startsWith("/propiedades/");
+    if (!path.startsWith("/auth") && !isPublic) {
       window.location.href = "/auth/login";
     }
   }

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/Input";
 import { LogIn, Eye, AtSign, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { apiErrorMessage } from "@/lib/api";
+import { api, apiErrorMessage } from "@/lib/api";
 export default function Login() {
   const navigate = useNavigate();
   const {
@@ -15,29 +15,52 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Si el login falla porque el email no está verificado (403), se ofrece
+  // reenviar el mail de verificación en vez de un error genérico.
+  const [unverified, setUnverified] = useState(false);
+  const [resendState, setResendState] = useState("idle"); // idle | sending | sent
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    setUnverified(false);
     setSubmitting(true);
     try {
       await login(email, password);
       navigate("/");
     } catch (err) {
+      if (err.response?.status === 403) {
+        setUnverified(true);
+      }
       setError(apiErrorMessage(err, "No se pudo iniciar sesión"));
     } finally {
       setSubmitting(false);
     }
   }
+  async function handleResend() {
+    setResendState("sending");
+    try {
+      await api.post("/api/auth/resend-verification", {
+        email
+      });
+    } finally {
+      setResendState("sent");
+    }
+  }
   return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 md:p-12 shadow-sm">
       <div className="flex flex-col items-center mb-10">
-        <h1 className="text-3xl font-bold text-primary tracking-tighter mb-1">nidio</h1>
-        <p className="text-xs font-semibold text-outline uppercase tracking-widest">Real Estate Intelligence</p>
+        <img src="/logo.svg" alt="nidio" className="h-12 w-auto mb-2" />
+        <p className="text-xs font-semibold text-outline uppercase tracking-widest">Inmuebles en CABA</p>
       </div>
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         {error && <div className="bg-error-container text-on-error-container text-sm rounded-lg p-3 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>{error}</span>
+            <div className="space-y-1">
+              <span>{error}</span>
+              {unverified && (resendState === "sent" ? <p className="font-semibold">Listo, revisá tu email.</p> : <button type="button" onClick={handleResend} disabled={resendState === "sending"} className="block font-bold underline underline-offset-2 disabled:opacity-60">
+                    {resendState === "sending" ? "Reenviando…" : "Reenviar email de verificación"}
+                  </button>)}
+            </div>
           </div>}
 
         <div className="space-y-2">

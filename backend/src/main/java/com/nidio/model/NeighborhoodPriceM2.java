@@ -31,6 +31,15 @@ public class NeighborhoodPriceM2 {
     @Column(name = "operation_type", nullable = false, length = 20)
     private OperationType operationType;
 
+    /** Cantidad de ambientes del segmento (1-3). IDECBA publica una serie real por cada uno. */
+    @Column(nullable = false)
+    private Integer rooms;
+
+    /** Usado vs. a estrenar (IDECBA). Alquiler solo tiene serie "USED". */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private PriceCondition condition;
+
     @Column(name = "avg_price_m2", nullable = false)
     private BigDecimal avgPriceM2;
 

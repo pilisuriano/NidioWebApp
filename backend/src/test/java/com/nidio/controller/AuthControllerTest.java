@@ -1,10 +1,9 @@
 package com.nidio.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nidio.dto.AuthResponse;
 import com.nidio.dto.LoginRequest;
+import com.nidio.dto.MessageResponse;
 import com.nidio.dto.RegisterRequest;
-import com.nidio.dto.UserResponse;
 import com.nidio.config.JwtAuthenticationFilter;
 import com.nidio.exception.EmailAlreadyExistsException;
 import com.nidio.exception.InvalidCredentialsException;
@@ -40,17 +39,17 @@ class AuthControllerTest {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
-    void registerReturnsCreatedWithTokenAndUser() throws Exception {
+    void registerReturnsCreatedWithMessage() throws Exception {
         RegisterRequest request = new RegisterRequest("Magui Alfie", "magui@example.com", "SuperSegura123");
-        AuthResponse response = new AuthResponse("fake-jwt", new UserResponse(1L, "Magui Alfie", "magui@example.com"));
+        MessageResponse response = new MessageResponse(
+                "Cuenta creada. Te enviamos un mail para verificar tu cuenta antes de iniciar sesión.");
         when(authService.register(any(RegisterRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.token").value("fake-jwt"))
-                .andExpect(jsonPath("$.user.email").value("magui@example.com"));
+                .andExpect(jsonPath("$.message").value(response.getMessage()));
     }
 
     @Test

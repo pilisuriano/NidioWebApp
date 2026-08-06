@@ -28,4 +28,9 @@ public class NoiseZone {
 
     @Column(name = "noise_level", nullable = false)
     private BigDecimal noiseLevel;
+
+    /** Barrio al que corresponde la zona (nullable: linkeado por match espacial en V9). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "neighborhood_id")
+    private Neighborhood neighborhood;
 }

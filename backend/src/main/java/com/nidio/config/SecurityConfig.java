@@ -2,6 +2,7 @@ package com.nidio.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -47,8 +48,23 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/forgot-password",
-                                "/api/auth/reset-password"
+                                "/api/auth/reset-password",
+                                "/api/auth/verify-email",
+                                "/api/auth/resend-verification"
                         ).permitAll()
+                        // Explorar el catálogo (mapa, listado, detalle de propiedad) es
+                        // público, sin login — solo publicar/contactar/favoritos piden
+                        // sesión (POST/DELETE, quedan afuera de este matcher porque está
+                        // restringido a GET). Antes esto no estaba, así que TODO caía en
+                        // el anyRequest().authenticated() de abajo y el mapa/listado
+                        // quedaban vacíos (401 silencioso) para cualquier visitante sin
+                        // sesión iniciada.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/properties/**",
+                                "/api/neighborhoods/**",
+                                "/api/heatmaps/**"
+                        ).permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Calculator, CheckCircle2, AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { Calculator, CheckCircle2, AlertCircle, AlertTriangle, Info, ArrowLeft } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -38,12 +39,17 @@ function ResultBadge({
   return null;
 }
 export default function Valuacion() {
+  const [searchParams] = useSearchParams();
+  // Llegando desde "Publicar" (link "¿No sabés qué precio poner?"): se
+  // precarga con lo que ya había cargado en el aviso, y se muestra un link
+  // para volver ahí sin perder esos datos (quedaron guardados en sessionStorage).
+  const fromPublicar = searchParams.get("from") === "publicar";
   const [neighborhoods, setNeighborhoods] = useState([]);
-  const [operationType, setOperationType] = useState("SALE");
-  const [propertyType, setPropertyType] = useState("APARTMENT");
-  const [neighborhoodId, setNeighborhoodId] = useState("");
-  const [surfaceM2, setSurfaceM2] = useState("");
-  const [rooms, setRooms] = useState(2);
+  const [operationType, setOperationType] = useState(searchParams.get("operationType") ?? "SALE");
+  const [propertyType, setPropertyType] = useState(searchParams.get("propertyType") ?? "APARTMENT");
+  const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhoodId") ?? "");
+  const [surfaceM2, setSurfaceM2] = useState(searchParams.get("surfaceM2") ?? "");
+  const [rooms, setRooms] = useState(Number(searchParams.get("rooms")) || 2);
   const [declaredPrice, setDeclaredPrice] = useState("");
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -53,8 +59,9 @@ export default function Valuacion() {
   useEffect(() => {
     api.get("/api/neighborhoods").then(res => {
       setNeighborhoods(res.data);
-      if (res.data.length > 0) setNeighborhoodId(String(res.data[0].id));
+      if (!neighborhoodId && res.data.length > 0) setNeighborhoodId(String(res.data[0].id));
     }).catch(() => setError("No se pudieron cargar los barrios"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   async function handleSubmit(e) {
     e.preventDefault();
@@ -94,16 +101,14 @@ export default function Valuacion() {
     declaredPct = Math.max(2, Math.min(98, 25 + t * 50));
   }
   return <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-start">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold text-on-surface">Valuación</h1>
-          <p className="text-on-surface-variant max-w-2xl">
-            Estimá el rango de valor de mercado de una propiedad en CABA. El resultado es un rango, no un valor exacto.
-          </p>
-        </div>
-        <Badge className="bg-good-value/10 text-good-value gap-1 px-3 py-1">
-          <CheckCircle2 className="w-4 h-4" /> Modelo sintético (demo)
-        </Badge>
+      {fromPublicar && <Link to="/publicar" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+          <ArrowLeft className="w-4 h-4" /> Volver a publicar
+        </Link>}
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold text-on-surface">Tasación</h1>
+        <p className="text-on-surface-variant max-w-2xl">
+          Estimá el rango de valor de mercado de una propiedad en CABA. El resultado es un rango, no un valor exacto.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

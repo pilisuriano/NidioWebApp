@@ -2,9 +2,13 @@ package com.nidio.service;
 
 import com.nidio.dto.AuthResponse;
 import com.nidio.dto.LoginRequest;
+import com.nidio.dto.MessageResponse;
 import com.nidio.dto.RegisterRequest;
 import com.nidio.exception.EmailAlreadyExistsException;
+import com.nidio.exception.EmailNotVerifiedException;
 import com.nidio.exception.InvalidCredentialsException;
+import com.nidio.model.User;
+import com.nidio.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,16 +24,19 @@ class AuthServiceTest {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Test
-    void registerCreatesUserAndReturnsToken() {
+    void registerCreatesUnverifiedUser() {
         RegisterRequest request = new RegisterRequest("Magui Alfie", "magui.test@example.com", "SuperSegura123");
 
-        AuthResponse response = authService.register(request);
+        MessageResponse response = authService.register(request);
 
-        assertThat(response.getToken()).isNotBlank();
-        assertThat(response.getUser().getEmail()).isEqualTo("magui.test@example.com");
-        assertThat(response.getUser().getName()).isEqualTo("Magui Alfie");
-        assertThat(response.getUser().getId()).isNotNull();
+        assertThat(response.getMessage()).isNotBlank();
+        User created = userRepository.findByEmail("magui.test@example.com").orElseThrow();
+        assertThat(created.getName()).isEqualTo("Magui Alfie");
+        assertThat(created.isEmailVerified()).isFalse();
     }
 
     @Test
@@ -58,9 +65,24 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginWithUnverifiedEmailThrowsForbidden() {
+        RegisterRequest request = new RegisterRequest("Magui Alfie", "sinverificar@example.com", "SuperSegura123");
+        authService.register(request);
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest("sinverificar@example.com", "SuperSegura123")))
+                .isInstanceOf(EmailNotVerifiedException.class);
+    }
+
+    @Test
     void loginWithValidCredentialsReturnsToken() {
         RegisterRequest request = new RegisterRequest("Magui Alfie", "login.ok@example.com", "SuperSegura123");
         authService.register(request);
+
+        // El registro no verifica el email automáticamente: para probar el
+        // login exitoso simulamos que el usuario ya confirmó su cuenta.
+        User user = userRepository.findByEmail("login.ok@example.com").orElseThrow();
+        user.setEmailVerified(true);
+        userRepository.save(user);
 
         AuthResponse response = authService.login(new LoginRequest("login.ok@example.com", "SuperSegura123"));
 
