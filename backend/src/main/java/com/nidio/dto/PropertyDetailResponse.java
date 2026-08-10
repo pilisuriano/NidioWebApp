@@ -26,6 +26,22 @@ public record PropertyDetailResponse(
         String description,
         ValuationRangeDto valuation,
         BigDecimal lifeScore,
+        // Expensas mensuales en USD (misma unidad que el modelo, ver
+        // Property.expensesUsd) -- el frontend la convierte a ARS en vivo
+        // para mostrarla, nunca la muestra en USD directo. Null = dato
+        // desconocido o propiedad sin consorcio, nunca 0.
+        BigDecimal expensesUsd,
+        // Resto de características de V24 (mismo criterio: null = no
+        // cargada, ver Property.java). "furnished" el frontend lo muestra
+        // solo si operationType es RENT.
+        String propertyCondition,
+        Boolean hasPool,
+        Boolean hasGarage,
+        Boolean buildingAmenities,
+        Boolean security24h,
+        Boolean bright,
+        Boolean aptoCredito,
+        Boolean furnished,
         // Nombre del publicador para mostrar en el detalle ("Contactá a
         // Magali"), null en el catálogo sintético (no tiene dueño real).
         String createdByName,

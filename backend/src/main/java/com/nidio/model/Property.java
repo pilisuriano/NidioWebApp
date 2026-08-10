@@ -120,6 +120,57 @@ public class Property {
     @Column(name = "life_score")
     private BigDecimal lifeScore;
 
+    // Expensas mensuales en USD (misma unidad que usa el modelo de
+    // valuacion como feature, ver ml-service). NULL = dato desconocido O
+    // propiedad sin consorcio (Casa/PH) -- NUNCA usar 0, ver bitacora del
+    // modelo 6.40. Se muestra al usuario convertido a ARS en vivo (ver
+    // PropertyDetail.jsx / useBlueRate), nunca en USD directo -- en
+    // Argentina las expensas siempre se cotizan en pesos.
+    // OJO: columna agregada en V24__extend_valuation_fields.sql.
+    @Column(name = "expenses_usd")
+    private BigDecimal expensesUsd;
+
+    // Resto de las caracteristicas de V24 que el modelo usa como feature y
+    // que ahora tambien se muestran en la ficha de detalle (PropertyDetail.jsx).
+    // Todas nullable: el catalogo sintetico viejo y lo publicado a mano desde
+    // "Publicar" (que todavia no tiene estos campos en su formulario, ver
+    // CreatePropertyRequest/Publicar.jsx) pueden no traerlas -- el front
+    // simplemente no muestra el item si viene null.
+    //
+    // String en vez de enum a proposito, para ser consistente con
+    // ValuationCreateRequest.propertyCondition (mismo dato, en el flujo de
+    // tasacion en vivo): valores validos por el CHECK de V24 -- 'NEW',
+    // 'USED_GOOD_CONDITION', 'NEEDS_RENOVATION', 'NOT_SPECIFIED'.
+    @Column(name = "property_condition", length = 30)
+    private String propertyCondition;
+
+    @Column(name = "has_pool")
+    private Boolean hasPool;
+
+    @Column(name = "has_garage")
+    private Boolean hasGarage;
+
+    @Column(name = "building_amenities")
+    private Boolean buildingAmenities;
+
+    @Column(name = "security_24h")
+    private Boolean security24h;
+
+    private Boolean bright;
+
+    @Column(name = "apto_credito")
+    private Boolean aptoCredito;
+
+    // Amoblado: solo tiene sentido para alquiler (ver dataset de
+    // entrenamiento) -- el front lo oculta para propiedades en venta aunque
+    // el dato venga cargado, a pedido.
+    private Boolean furnished;
+
+    // valuation_explanation_text/json (V24) TODAVIA no estan mapeados aca --
+    // son el texto/factores de la tasacion (TreeSHAP), un feature distinto
+    // de las caracteristicas de arriba; wire-earlos cuando se necesiten
+    // mostrar (ver Paso 2 de las 200 propiedades).
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

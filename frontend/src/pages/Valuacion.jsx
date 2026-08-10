@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/Switch";
 import { Calculator, CheckCircle2, AlertCircle, AlertTriangle, Info, ArrowLeft } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { useBlueRate } from "@/lib/blueRate";
 import { cn } from "@/lib/utils";
 const PROPERTY_TYPES = [{
   value: "APARTMENT",
@@ -60,9 +61,10 @@ const AMENITY_SWITCHES = [{
   field: "furnished",
   label: "Amoblado"
 }];
-// Cotización pública del dólar blue (ver dolarapi.com) -- se usa SOLO del lado del
-// frontend, para 2 cosas puntuales, ninguna de las cuales toca el backend/ml-service
-// (que siguen trabajando 100% en USD, sin excepciones, ver bitácora 6.41 adendum):
+// Cotización pública del dólar blue (ver dolarapi.com, useBlueRate en
+// lib/blueRate.js) -- se usa SOLO del lado del frontend, para 2 cosas
+// puntuales, ninguna de las cuales toca el backend/ml-service (que siguen
+// trabajando 100% en USD, sin excepciones, ver bitácora 6.41 adendum):
 //   1. Convertir a USD el "precio publicado" que el usuario carga en ARS para
 //      alquiler (más natural que pedirle el precio en dólares para un alquiler).
 //   2. Mostrar, además del rango en USD (el valor real que devuelve el modelo),
@@ -70,7 +72,6 @@ const AMENITY_SWITCHES = [{
 // Si la cotización no se pudo obtener, se deshabilita la carga de precio publicado
 // en alquiler (no se puede convertir) y no se muestra el equivalente en ARS -- se seguí
 // pudiendo usar el resto del formulario en USD/sin precio publicado sin problema.
-const BLUE_RATE_URL = "https://dolarapi.com/v1/dolares/blue";
 function ResultBadge({
   result
 }) {
@@ -127,23 +128,14 @@ export default function Valuacion() {
   const [submitting, setSubmitting] = useState(false);
   // Se recuerda con qué parámetros se calculó el resultado que se muestra.
   const [lastRequest, setLastRequest] = useState(null);
-  // Cotización dólar blue -- null mientras carga o si falló (ver BLUE_RATE_URL arriba).
-  const [blueRate, setBlueRate] = useState(null);
-  const [blueRateError, setBlueRateError] = useState(false);
+  // Cotización dólar blue -- null mientras carga o si falló (ver lib/blueRate.js).
+  const { blueRate, blueRateError } = useBlueRate();
   useEffect(() => {
     api.get("/api/neighborhoods").then(res => {
       setNeighborhoods(res.data);
       if (!neighborhoodId && res.data.length > 0) setNeighborhoodId(String(res.data[0].id));
     }).catch(() => setError("No se pudieron cargar los barrios"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useEffect(() => {
-    fetch(BLUE_RATE_URL).then(res => {
-      if (!res.ok) throw new Error(`dolarapi respondió ${res.status}`);
-      return res.json();
-    }).then(data => {
-      if (typeof data.venta === "number") setBlueRate(data.venta);else throw new Error("respuesta sin campo 'venta'");
-    }).catch(() => setBlueRateError(true));
   }, []);
   async function handleSubmit(e) {
     e.preventDefault();

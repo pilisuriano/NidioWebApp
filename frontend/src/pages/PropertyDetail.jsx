@@ -7,10 +7,11 @@ import "@/lib/leaflet-setup";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, MapPin, Building2, Calculator, HeartPulse, CheckCircle2, AlertTriangle, Info, Camera, ChevronLeft, ChevronRight, ChevronDown, Ruler, DoorOpen, Bath, CalendarClock, Compass, Building, User as UserIcon, Mail, Phone, BadgeCheck, X } from "lucide-react";
+import { ArrowLeft, MapPin, Building2, Calculator, HeartPulse, CheckCircle2, AlertTriangle, Info, Camera, ChevronLeft, ChevronRight, ChevronDown, Ruler, DoorOpen, Bath, CalendarClock, Compass, Building, User as UserIcon, Mail, Phone, BadgeCheck, X, Wallet, Waves, Car, Sparkles, ShieldCheck, Sun, CreditCard, Sofa } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatPrice, formatNumber, PROPERTY_TYPE_LABEL, OPERATION_TYPE_LABEL, PUBLISHER_TYPE_LABEL } from "@/lib/format";
+import { useBlueRate } from "@/lib/blueRate";
 import { cn } from "@/lib/utils";
 import { toast } from "react-toastify";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
@@ -23,6 +24,21 @@ const QUICK_QUESTIONS = ["¿Sigue disponible?", "¿Se puede coordinar una visita
 // Borde/anillo rojo para un campo obligatorio sin completar, mismo criterio
 // que el formulario de registro.
 const INVALID_CLASS = "border-error focus-visible:ring-2 focus-visible:ring-error";
+
+// Características de V24 que también usa el modelo de valuación como
+// feature (ver bitácora del modelo): mismos valores/labels que
+// PROPERTY_CONDITIONS y AMENITY_SWITCHES en Valuacion.jsx, para no
+// mostrarle al usuario dos textos distintos para el mismo dato. Acá solo se
+// listan las que se muestran como badge cuando están en true/cargadas -- si
+// vienen null (dato no cargado) no se muestra nada, igual que baños/orientación.
+const PROPERTY_CONDITION_LABEL = {
+  NEW: "A estrenar",
+  USED_GOOD_CONDITION: "Usado, buen estado",
+  NEEDS_RENOVATION: "A reciclar"
+};
+// "furnished" (Amoblado) se maneja aparte más abajo: solo aplica a
+// alquiler, a pedido explícito -- para venta no se muestra aunque venga true.
+const AMENITY_BADGES = [{ field: "hasPool", label: "Pileta", icon: Waves }, { field: "hasGarage", label: "Cochera", icon: Car }, { field: "buildingAmenities", label: "Amenities del edificio", icon: Sparkles }, { field: "security24h", label: "Seguridad 24hs", icon: ShieldCheck }, { field: "bright", label: "Luminoso", icon: Sun }, { field: "aptoCredito", label: "Apto crédito", icon: CreditCard }];
 
 // Pin de ubicación con divIcon en vez del ícono default de Leaflet: el
 // marker.png/marker-shadow.png default no está resolviendo bien en este
@@ -121,6 +137,12 @@ export default function PropertyDetail() {
   const [calculatedLifeScore, setCalculatedLifeScore] = useState(null);
   const [calculatingLifeScore, setCalculatingLifeScore] = useState(false);
   const [lifeScoreError, setLifeScoreError] = useState(null);
+  // Cotización dólar blue -- null mientras carga o si falló (ver lib/blueRate.js).
+  // Hace falta porque el modelo SIEMPRE devuelve el rango en USD (venta y
+  // alquiler por igual, ver bitácora del modelo 6.41 adendum), pero
+  // property.price en alquiler está en ARS (ver format.js) -- sin esto se
+  // termina comparando ARS contra USD directamente.
+  const { blueRate, blueRateError } = useBlueRate();
 
   useEffect(() => {
     setProperty(null);
@@ -185,6 +207,18 @@ export default function PropertyDetail() {
 
   async function handleCalcValuation() {
     setValuationError(null);
+    // El modelo siempre trabaja en USD, venta y alquiler por igual (ver
+    // bitácora del modelo 6.41 adendum) -- property.price para alquiler está
+    // en ARS (ver format.js), así que se convierte acá antes de mandarlo,
+    // mismo criterio que Valuacion.jsx con el precio publicado.
+    let declaredUsd = property.price;
+    if (property.operationType === "RENT") {
+      if (!blueRate) {
+        setValuationError("No se pudo obtener la cotización del dólar para calcular la tasación. Probá de nuevo en un momento.");
+        return;
+      }
+      declaredUsd = property.price / blueRate;
+    }
     setCalculatingValuation(true);
     try {
       const res = await api.post("/api/valuations", {
@@ -193,7 +227,7 @@ export default function PropertyDetail() {
         neighborhoodId: property.neighborhood.id,
         surfaceM2: property.surfaceM2,
         rooms: property.rooms,
-        declaredPrice: property.price
+        declaredPrice: declaredUsd
       });
       setCalculatedValuation(res.data);
     } catch (err) {
@@ -240,17 +274,27 @@ export default function PropertyDetail() {
   }
 
   // Tasación: si la propiedad ya trae un rango calculado (catálogo
-  // sintético) se usa ese; si no, se ofrece calcularlo al toque contra
+  // sintético o real) se usa ese; si no, se ofrece calcularlo al toque contra
   // /api/valuations con los mismos datos de la propiedad.
   const valuationRange = property.valuation ?? (calculatedValuation ? { min: calculatedValuation.estimatedMin, max: calculatedValuation.estimatedMax } : null);
+  // property.valuation SIEMPRE viene en USD (venta y alquiler por igual, ver
+  // bitácora del modelo 6.41 adendum) -- para compararlo contra
+  // property.price (ARS en alquiler, ver format.js) hay que convertir el
+  // precio primero. Si todavía no se pudo obtener la cotización, se deja sin
+  // badge en vez de comparar ARS contra USD directamente (mismo bug que ya
+  // se corrigió en Valuacion.jsx, acá con la propiedad ya publicada).
   let valuationResult = null;
   if (property.valuation) {
-    if (property.price < property.valuation.min) valuationResult = "UNDERVALUED";
-    else if (property.price > property.valuation.max) valuationResult = "OVERVALUED";
-    else valuationResult = "FAIR";
+    const priceUsd = property.operationType === "RENT" ? (blueRate ? property.price / blueRate : null) : property.price;
+    if (priceUsd != null) {
+      if (priceUsd < property.valuation.min) valuationResult = "UNDERVALUED";
+      else if (priceUsd > property.valuation.max) valuationResult = "OVERVALUED";
+      else valuationResult = "FAIR";
+    }
   } else if (calculatedValuation) {
     valuationResult = calculatedValuation.result;
   }
+  const showValuationArs = property.operationType === "RENT" && !!blueRate;
 
   const lifeScoreValue = property.lifeScore ?? calculatedLifeScore?.totalScore ?? null;
   const contactFieldErrors = contactAttempted ? validateContact() : {};
@@ -341,19 +385,28 @@ export default function PropertyDetail() {
               {property.ageYears != null && <span className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant"><CalendarClock className="w-4 h-4" /> {property.ageYears === 0 ? "A estrenar" : `${property.ageYears} años`}</span>}
               {property.orientation && <span className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant"><Compass className="w-4 h-4" /> {property.orientation}</span>}
             </div>
+            {/* Expensas: la API siempre manda expensesUsd en USD (misma unidad
+                que el modelo, ver Property.expensesUsd), pero en Argentina las
+                expensas se cotizan en pesos -- nunca se muestra el número USD
+                directo, se convierte en vivo con el dólar blue, igual que la
+                tasación de arriba. */}
+            {property.expensesUsd != null && <p className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant">
+                <Wallet className="w-4 h-4" />
+                {blueRate
+                  ? <>Expensas: <strong className="text-on-surface">≈ ARS {formatNumber(property.expensesUsd * blueRate)}/mes</strong> (cotización dólar blue actual)</>
+                  : blueRateError
+                    ? "Expensas: no se pudo obtener la cotización del dólar para mostrarlas"
+                    : "Expensas: consultando cotización…"}
+              </p>}
           </div>
 
-          {property.description && <div className="space-y-2">
-              <h2 className="text-xs font-bold text-outline uppercase tracking-widest">Descripción</h2>
-              <p className={cn("text-sm text-on-surface-variant whitespace-pre-line", !descExpanded && "line-clamp-4")}>{property.description}</p>
-              {property.description.length > 220 && <button type="button" onClick={() => setDescExpanded(v => !v)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                  {descExpanded ? "Leer menos" : "Leer descripción completa"} <ChevronDown className={cn("w-3 h-3 transition-transform", descExpanded && "rotate-180")} />
-                </button>}
-            </div>}
-
-          {/* Tasación de Nidio: si ya viene calculada se muestra directo; si
-              no, se ofrece calcularla al toque (misma lógica que la
-              pantalla de Tasación, pero con los datos de esta propiedad). */}
+          {/* Tasación de Nidio: pegada debajo del precio de publicación, a
+              pedido explícito de Pili, y con el número más grande para que
+              se note de entrada (antes estaba más abajo, después de la
+              descripción, como una card más entre varias). Si ya viene
+              calculada se muestra directo; si no, se ofrece calcularla al
+              toque (misma lógica que la pantalla de Tasación, pero con los
+              datos de esta propiedad). */}
           <Card>
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
@@ -361,9 +414,32 @@ export default function PropertyDetail() {
                 {valuationRange && <ValuationBadge result={valuationResult} />}
               </div>
               {valuationRange
-                ? <p className="text-sm text-on-surface-variant">
-                    Rango estimado: <strong className="text-on-surface">{formatPrice(valuationRange.min, property.operationType)} – {formatPrice(valuationRange.max, property.operationType)}</strong>
-                  </p>
+                ? <div className="space-y-1">
+                    <p className="text-xs text-on-surface-variant">Rango estimado</p>
+                    {/* El modelo siempre devuelve el rango en USD (ver nota
+                        arriba de valuationResult) -- para alquiler se
+                        muestra convertido a pesos como valor principal
+                        (misma convención que el precio de publicación, que
+                        también está en ARS), con el USD como referencia
+                        chica debajo. Para venta el precio ya es USD, así
+                        que se muestra directo, sin conversión. */}
+                    {property.operationType === "RENT"
+                      ? showValuationArs
+                        ? <>
+                            <p className="text-2xl font-bold text-on-surface">
+                              ARS {formatNumber(valuationRange.min * blueRate)} – ARS {formatNumber(valuationRange.max * blueRate)}<span className="text-base font-semibold text-on-surface-variant">/mes</span>
+                            </p>
+                            <p className="text-xs text-on-surface-variant">
+                              ≈ USD {formatNumber(valuationRange.min)} – USD {formatNumber(valuationRange.max)}/mes (cotización dólar blue actual)
+                            </p>
+                          </>
+                        : <p className="text-sm text-on-surface-variant">
+                            {blueRateError ? "No se pudo obtener la cotización del dólar para mostrar el rango en pesos." : "Convirtiendo a pesos…"}
+                          </p>
+                      : <p className="text-2xl font-bold text-on-surface">
+                          USD {formatNumber(valuationRange.min)} – USD {formatNumber(valuationRange.max)}
+                        </p>}
+                  </div>
                 : !user
                   ? <p className="text-sm text-on-surface-variant">
                       <Link to="/auth/login" className="text-primary font-semibold hover:underline">Iniciá sesión</Link> para calcular la tasación de esta propiedad.
@@ -376,6 +452,29 @@ export default function PropertyDetail() {
                     </>}
             </CardContent>
           </Card>
+
+          {/* Características de V24 (amenities/seguridad/luminoso/apto
+              crédito/estado/amoblado): se muestran solo las que vienen
+              cargadas (true o con valor) -- el catálogo sintético viejo y lo
+              publicado desde "Publicar" (que todavía no pide estos datos en
+              el formulario) pueden no tenerlas. Amoblado es de alquiler
+              nomás, a pedido explícito. */}
+          {(PROPERTY_CONDITION_LABEL[property.propertyCondition] || AMENITY_BADGES.some(({ field }) => property[field]) || (property.operationType === "RENT" && property.furnished)) && <div className="space-y-2">
+              <h2 className="text-xs font-bold text-outline uppercase tracking-widest">Características</h2>
+              <div className="flex flex-wrap gap-2">
+                {PROPERTY_CONDITION_LABEL[property.propertyCondition] && <Badge variant="outline" className="py-1">{PROPERTY_CONDITION_LABEL[property.propertyCondition]}</Badge>}
+                {AMENITY_BADGES.map(({ field, label, icon: Icon }) => property[field] && <Badge key={field} variant="outline" className="gap-1.5 py-1"><Icon className="w-3.5 h-3.5" /> {label}</Badge>)}
+                {property.operationType === "RENT" && property.furnished && <Badge variant="outline" className="gap-1.5 py-1"><Sofa className="w-3.5 h-3.5" /> Amoblado</Badge>}
+              </div>
+            </div>}
+
+          {property.description && <div className="space-y-2">
+              <h2 className="text-xs font-bold text-outline uppercase tracking-widest">Descripción</h2>
+              <p className={cn("text-sm text-on-surface-variant whitespace-pre-line", !descExpanded && "line-clamp-4")}>{property.description}</p>
+              {property.description.length > 220 && <button type="button" onClick={() => setDescExpanded(v => !v)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                  {descExpanded ? "Leer menos" : "Leer descripción completa"} <ChevronDown className={cn("w-3 h-3 transition-transform", descExpanded && "rotate-180")} />
+                </button>}
+            </div>}
 
           {/* Life Score: mismo criterio — si ya tiene uno calculado se
               muestra, si no se ofrece calcularlo con ponderación neutral. */}
