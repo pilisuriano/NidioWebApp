@@ -26,7 +26,6 @@ Convenciones:
   (ValuationService.compare()) -- solo enriquece `explanationText`.
 """
 from enum import Enum
-from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -60,13 +59,13 @@ class ValuationRequest(BaseModel):
     rooms: int
 
     # --- Campos nuevos, todos opcionales ---
-    total_surface_m2: Optional[float] = None  # <-- nombre corregido (antes surface_total_m2)
-    bathrooms: Optional[int] = None
-    property_condition: Optional[PropertyCondition] = None
-    expenses_usd: Optional[float] = None  # siempre en USD
-    has_pool: Optional[bool] = None
-    has_garage: Optional[bool] = None
-    building_amenities: Optional[bool] = None
+    total_surface_m2: float | None = None  # <-- nombre corregido (antes surface_total_m2)
+    bathrooms: int | None = None
+    property_condition: PropertyCondition | None = None
+    expenses_usd: float | None = None  # siempre en USD
+    has_pool: bool | None = None
+    has_garage: bool | None = None
+    building_amenities: bool | None = None
     # OJO -- alias EXPLICITO, no se puede dejar que alias_generator=to_camel lo derive
     # solo (bug real encontrado 07/08/2026, ver bitacora): to_camel("security_24h")
     # da "security24H" (con H mayuscula, por como Python .title() trata el limite
@@ -74,11 +73,11 @@ class ValuationRequest(BaseModel):
     # frontend usa "security24h" (h minuscula, nombre literal del campo Java) -- sin
     # este alias explicito, este campo nunca se poblaba desde ningun request HTTP
     # real, quedaba siempre en None/False en silencio (sin error).
-    security_24h: Optional[bool] = Field(default=None, alias="security24h")
-    bright: Optional[bool] = None
-    apto_credito: Optional[bool] = None
-    furnished: Optional[bool] = None
-    declared_price: Optional[float] = None  # siempre en USD
+    security_24h: bool | None = Field(default=None, alias="security24h")
+    bright: bool | None = None
+    apto_credito: bool | None = None
+    furnished: bool | None = None
+    declared_price: float | None = None  # siempre en USD
 
 
 class ExplanationFactor(BaseModel):
@@ -95,5 +94,5 @@ class ValuationResponse(BaseModel):
     min: float
     max: float
     # SIN campo `currency` -- siempre USD, confirmado (ver docstring arriba).
-    explanation: List[ExplanationFactor]
+    explanation: list[ExplanationFactor]
     explanation_text: str

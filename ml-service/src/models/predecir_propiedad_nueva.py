@@ -372,8 +372,10 @@ def _texto_rango(prediccion, rango_min, rango_max, precio_real, clasificacion, u
     seiscientos veintisiete, no como 1,627 al estilo ingles)."""
     unidad_sufijo = f" {unidad}" if unidad else ""
     partes = [
+        (
         f"El rango de precio esperado para esta propiedad va de {rango_min:.0f} a "
         f"{rango_max:.0f}{unidad_sufijo}, con una prediccion central de {prediccion:.0f}{unidad_sufijo}."
+        )
     ]
     if precio_real is not None:
         partes.append(f"El precio real es de {precio_real:.0f}{unidad_sufijo}.")
