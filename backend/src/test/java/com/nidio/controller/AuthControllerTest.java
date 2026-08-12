@@ -40,7 +40,7 @@ class AuthControllerTest {
 
     @Test
     void registerReturnsCreatedWithMessage() throws Exception {
-        RegisterRequest request = new RegisterRequest("Magui Alfie", "magui@example.com", "SuperSegura123");
+        RegisterRequest request = new RegisterRequest("Magui Alfie", "magui@example.com", "SuperSegura123!");
         MessageResponse response = new MessageResponse(
                 "Cuenta creada. Te enviamos un mail para verificar tu cuenta antes de iniciar sesión.");
         when(authService.register(any(RegisterRequest.class))).thenReturn(response);
@@ -54,7 +54,7 @@ class AuthControllerTest {
 
     @Test
     void registerWithDuplicateEmailReturnsConflict() throws Exception {
-        RegisterRequest request = new RegisterRequest("Magui Alfie", "magui@example.com", "SuperSegura123");
+        RegisterRequest request = new RegisterRequest("Magui Alfie", "magui@example.com", "SuperSegura123!");
         when(authService.register(any(RegisterRequest.class)))
                 .thenThrow(new EmailAlreadyExistsException("El email ya está registrado"));
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Lock, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
+import { Lock, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 
 // Página a la que apunta el link del mail de recuperación
@@ -13,6 +13,8 @@ export default function ResetPassword() {
   const token = searchParams.get("token");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -24,8 +26,8 @@ export default function ResetPassword() {
       setError("Las contraseñas no coinciden");
       return;
     }
-    if (password.length < 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-      setError("La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número");
+    if (password.length < 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(password)) {
+      setError("La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial");
       return;
     }
     setSubmitting(true);
@@ -82,16 +84,22 @@ export default function ResetPassword() {
           <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="password">Contraseña nueva</label>
           <div className="relative">
             <Lock className="absolute left-3 top-2.5 h-5 w-5 text-outline" />
-            <Input id="password" type="password" placeholder="••••••••" required className="pl-10" value={password} onChange={e => setPassword(e.target.value)} />
+            <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" required className="pl-10 pr-10" value={password} onChange={e => setPassword(e.target.value)} />
+            <button type="button" className="absolute right-3 top-2.5 text-outline hover:text-primary transition-colors" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
           </div>
-          <p className="text-xs text-on-surface-variant">Mínimo 8 caracteres, con mayúscula, minúscula y número.</p>
+          <p className="text-xs text-on-surface-variant">Mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial.</p>
         </div>
 
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="confirm_password">Confirmar contraseña</label>
           <div className="relative">
             <ShieldCheck className="absolute left-3 top-2.5 h-5 w-5 text-outline" />
-            <Input id="confirm_password" type="password" placeholder="••••••••" required className="pl-10" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+            <Input id="confirm_password" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" required className="pl-10 pr-10" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+            <button type="button" className="absolute right-3 top-2.5 text-outline hover:text-primary transition-colors" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
           </div>
         </div>
 
