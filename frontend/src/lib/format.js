@@ -56,6 +56,15 @@ export const OPERATION_TYPE_LABEL = {
   SALE: "Venta",
   RENT: "Alquiler"
 };
+export const ACCOUNT_TYPE_LABEL = {
+  PERSONAL: "Particular",
+  PROFESSIONAL: "Profesional"
+};
+export const PROFESSIONAL_TYPE_LABEL = {
+  AGENCY: "Inmobiliaria",
+  BROKER: "Corredor / Martillero",
+  DEVELOPER: "Desarrollador"
+};
 export const PUBLISHER_TYPE_LABEL = {
   AGENCY: "Inmobiliaria",
   OWNER: "Dueño directo"

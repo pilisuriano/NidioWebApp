@@ -5,6 +5,7 @@ import com.nidio.dto.AdminUserResponse;
 import com.nidio.dto.PagedResponse;
 import com.nidio.exception.AdminOperationException;
 import com.nidio.exception.ResourceNotFoundException;
+import com.nidio.model.AccountType;
 import com.nidio.model.Role;
 import com.nidio.model.User;
 import com.nidio.repository.LifeScoreQueryRepository;
@@ -27,13 +28,24 @@ public class AdminService {
     private final PropertyRepository propertyRepository;
     private final ValuationRequestRepository valuationRequestRepository;
     private final LifeScoreQueryRepository lifeScoreQueryRepository;
+    private final AuthService authService;
+
+    // Campos de orden permitidos desde el panel admin (whitelist, mismo
+    // criterio que PropertyService.ADMIN_SORT_FIELDS).
+    private static final java.util.Map<String, String> ADMIN_USER_SORT_FIELDS = java.util.Map.of(
+            "createdAt", "createdAt",
+            "name", "name",
+            "email", "email",
+            "accountType", "accountType");
 
     @Transactional(readOnly = true)
-    public PagedResponse<AdminUserResponse> listUsers(String query, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<User> result = (query == null || query.isBlank())
-                ? userRepository.findAll(pageable)
-                : userRepository.findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(query, query, pageable);
+    public PagedResponse<AdminUserResponse> listUsers(
+            String query, AccountType accountType, String sortBy, String sortDir, int page, int size
+    ) {
+        String field = ADMIN_USER_SORT_FIELDS.getOrDefault(sortBy, "createdAt");
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, field));
+        Page<User> result = userRepository.findAllForAdmin(query, accountType, pageable);
         return new PagedResponse<>(
                 result.getContent().stream().map(this::toAdminUserResponse).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
@@ -68,6 +80,22 @@ public class AdminService {
         return toAdminUserResponse(user);
     }
 
+    // Reenvío manual del mail de verificación (HU nueva: por si el envío
+    // original falló, ej. mientras estuvo mal configurado MAIL_PASSWORD, el
+    // admin puede volver a dispararlo sin que el usuario tenga que pedirlo
+    // de nuevo desde afuera).
+    @Transactional
+    public void resendVerification(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        if (user.isEmailVerified()) {
+            throw new AdminOperationException("Este usuario ya tiene el email verificado");
+        }
+
+        authService.resendVerificationForUser(user);
+    }
+
     @Transactional(readOnly = true)
     public AdminMetricsResponse metrics() {
         return new AdminMetricsResponse(
@@ -83,6 +111,9 @@ public class AdminService {
     private AdminUserResponse toAdminUserResponse(User user) {
         return new AdminUserResponse(
                 user.getId(), user.getName(), user.getEmail(), user.getRole().name(),
-                user.isEmailVerified(), user.isActive(), user.getCreatedAt());
+                user.isEmailVerified(), user.isActive(),
+                user.getAccountType().name(),
+                user.getProfessionalType() != null ? user.getProfessionalType().name() : null,
+                user.getCreatedAt());
     }
 }

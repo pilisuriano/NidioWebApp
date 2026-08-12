@@ -188,12 +188,12 @@ public class PropertyService {
 
     @Transactional(readOnly = true)
     public PagedResponse<AdminPropertyResponse> listPropertiesForAdmin(
-            String query, Boolean active, String sortBy, String sortDir, int page, int size
+            String query, Boolean active, OperationType operationType, String sortBy, String sortDir, int page, int size
     ) {
         String field = ADMIN_SORT_FIELDS.getOrDefault(sortBy, "createdAt");
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, field));
-        Page<Property> result = propertyRepository.findAllForAdmin(query, active, pageable);
+        Page<Property> result = propertyRepository.findAllForAdmin(query, active, operationType, pageable);
         return new PagedResponse<>(
                 result.getContent().stream().map(this::toAdminResponse).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());

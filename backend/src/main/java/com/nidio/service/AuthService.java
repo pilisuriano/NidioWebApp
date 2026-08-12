@@ -169,6 +169,16 @@ public class AuthService {
         return new MessageResponse("Si el email existe y no está verificado, vas a recibir un nuevo link.");
     }
 
+    // Variante para el panel de administración (HU nueva: reenviar verificación
+    // manualmente si el mail original falló). A diferencia de resendVerification(),
+    // acá el admin ya eligió un usuario puntual desde /api/admin/users, así que no
+    // hace falta el criterio de "no confirmar si el email existe" — eso lo valida
+    // AdminService antes de llamar a este método.
+    @Transactional
+    public void resendVerificationForUser(User user) {
+        issueVerificationToken(user);
+    }
+
     @Transactional
     public MessageResponse forgotPassword(ForgotPasswordRequest request) {
         userRepository.findByEmail(request.getEmail()).ifPresent(user -> {

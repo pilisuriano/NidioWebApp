@@ -15,5 +15,9 @@ public class AdminUserResponse {
     private String role;
     private boolean emailVerified;
     private boolean active;
+    // PERSONAL (dueño directo/particular) o PROFESSIONAL (inmobiliaria,
+    // corredor o desarrollador — ver professionalType para el rubro exacto).
+    private String accountType;
+    private String professionalType;
     private Instant createdAt;
 }

@@ -69,8 +69,11 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
             OR LOWER(p.address) LIKE LOWER(CONCAT('%', :query, '%'))
             OR LOWER(p.neighborhood.name) LIKE LOWER(CONCAT('%', :query, '%')))
           AND (:active IS NULL OR p.active = :active)
+          AND (:operationType IS NULL OR p.operationType = :operationType)
         """)
-    Page<Property> findAllForAdmin(@Param("query") String query, @Param("active") Boolean active, Pageable pageable);
+    Page<Property> findAllForAdmin(
+            @Param("query") String query, @Param("active") Boolean active,
+            @Param("operationType") OperationType operationType, Pageable pageable);
 
     // "Mis publicaciones": igual que findAllForAdmin pero acotado a las
     // propiedades del usuario logueado (ownerEmail = createdBy.email). Con

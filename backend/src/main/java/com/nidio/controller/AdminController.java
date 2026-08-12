@@ -9,6 +9,8 @@ import com.nidio.dto.PropertyDetailResponse;
 import com.nidio.dto.UpdatePropertyActiveRequest;
 import com.nidio.dto.UpdateUserActiveRequest;
 import com.nidio.dto.UpdateUserRoleRequest;
+import com.nidio.model.AccountType;
+import com.nidio.model.OperationType;
 import com.nidio.service.AdminService;
 import com.nidio.service.PropertyService;
 import jakarta.validation.Valid;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,10 +40,13 @@ public class AdminController {
     @GetMapping("/users")
     public PagedResponse<AdminUserResponse> listUsers(
             @RequestParam(required = false) String query,
+            @RequestParam(required = false) AccountType accountType,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return adminService.listUsers(query, page, size);
+        return adminService.listUsers(query, accountType, sortBy, sortDir, page, size);
     }
 
     @PatchMapping("/users/{id}/active")
@@ -55,6 +61,11 @@ public class AdminController {
             @PathVariable Long id, @Valid @RequestBody UpdateUserRoleRequest request, Authentication authentication
     ) {
         return adminService.setRole(id, request.getRole(), authentication.getName());
+    }
+
+    @PostMapping("/users/{id}/resend-verification")
+    public void resendVerification(@PathVariable Long id) {
+        adminService.resendVerification(id);
     }
 
     @GetMapping("/metrics")
@@ -73,12 +84,13 @@ public class AdminController {
     public PagedResponse<AdminPropertyResponse> listProperties(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) OperationType operationType,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return propertyService.listPropertiesForAdmin(query, active, sortBy, sortDir, page, size);
+        return propertyService.listPropertiesForAdmin(query, active, operationType, sortBy, sortDir, page, size);
     }
 
     @PatchMapping("/properties/{id}/active")

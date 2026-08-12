@@ -18,6 +18,12 @@ const ACTIVE_FILTERS = [
   { value: "INACTIVE", label: "Desactivadas" }
 ];
 
+const OPERATION_FILTERS = [
+  { value: "ALL", label: "Todas" },
+  { value: "SALE", label: "Venta" },
+  { value: "RENT", label: "Alquiler" }
+];
+
 const PUBLISHER_TYPES = [{ value: "OWNER", label: "Dueño directo" }, { value: "AGENCY", label: "Inmobiliaria" }];
 
 const ORIENTATIONS = [{ value: "", label: "Sin especificar" }, { value: "Frente", label: "Frente" }, { value: "Contrafrente", label: "Contrafrente" }, { value: "Interno", label: "Interno" }, { value: "Lateral", label: "Lateral" }];
@@ -204,6 +210,7 @@ export default function AdminProperties() {
   const [neighborhoods, setNeighborhoods] = useState([]);
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
+  const [operationFilter, setOperationFilter] = useState("ALL");
   const [sort, setSort] = useState("createdAt,desc");
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -216,11 +223,12 @@ export default function AdminProperties() {
     api.get("/api/neighborhoods").then(res => setNeighborhoods(res.data)).catch(() => {});
   }, []);
 
-  function loadProperties(targetPage = page, search = query, activeValue = activeFilter, sortValue = sort) {
+  function loadProperties(targetPage = page, search = query, activeValue = activeFilter, sortValue = sort, operationValue = operationFilter) {
     setLoading(true);
     const [sortBy, sortDir] = sortValue.split(",");
     const active = activeValue === "ALL" ? undefined : activeValue === "ACTIVE";
-    api.get("/api/admin/properties", { params: { query: search || undefined, active, sortBy, sortDir, page: targetPage, size: PAGE_SIZE } })
+    const operationType = operationValue === "ALL" ? undefined : operationValue;
+    api.get("/api/admin/properties", { params: { query: search || undefined, active, operationType, sortBy, sortDir, page: targetPage, size: PAGE_SIZE } })
       .then(res => {
         setProperties(res.data.content);
         setTotalPages(res.data.totalPages);
@@ -231,23 +239,28 @@ export default function AdminProperties() {
   }
 
   useEffect(() => {
-    loadProperties(0, query, activeFilter, sort);
+    loadProperties(0, query, activeFilter, sort, operationFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleSearch(e) {
     e.preventDefault();
-    loadProperties(0, query, activeFilter, sort);
+    loadProperties(0, query, activeFilter, sort, operationFilter);
   }
 
   function handleActiveFilterChange(value) {
     setActiveFilter(value);
-    loadProperties(0, query, value, sort);
+    loadProperties(0, query, value, sort, operationFilter);
+  }
+
+  function handleOperationFilterChange(value) {
+    setOperationFilter(value);
+    loadProperties(0, query, activeFilter, sort, value);
   }
 
   function handleSortChange(value) {
     setSort(value);
-    loadProperties(0, query, activeFilter, value);
+    loadProperties(0, query, activeFilter, value, operationFilter);
   }
 
   async function handleActivate(property) {
@@ -302,6 +315,13 @@ export default function AdminProperties() {
           <label className="text-xs font-bold text-outline uppercase tracking-widest">Estado</label>
           <select value={activeFilter} onChange={e => handleActiveFilterChange(e.target.value)} className="h-10 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary">
             {ACTIVE_FILTERS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+          </select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-outline uppercase tracking-widest">Operación</label>
+          <select value={operationFilter} onChange={e => handleOperationFilterChange(e.target.value)} className="h-10 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary">
+            {OPERATION_FILTERS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
           </select>
         </div>
 
