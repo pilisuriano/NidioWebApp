@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { User, Mail, Lock, ShieldCheck, ArrowRight, AlertCircle, MailCheck, Building2, ChevronLeft, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Lock, ShieldCheck, ArrowRight, AlertCircle, MailCheck, Building2, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiErrorMessage } from "@/lib/api";
@@ -119,11 +119,41 @@ export default function Register() {
   }
 
   return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 shadow-sm">
-      <div className="flex items-center gap-3 mb-6 border-b border-outline-variant pb-4">
-        {mode === "professional" && <button type="button" onClick={() => setMode("basic")} aria-label="Volver" className="text-on-surface-variant hover:text-on-surface transition-colors">
-            <ChevronLeft className="w-5 h-5" />
-          </button>}
-        <h2 className="text-xl font-bold text-on-surface">{mode === "professional" ? "Crear cuenta profesional" : "Crear cuenta"}</h2>
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-on-surface mb-4">Crear cuenta</h2>
+
+        {/* Selector de tipo de cuenta, arriba de todo y siempre visible (antes
+            era un link chiquito al final del formulario, poco visible). */}
+        <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="Tipo de cuenta">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "basic"}
+            onClick={() => setMode("basic")}
+            className={cn(
+              "flex items-center justify-center gap-2 h-11 rounded-md border text-sm font-semibold transition-colors",
+              mode === "basic"
+                ? "border-primary bg-primary-container text-on-primary-container"
+                : "border-outline-variant text-on-surface-variant hover:border-primary/50"
+            )}
+          >
+            <User className="w-4 h-4" /> Cuenta particular
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "professional"}
+            onClick={() => setMode("professional")}
+            className={cn(
+              "flex items-center justify-center gap-2 h-11 rounded-md border text-sm font-semibold transition-colors",
+              mode === "professional"
+                ? "border-primary bg-primary-container text-on-primary-container"
+                : "border-outline-variant text-on-surface-variant hover:border-primary/50"
+            )}
+          >
+            <Building2 className="w-4 h-4" /> Cuenta profesional
+          </button>
+        </div>
       </div>
 
       {/* noValidate: la validación nativa del navegador solo frena en el
@@ -244,14 +274,10 @@ export default function Register() {
         </Button>
       </form>
 
-      <div className="mt-8 pt-6 border-t border-outline-variant text-center space-y-3">
+      <div className="mt-8 pt-6 border-t border-outline-variant text-center">
         <Link to="/auth/login" className="block text-sm text-on-surface-variant hover:text-primary transition-colors group">
           Ya tengo cuenta. <span className="text-primary font-bold group-hover:underline">Iniciar sesión</span>
         </Link>
-        {mode === "basic" && <button type="button" onClick={() => setMode("professional")} className="block w-full text-sm text-on-surface-variant hover:text-primary transition-colors">
-            ¿Sos profesional inmobiliario y no tenés cuenta?{" "}
-            <span className="text-primary font-bold hover:underline">Crear cuenta profesional</span>
-          </button>}
       </div>
     </div>;
 }
