@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { Button } from "@/components/ui/Button";
-import { Search, MapPin, Building2, ChevronDown, SlidersHorizontal, List, X } from "lucide-react";
+import { Search, MapPin, Building2, ChevronDown, SlidersHorizontal, List, X, Home } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatPrice, formatPriceShort, formatNumber } from "@/lib/format";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
@@ -209,6 +209,14 @@ export default function MapPage() {
   // Recuadro visible del mapa: el listado de abajo se filtra con esto para
   // mostrar solo propiedades cercanas a lo que se está viendo.
   const [mapBounds, setMapBounds] = useState(null);
+  // El panel inferior de "Propiedades cerca" arranca oculto: el mapa se ve
+  // solo, a pantalla completa. Se muestra recién cuando la persona lo pide
+  // (tocando el botón flotante que aparece al buscar/hacer zoom a un
+  // barrio), no automáticamente.
+  const [showNearbyPanel, setShowNearbyPanel] = useState(false);
+  useEffect(() => {
+    setShowNearbyPanel(false);
+  }, [search]);
   useEffect(() => {
     api.get("/api/heatmaps/price", {
       params: {
@@ -646,6 +654,21 @@ export default function MapPage() {
           </div>
         </div>}
 
+        {/* Botón flotante "Propiedades cercanas": solo aparece cuando la
+            búsqueda matcheó un único barrio (mismo criterio que
+            searchedNeighborhoodName, que ya dispara el flyTo del mapa) y el
+            panel de abajo todavía no se abrió. Titila con un punto tipo
+            notificación (animate-ping) para llamar la atención sin taparse
+            texto a sí mismo con la animación. */}
+        {searchedNeighborhoodName && !showNearbyPanel && <button type="button" onClick={() => setShowNearbyPanel(true)} className="absolute right-6 top-1/2 -translate-y-1/2 z-[1050] flex items-center gap-2 bg-primary text-on-primary rounded-full shadow-xl pl-4 pr-5 py-3 font-bold text-sm hover:opacity-90 transition-all">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-on-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-on-primary"></span>
+            </span>
+            <Home className="w-4 h-4" />
+            Propiedades cercanas
+          </button>}
+
         {/* Leyenda */}
         {colorVisible && <div className="absolute bottom-40 left-6 z-[1000] bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-3 rounded-lg shadow-sm space-y-2 text-xs font-bold text-on-surface">
           {layer === "price" && <>
@@ -684,10 +707,16 @@ export default function MapPage() {
         </div>}
       </div>
 
-      {/* Panel inferior de propiedades: se filtra por lo que está a la vista
-          en el mapa (recuadro visible), así que se actualiza solo al mover o
-          hacer zoom, y al tocar un pin (que recentra el mapa ahí). */}
-      <div className="absolute bottom-0 w-full bg-surface-container-lowest border-t border-outline-variant shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl p-6 z-[1000]">
+      {/* Panel inferior de propiedades: arranca oculto (ver showNearbyPanel)
+          para que el mapa se vea solo, a pantalla completa. Se abre desde el
+          botón flotante "Propiedades cercanas" y se filtra por lo que está a
+          la vista en el mapa (recuadro visible), así que se actualiza solo
+          al mover o hacer zoom, y al tocar un pin (que recentra el mapa
+          ahí). */}
+      {showNearbyPanel && <div className="absolute bottom-0 w-full bg-surface-container-lowest border-t border-outline-variant shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl p-6 z-[1000] animate-in slide-in-from-bottom duration-300">
+        <button type="button" onClick={() => setShowNearbyPanel(false)} aria-label="Cerrar panel de propiedades" className="absolute top-4 right-6 w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-dim hover:text-on-surface transition-colors">
+          <X className="w-4 h-4" />
+        </button>
         <div className="w-12 h-1.5 bg-outline/30 rounded-full mx-auto mb-4"></div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] font-mono text-on-surface-variant">
@@ -733,6 +762,6 @@ export default function MapPage() {
               </div>
             </Card>)}
         </div>
-      </div>
+      </div>}
     </div>;
 }

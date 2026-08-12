@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { User, Mail, Lock, ShieldCheck, ArrowRight, AlertCircle, MailCheck, Building2, ChevronLeft } from "lucide-react";
+import { User, Mail, Lock, ShieldCheck, ArrowRight, AlertCircle, MailCheck, Building2, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiErrorMessage } from "@/lib/api";
@@ -14,8 +14,8 @@ const TAX_CONDITIONS = [["", "Seleccionar"], ["RESPONSABLE_INSCRIPTO", "Responsa
 const INVALID_CLASS = "border-error focus-visible:ring-error";
 
 function passwordError(password) {
-  if (password.length < 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-    return "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número";
+  if (password.length < 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(password)) {
+    return "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial";
   }
   return null;
 }
@@ -29,6 +29,8 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [professionalType, setProfessionalType] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [taxCondition, setTaxCondition] = useState("");
@@ -165,16 +167,22 @@ export default function Register() {
           <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="password">Contraseña</label>
           <div className="relative">
             <Lock className="absolute left-3 top-2.5 h-5 w-5 text-outline" />
-            <Input id="password" type="password" placeholder="••••••••" className={cn("pl-10", cls("password"))} value={password} onChange={e => setPassword(e.target.value)} />
+            <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className={cn("pl-10 pr-10", cls("password"))} value={password} onChange={e => setPassword(e.target.value)} />
+            <button type="button" className="absolute right-3 top-2.5 text-outline hover:text-primary transition-colors" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
           </div>
-          <p className={cn("text-xs text-on-surface-variant", fieldErrors.password && "text-error font-semibold")}>Mínimo 8 caracteres, con mayúscula, minúscula y número.</p>
+          <p className={cn("text-xs text-on-surface-variant", fieldErrors.password && "text-error font-semibold")}>Mínimo 8 caracteres, con mayúscula, minúscula, número y carácter especial.</p>
         </div>
 
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="confirm_password">Confirmar contraseña</label>
           <div className="relative">
             <ShieldCheck className="absolute left-3 top-2.5 h-5 w-5 text-outline" />
-            <Input id="confirm_password" type="password" placeholder="••••••••" className={cn("pl-10", cls("confirmPassword"))} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+            <Input id="confirm_password" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" className={cn("pl-10 pr-10", cls("confirmPassword"))} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+            <button type="button" className="absolute right-3 top-2.5 text-outline hover:text-primary transition-colors" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
           </div>
           {fieldErrors.confirmPassword && <p className="text-xs font-semibold text-error">{confirmPassword ? "Las contraseñas no coinciden" : "Este campo es obligatorio"}</p>}
         </div>

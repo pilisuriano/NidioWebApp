@@ -28,8 +28,8 @@ public class RegisterRequest {
     @NotBlank(message = "El campo 'password' es obligatorio")
     @Size(min = 8, message = "debe tener al menos 8 caracteres")
     @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).+$",
-            message = "debe tener al menos una mayúscula, una minúscula y un número")
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).+$",
+            message = "debe tener al menos una mayúscula, una minúscula, un número y un carácter especial")
     private String password;
 
     // Cuenta profesional ("Crear cuenta profesional" en el registro): si no

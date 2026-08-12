@@ -20,7 +20,7 @@ public class ResetPasswordRequest {
     @NotBlank(message = "El campo 'newPassword' es obligatorio")
     @Size(min = 8, message = "debe tener al menos 8 caracteres")
     @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).+$",
-            message = "debe tener al menos una mayúscula, una minúscula y un número")
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).+$",
+            message = "debe tener al menos una mayúscula, una minúscula, un número y un carácter especial")
     private String newPassword;
 }
