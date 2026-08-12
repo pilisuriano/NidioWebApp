@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { api, apiErrorMessage } from "@/lib/api";
 import { formatDate, ACCOUNT_TYPE_LABEL, PROFESSIONAL_TYPE_LABEL } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import { toast } from "react-toastify";
 
 const PAGE_SIZE = 10;
@@ -197,7 +198,18 @@ export default function AdminUsers() {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {!u.emailVerified && <Button variant="outline" size="sm" onClick={() => handleResendVerification(u)}>Reenviar verificación</Button>}
+                      {/* "invisible" en vez de no renderizar: así reserva el mismo
+                          espacio siempre y no corre el botón de Desactivar/Reactivar
+                          de lugar según la fila tenga o no verificación pendiente. */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={u.emailVerified}
+                        className={cn(u.emailVerified && "invisible")}
+                        onClick={() => handleResendVerification(u)}
+                      >
+                        Reenviar verificación
+                      </Button>
                       {u.active
                         ? <Button variant="outline" size="sm" disabled={u.email === currentUser?.email} onClick={() => setDeactivateTarget(u)}>Desactivar</Button>
                         : <Button variant="outline" size="sm" onClick={() => handleActivate(u)}>Reactivar</Button>}
