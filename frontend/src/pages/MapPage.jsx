@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { Button } from "@/components/ui/Button";
-import { Search, MapPin, Building2, ChevronDown, SlidersHorizontal, List, X, Home } from "lucide-react";
+import { Search, MapPin, Building2, ChevronDown, SlidersHorizontal, List, X, Home, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatPrice, formatPriceShort, formatNumber } from "@/lib/format";
+import { useBlueRate } from "@/lib/blueRate";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
 import {
   filterProperties, countActiveFilters, buildFilterQueryString, fetchAllProperties,
@@ -29,6 +30,27 @@ const CABA_CENTER = [-34.605, -58.43];
 // este padding reservamos esa zona: si el popup caería ahí, el mapa se
 // corre para dejarlo visible al lado.
 const POPUP_OPTIONS = { autoPanPaddingTopLeft: L.point(480, 170), autoPanPaddingBottomRight: L.point(20, 20) };
+// Mismo criterio y estilos que el ValuationBadge de PropertyDetail.jsx (y el
+// ResultBadge de Valuacion.jsx), para que la clasificación se vea igual en
+// toda la app -- acá para la ficha flotante de la propiedad tocada en el mapa.
+function ValuationBadge({ result }) {
+  if (result === "FAIR") {
+    return <Badge variant="good" className="bg-good-value/5 gap-1 border border-good-value/20">
+        <CheckCircle2 className="w-3 h-3" /> EN RANGO
+      </Badge>;
+  }
+  if (result === "OVERVALUED") {
+    return <Badge variant="alert" className="gap-1">
+        <AlertTriangle className="w-3 h-3" /> SOBREVALUADA
+      </Badge>;
+  }
+  if (result === "UNDERVALUED") {
+    return <Badge variant="secondary" className="bg-secondary/10 text-secondary gap-1 border border-secondary/20">
+        <Info className="w-3 h-3" /> SUBVALUADA
+      </Badge>;
+  }
+  return null;
+}
 // Percentil de "value" dentro de "sorted" (0 = el más bajo, 1 = el más
 // alto), contando empates como medio punto. Se usa en vez de interpolación
 // lineal min-max para el color de precio: si uno o dos barrios (ej. Puerto
@@ -120,25 +142,100 @@ function MapViewportSync({ onBoundsChange }) {
 // momento (layouts con flexbox/alturas calculadas, como esta página), el
 // mapa queda "cortado" — se ve solo una franja de tiles aunque la caja sea
 // más grande — hasta que algo dispara un recalculo. invalidateSize() fuerza
-// ese recalculo al montar y cada vez que cambia el tamaño de la ventana.
+// ese recalculo al montar.
+// Antes solo escuchaba el evento "resize" de la ventana, pero cerrar/abrir
+// el menú lateral no dispara ese evento (la ventana no cambia de tamaño,
+// solo el ancho disponible para el mapa) — el mapa quedaba con el recorte
+// viejo. Un ResizeObserver sobre el contenedor del mapa reacciona a
+// cualquier cambio de tamaño, venga de donde venga.
 function MapInvalidateSize() {
   const map = useMap();
   useEffect(() => {
-    const handleResize = () => map.invalidateSize();
-    const id = requestAnimationFrame(handleResize);
-    window.addEventListener("resize", handleResize);
+    const invalidate = () => map.invalidateSize();
+    const id = requestAnimationFrame(invalidate);
+    const observer = new ResizeObserver(invalidate);
+    observer.observe(map.getContainer());
     return () => {
       cancelAnimationFrame(id);
-      window.removeEventListener("resize", handleResize);
+      observer.disconnect();
     };
   }, [map]);
   return null;
+}
+// Botón para volver al centro/zoom inicial de CABA (mismos valores que
+// center/zoom del MapContainer más abajo).
+// Antes se armaba como un L.Control propio (su propia caja "leaflet-bar"
+// aparte, solo con este botón adentro). Leaflet apila cajas de controles
+// distintas con un margen entre ellas, así que en vez de pegarse a los
+// botones +/- nativos quedaba flotando suelto un poco más abajo -- y al ser
+// una caja con su propio CSS (no exactamente el de "leaflet-bar a" que
+// dimensiona los botones nativos) el ícono también quedaba corrido dentro
+// del cuadradito. Se soluciona insertando el link directamente DENTRO del
+// contenedor del control de zoom nativo (map.zoomControl), como tercer
+// botón de la misma barra, después del "-": mismo box-model que +/- (26x26,
+// separador incluido), pegado justo debajo, sin caja propia.
+function RecenterControl() {
+  const map = useMap();
+  useEffect(() => {
+    const zoomContainer = map.zoomControl?.getContainer();
+    if (!zoomContainer) return;
+    const link = L.DomUtil.create("a", "", zoomContainer);
+    link.href = "#";
+    link.title = "Centrar en CABA";
+    link.setAttribute("aria-label", "Centrar en CABA");
+    link.setAttribute("role", "button");
+    // Ícono "crosshair" (mismo estilo que los íconos de lucide-react del
+    // resto de la app: trazo, sin relleno) dibujado a mano en vez de
+    // importar el componente de React -- acá el contenido lo arma Leaflet
+    // con HTML plano, no JSX. display:flex + width/height 100% para
+    // centrarlo bien dentro del botón de 26x26 (línea/altura del texto de
+    // "leaflet-bar a" no centra un SVG solo con margin:auto).
+    // viewBox 0 0 16 16 (antes 0 0 24 24, con width/height=14 -- el
+    // navegador tenía que reescalarlo con un factor no entero, 14/24, y el
+    // trazo de 2px quedaba borroso/antialiaseado). Con el viewBox del mismo
+    // tamaño que el ancho/alto real no hace falta reescalar nada, así que
+    // el trazo queda nítido, igual de nítido que el "+"/"−" nativos.
+    link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block"><line x1="1" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="15" y2="8"/><line x1="8" y1="1" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="15"/><circle cx="8" cy="8" r="4.25"/></svg>';
+    link.style.display = "flex";
+    link.style.alignItems = "center";
+    link.style.justifyContent = "center";
+    L.DomEvent.disableClickPropagation(link);
+    L.DomEvent.on(link, "click", e => {
+      L.DomEvent.preventDefault(e);
+      map.flyTo(CABA_CENTER, 12, { duration: 0.75 });
+    });
+    return () => L.DomUtil.remove(link);
+  }, [map]);
+  return null;
+}
+// Mismo criterio que PropertyDetail.jsx: property.valuation SIEMPRE viene en
+// USD (venta y alquiler por igual), así que para compararlo contra el precio
+// de un alquiler (en ARS) hay que convertir primero con el dólar blue. Sin
+// cotización todavía, o sin rango de tasación cacheado, no se arriesga
+// ningún color (null = "sin dato", el pin usa el celeste por defecto).
+function valuationStatus(property, blueRate) {
+  if (!property.valuation) return null;
+  const priceUsd = property.operationType === "RENT" ? (blueRate ? property.price / blueRate : null) : property.price;
+  if (priceUsd == null) return null;
+  if (priceUsd < property.valuation.min) return "UNDERVALUED";
+  if (priceUsd > property.valuation.max) return "OVERVALUED";
+  return "FAIR";
+}
+// Clase de color del pill/punto según la tasación: mismo criterio que
+// ValuationBadge (PropertyDetail.jsx/Valuacion.jsx) para que el color
+// signifique lo mismo en toda la app. Subvaluada se deja sin clase extra:
+// usa el celeste "primary" que ya tenían todos los pills antes de este
+// cambio (ver .price-pill en index.css).
+function valuationPillClass(status) {
+  if (status === "OVERVALUED") return " price-pill--overvalued";
+  if (status === "FAIR") return " price-pill--fair";
+  return "";
 }
 // Pines de propiedades: van en un componente propio (en vez de mapearse
 // directo en el JSX de MapPage) para poder usar useMap y centrar el mapa en
 // la propiedad tocada — así el listado de abajo, que se filtra por el
 // recuadro visible, se actualiza mostrando las propiedades cercanas a esa.
-function PropertyMarkersLayer({ properties, locations, selectedId, onSelect }) {
+function PropertyMarkersLayer({ properties, locations, selectedId, onSelect, blueRate }) {
   const map = useMap();
   return properties.map(p => {
     const loc = locations[p.id];
@@ -155,9 +252,14 @@ function PropertyMarkersLayer({ properties, locations, selectedId, onSelect }) {
     // escapaban al mapa y solo el puntito de abajo respondía. Con un
     // divIcon el pill ES el marker, entonces cualquier click sobre lo que
     // se ve abre la propiedad.
+    // Color según tasación: sobrevaluada en rojo, en rango en verde,
+    // subvaluada en el celeste de siempre (ver valuationPillClass arriba).
+    // El estado "seleccionado" (dorado) pisa a cualquiera de los tres.
+    const status = valuationStatus(p, blueRate);
+    const statusClass = valuationPillClass(status);
     const icon = L.divIcon({
       className: "price-pill-icon",
-      html: `<div class="price-pill${p.id === selectedId ? " price-pill--selected" : ""}">${formatPriceShort(p.price, p.operationType)}</div><div class="price-dot${p.id === selectedId ? " price-dot--selected" : ""}"></div>`,
+      html: `<div class="price-pill${statusClass}${p.id === selectedId ? " price-pill--selected" : ""}">${formatPriceShort(p.price, p.operationType)}</div><div class="price-dot${statusClass}${p.id === selectedId ? " price-dot--selected" : ""}"></div>`,
       iconSize: null,
       iconAnchor: [0, 0]
     });
@@ -172,6 +274,10 @@ export default function MapPage() {
   // Interruptor general: muestra/oculta la superposición de color de la capa
   // activa (barrios), sin tocar el mapa base ni los pines de propiedades.
   const [showColorLayer, setShowColorLayer] = useState(false);
+  // Para colorear los pines según tasación (ver valuationStatus): un
+  // alquiler tiene el precio en ARS, y hay que convertirlo a USD para
+  // compararlo contra el rango tasado.
+  const { blueRate } = useBlueRate();
   const [operationType, setOperationType] = useState("SALE");
   // Ambientes/condición son los ejes reales en los que IDECBA publica el
   // precio (no hay una serie única "precio/m² del barrio"), pero no se
@@ -182,6 +288,10 @@ export default function MapPage() {
   const [priceData, setPriceData] = useState(null);
   const [noiseData, setNoiseData] = useState(null);
   const [securityData, setSecurityData] = useState(null);
+  // Contorno de toda CABA (unión de los barrios, la calcula el backend con
+  // JTS/PostGIS -- ver NeighborhoodService.getCabaBoundary). Es geometría de
+  // referencia fija, no depende de ningún filtro: se pide una sola vez.
+  const [cabaBoundary, setCabaBoundary] = useState(null);
   const [propertyType, setPropertyType] = useState("");
   const [properties, setProperties] = useState([]);
   const [locations, setLocations] = useState({});
@@ -214,8 +324,12 @@ export default function MapPage() {
   // (tocando el botón flotante que aparece al buscar/hacer zoom a un
   // barrio), no automáticamente.
   const [showNearbyPanel, setShowNearbyPanel] = useState(false);
+  // La línea/handle del panel "Propiedades cerca" lo agranda un poco (más
+  // filas visibles, en vez de una sola tira que scrollea de costado).
+  const [nearbyPanelExpanded, setNearbyPanelExpanded] = useState(false);
   useEffect(() => {
     setShowNearbyPanel(false);
+    setNearbyPanelExpanded(false);
   }, [search]);
   useEffect(() => {
     api.get("/api/heatmaps/price", {
@@ -232,6 +346,9 @@ export default function MapPage() {
   useEffect(() => {
     api.get("/api/heatmaps/noise").then(res => setNoiseData(res.data)).catch(() => {});
     api.get("/api/heatmaps/security").then(res => setSecurityData(res.data)).catch(() => {});
+  }, []);
+  useEffect(() => {
+    api.get("/api/neighborhoods/boundary").then(res => setCabaBoundary(res.data)).catch(() => setCabaBoundary(null));
   }, []);
   useEffect(() => {
     // El mapa necesita el catálogo completo (para no dejar barrios sin pin),
@@ -286,6 +403,13 @@ export default function MapPage() {
     const matches = geoSource.features.filter(f => normalizeText(f.properties.neighborhoodName).includes(term));
     return matches.length === 1 ? matches[0].properties.neighborhoodName : null;
   }, [search, priceData, noiseData, securityData]);
+  // Geometría del barrio buscado, para dibujarle el contorno grueso aparte
+  // (ver capa "Borde del barrio buscado" más abajo).
+  const searchedNeighborhoodFeature = useMemo(() => {
+    if (!searchedNeighborhoodName) return null;
+    const geoSource = priceData ?? noiseData ?? securityData;
+    return geoSource?.features?.find(f => f.properties.neighborhoodName === searchedNeighborhoodName) ?? null;
+  }, [searchedNeighborhoodName, priceData, noiseData, securityData]);
   const [minPrice, maxPrice] = useMemo(() => {
     const values = priceData?.features.map(f => f.properties.avgPriceM2) ?? [];
     return values.length ? [Math.min(...values), Math.max(...values)] : [0, 1];
@@ -318,6 +442,9 @@ export default function MapPage() {
   const listingQueryString = buildFilterQueryString({ operationType, propertyType, search, ...activeFilters });
   const selectedProperty = useMemo(() => properties.find(p => p.id === selectedId) ?? null, [properties, selectedId]);
   const selectedLocation = selectedId ? locations[selectedId] : null;
+  // Mismo cálculo que colorea los pines (ver valuationStatus más arriba),
+  // para la ficha flotante de la propiedad tocada.
+  const selectedValuationStatus = selectedProperty ? valuationStatus(selectedProperty, blueRate) : null;
   // Propiedades para el panel de abajo: si ya se conoce el recuadro visible
   // del mapa, se filtra a las que caen ahí dentro (se actualiza solo al
   // mover/hacer zoom, o al tocar un pin que recentra el mapa) y se ordenan
@@ -389,18 +516,23 @@ export default function MapPage() {
   // predefinidos ya muestran su estado prendido/apagado en el botón.
   const customAmenities = amenityFilter.filter(t => !AMENITY_OPTIONS.some(o => o.toLowerCase() === t.toLowerCase()));
 
-  // Ruido y seguridad se ven siempre con su relleno de color (no tiene sentido
-  // "apagarlos", es la única forma en la que se muestran). El switch solo
-  // aplica a precios, que sí puede mostrarse sin la superposición de color.
-  const colorVisible = layer === "price" ? showColorLayer : true;
-  // Alto fijo (viewport - header) en vez de h-full: el mapa está pensado como
-  // una vista "tipo Google Maps" a pantalla completa, con el panel de
-  // propiedades cercanas flotando ENCIMA (absolute bottom-0). Con h-full,
-  // agregar el Footer debajo (en flujo normal, no flotante) le robaba altura
-  // al mapa para hacerle lugar, achicándolo mucho. Con un alto fijo, el mapa
-  // mantiene su tamaño completo de siempre y el Footer queda alcanzable
-  // haciendo scroll hacia abajo (igual que en cualquier otra página).
-  return <div className="h-[calc(100vh-4rem)] shrink-0 flex flex-col relative animate-in fade-in duration-500">
+  // Antes ruido y seguridad tenían el relleno de color forzado (colorVisible
+  // hardcodeado en true), ignorando el switch — al cambiar de pestaña el
+  // control de "Mapa de calor" ni se mostraba, así que no había forma de
+  // apagarlo ahí. Ahora el switch manda por igual en las tres capas.
+  const colorVisible = showColorLayer;
+  // Alto fijo (100% del contenedor) en vez de h-full "libre": el mapa está
+  // pensado como una vista "tipo Google Maps" a pantalla completa, con el
+  // panel de propiedades cercanas flotando ENCIMA (absolute bottom-0). Con
+  // h-full "normal" agregar el Footer debajo (en flujo normal, no flotante)
+  // le robaba altura al mapa para hacerle lugar, achicándolo mucho. Con un
+  // alto fijo, el mapa mantiene su tamaño completo de siempre y el Footer
+  // queda alcanzable haciendo scroll hacia abajo (igual que en cualquier
+  // otra página) en vez de asomar solo. Antes esto restaba "4rem" a mano
+  // para descontar la vieja barra superior blanca de MainLayout — al
+  // sacarse esa barra, ese descuento quedaba como una franja en blanco
+  // fija de 64px al pie (el Footer asomando sin necesidad de scrollear).
+  return <div className="h-full shrink-0 flex flex-col relative animate-in fade-in duration-500">
       {/* Barra superior: tabs Alquilar/Comprar + buscador (tipo de propiedad,
           texto libre y botón Buscar). Sin pestaña de "Emprendimientos": Nidio
           no tiene ese tipo de listado. */}
@@ -543,31 +675,58 @@ export default function MapPage() {
           </div>}
       </div>
 
-      {/* Selector de capas */}
-      <div className="absolute top-6 right-6 z-[1000] flex flex-col items-end gap-2">
-        {/* Precios m² / Ruido / Seguridad: siempre a la vista */}
-        <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-2 flex gap-1 text-xs font-bold">
+      {/* Selector de capas. top-24 (antes top-6): el chip de usuario ahora
+          vive arriba a la derecha del todo (MainLayout, z-[1300]) en TODAS
+          las páginas, incluida esta -- este selector se corre más abajo
+          para no quedar tapado por el chip en vez de al revés. */}
+      <div className="absolute top-24 right-6 z-[1000] flex flex-col items-end gap-2">
+        {/* Precios m² / Ruido / Seguridad: solo tienen sentido con el mapa
+            de calor prendido (son tres formas de colorear los barrios). Con
+            el mapa de calor apagado, elegir entre ellas no cambiaba nada a
+            la vista (siempre se veían los mismos pines de propiedades), así
+            que se ocultan hasta que se prenda. El switch sí queda siempre a
+            la vista: es el único control que hace falta para volver a
+            prenderlo. */}
+        {showColorLayer && <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-2 flex gap-1 text-xs font-bold">
           {[["price", "Precios m²"], ["noise", "Ruido"], ["security", "Seguridad"]].map(([kind, label]) => <button key={kind} onClick={() => setLayer(kind)} className={cn("px-3 py-2 rounded-lg transition-colors", layer === kind ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-dim")}>
               {label}
             </button>)}
-        </div>
-
-        {/* El switch solo tiene sentido en precios: ruido y seguridad siempre
-            se muestran con su relleno de color, no hay nada que prender/apagar. */}
-        {layer === "price" && <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-3 py-2 flex items-center gap-2">
-          <Switch checked={showColorLayer} onCheckedChange={setShowColorLayer} label="Mapa de calor" />
         </div>}
 
+        <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-3 py-2 flex items-center gap-2">
+          <Switch checked={showColorLayer} onCheckedChange={setShowColorLayer} label="Mapa de calor" />
+        </div>
+
+        {/* Referencia de colores de los pines por tasación (ver
+            valuationPillClass más arriba): solo tiene sentido cuando se ven
+            los pines, o sea con el mapa de calor apagado -- con el mapa de
+            calor prendido no hay pines, solo el relleno de color de los
+            barrios (que ya tiene su propia Leyenda abajo a la izquierda). */}
+        {!showColorLayer && <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-3 space-y-1.5 text-xs font-bold text-on-surface">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full" style={{ background: "var(--color-tertiary)" }}></span>
+            En rango
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full" style={{ background: "var(--color-primary)" }}></span>
+            Subvaluada
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full" style={{ background: "var(--color-alert-price)" }}></span>
+            Sobrevaluada
+          </div>
+        </div>}
       </div>
 
       {/* Mapa */}
       <div className="flex-1 w-full relative">
-        {/* scrollWheelZoom apagado a propósito: el mapa ocupa toda la altura
-            de la página, así que si capturara la rueda del mouse el usuario
-            no tendría forma de scrollear hasta el Footer con el cursor
-            encima del mapa. El zoom sigue funcionando con los botones +/-,
-            doble click o pellizco (touch). */}
-        <MapContainer center={CABA_CENTER} zoom={12} scrollWheelZoom={false} className="w-full h-full absolute inset-0">
+        {/* scrollWheelZoom prendido a pedido: permite acercar/alejar con la
+            rueda del mouse directamente sobre el mapa. El mapa ocupa toda
+            la altura de la página, así que con esto activo el usuario ya no
+            puede scrollear hasta el Footer con el cursor encima del mapa
+            (la rueda queda capturada por el zoom) — el zoom con botones
+            +/-, doble click o pellizco (touch) sigue funcionando igual. */}
+        <MapContainer center={CABA_CENTER} zoom={12} scrollWheelZoom={true} className="w-full h-full absolute inset-0">
           {/* Tiles de CARTO en vez del tile server crudo de OSM: éste último
               aplica rate-limiting agresivo a apps que no calzan su política
               de uso (justo lo que causaba el mapa "gris", sin tiles, en
@@ -586,36 +745,68 @@ export default function MapPage() {
               que está a la vista (se actualiza al mover/zoomear). */}
           <MapViewportSync onBoundsChange={setMapBounds} />
           <MapInvalidateSize />
+          {/* Botón para recentrar en CABA, apilado con los +/- nativos. */}
+          <RecenterControl />
 
-          {colorVisible && layer === "price" && priceData && <GeoJSON key={`price-${operationType}`} data={priceData} style={feature => {
-          const isSearched = searchedNeighborhoodName && feature?.properties?.neighborhoodName === searchedNeighborhoodName;
-          return {
-            color: isSearched ? "#00647c" : "#ffffff",
-            weight: isSearched ? 5 : 1,
+          {colorVisible && layer === "price" && priceData && <GeoJSON key={`price-${operationType}`} data={priceData} style={feature => ({
+            color: "#ffffff",
+            weight: 1,
             fillColor: priceColor(percentileRank((feature?.properties).avgPriceM2, sortedPrices)),
             fillOpacity: 0.55
-          };
-        }} onEachFeature={onEachPriceFeature} />}
+          })} onEachFeature={onEachPriceFeature} />}
 
-          {colorVisible && layer === "noise" && noiseData && <GeoJSON key="noise-fill" data={noiseData} style={feature => {
-          const isSearched = searchedNeighborhoodName && feature?.properties?.neighborhoodName === searchedNeighborhoodName;
-          return {
-            color: isSearched ? "#00647c" : "#ffffff",
-            weight: isSearched ? 5 : 1,
+          {colorVisible && layer === "noise" && noiseData && <GeoJSON key="noise-fill" data={noiseData} style={feature => ({
+            color: "#ffffff",
+            weight: 1,
             fillColor: noiseColor((feature?.properties).noiseLevel, minNoise, maxNoise),
             fillOpacity: 0.55
-          };
-        }} onEachFeature={onEachNoiseFeature} />}
+          })} onEachFeature={onEachNoiseFeature} />}
 
-          {colorVisible && layer === "security" && securityData && <GeoJSON key="security-fill" data={securityData} style={feature => {
-          const isSearched = searchedNeighborhoodName && feature?.properties?.neighborhoodName === searchedNeighborhoodName;
-          return {
-            color: isSearched ? "#00647c" : "#ffffff",
-            weight: isSearched ? 5 : 1,
+          {colorVisible && layer === "security" && securityData && <GeoJSON key="security-fill" data={securityData} style={feature => ({
+            color: "#ffffff",
+            weight: 1,
             fillColor: securityColor((feature?.properties).securityIndex, minSecurity, maxSecurity),
             fillOpacity: 0.55
-          };
-        }} onEachFeature={onEachSecurityFeature} />}
+          })} onEachFeature={onEachSecurityFeature} />}
+
+          {/* Borde del barrio buscado: capa propia, aparte, en vez de variar
+              el color/grosor del borde por-feature dentro de los GeoJSON de
+              arriba. Antes se intentaba así, pero el borde grueso quedaba
+              tapado a medias por los bordes finos de los barrios vecinos
+              (cada polígono dibuja su propio borde, y el orden de dibujado
+              dentro del mismo GeoJSON no garantiza que el resaltado quede
+              arriba de todos). Al montarse última, esta capa se dibuja por
+              encima de las tres de arriba, así que el contorno queda
+              siempre completo y bien marcado. Sin relleno (fillOpacity 0) y
+              sin interactividad, para no taparle el click/popup al polígono
+              de color que está debajo. */}
+          {/* Color "secondary" de la paleta (--color-secondary, violeta/
+              índigo) -- no es ni el azul "primary" del pill de precio ni el
+              verde "tertiary", que ahora se usa para las propiedades en
+              rango (ver valuationPillClass más arriba). La paleta no tiene
+              un morado más puro que este; es el que más se le acerca. */}
+          {searchedNeighborhoodFeature && <GeoJSON key={`highlight-${searchedNeighborhoodName}`} data={searchedNeighborhoodFeature} interactive={false} style={{
+          color: "#4059aa",
+          weight: 6,
+          opacity: 1,
+          fillOpacity: 0
+        }} />}
+
+          {/* Límite de toda CABA: se monta último (después de los rellenos
+              de color y del contorno del barrio buscado) por la misma razón
+              que ese -- si no, el borde blanco fino de los barrios del
+              perímetro lo tapa justo donde más importa, en el borde mismo
+              de la ciudad. Color "outline" de la paleta (gris neutro, no es
+              un color "de dato" como los demás) y punteado, para que se
+              distinga de un límite de barrio de un vistazo. Sin relleno ni
+              interactividad. */}
+          {cabaBoundary && <GeoJSON key="caba-boundary" data={cabaBoundary} interactive={false} style={{
+          color: "#6e797e",
+          weight: 3,
+          opacity: 0.9,
+          fillOpacity: 0,
+          dashArray: "6 6"
+        }} />}
 
           {/* Los pines de propiedades solo se muestran en Precios, y sólo cuando
               el mapa de calor está apagado: con el mapa de calor prendido el
@@ -623,7 +814,7 @@ export default function MapPage() {
               cada propiedad individual, así que se ocultan para no duplicar
               información y no ensuciar la lectura. En Ruido/Seguridad nunca
               se muestran. */}
-          {layer === "price" && !showColorLayer && <PropertyMarkersLayer properties={visibleProperties} locations={locations} selectedId={selectedId} onSelect={setSelectedId} />}
+          {!showColorLayer && <PropertyMarkersLayer properties={visibleProperties} locations={locations} selectedId={selectedId} onSelect={setSelectedId} blueRate={blueRate} />}
         </MapContainer>
 
         {/* Card de la propiedad seleccionada (al tocar un pin), estilo
@@ -634,13 +825,32 @@ export default function MapPage() {
             <button type="button" onClick={() => setSelectedId(null)} aria-label="Cerrar" className="absolute top-2 right-2 w-8 h-8 rounded-full bg-surface-container-lowest/90 backdrop-blur flex items-center justify-center shadow-sm hover:bg-surface-container-lowest">
               <X className="w-4 h-4 text-on-surface" />
             </button>
-            <Badge variant="good" className="absolute top-2 left-2 text-[10px] px-2 py-0.5">
+            {/* Antes era bg-good-value/10 (10% opacidad, heredado del
+                variant="good"): sobre una foto se transparentaba y se hacía
+                ilegible según el fondo. Fondo sólido + blur (mismo criterio
+                que el botón de cerrar de al lado) para que se lea siempre,
+                sin importar la foto de atrás. */}
+            <Badge variant="good" className="absolute top-2 left-2 text-[10px] px-2 py-0.5 bg-surface-container-lowest/90 backdrop-blur border border-good-value/20 shadow-sm">
               {selectedProperty.operationType === "SALE" ? "VENTA" : "ALQUILER"}
             </Badge>
             <FavoriteButton propertyId={selectedProperty.id} className="absolute bottom-2 right-2" />
           </div>
           <div className="p-4 space-y-1.5">
-            <p className="font-bold text-xl text-on-surface">{formatPrice(selectedProperty.price, selectedProperty.operationType)}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-bold text-xl text-on-surface">{formatPrice(selectedProperty.price, selectedProperty.operationType)}</p>
+              {selectedProperty.valuation && <ValuationBadge result={selectedValuationStatus} />}
+            </div>
+            {/* Rango aceptable: mismo criterio que la ficha de detalle
+                (property.valuation siempre en USD; alquiler se muestra
+                convertido a ARS como valor principal, con el dólar blue).
+                En negrita y verde (color-good-value, el mismo verde que ya
+                usa el Badge "good"), a pedido, para que resalte más que el
+                resto de los datos de la card. */}
+            {selectedProperty.valuation && <p className="text-xs font-bold text-good-value">
+              Rango aceptable: {selectedProperty.operationType === "RENT" && blueRate
+                ? `ARS ${formatNumber(selectedProperty.valuation.min * blueRate)} – ARS ${formatNumber(selectedProperty.valuation.max * blueRate)}/mes`
+                : `USD ${formatNumber(selectedProperty.valuation.min)} – USD ${formatNumber(selectedProperty.valuation.max)}${selectedProperty.operationType === "RENT" ? "/mes" : ""}`}
+            </p>}
             <p className="text-sm text-on-surface-variant font-mono">
               {selectedProperty.rooms} amb · {formatNumber(selectedProperty.surfaceM2)} m² · {PROPERTY_TYPE_OPTIONS.find(([value]) => value === selectedProperty.propertyType)?.[1] ?? selectedProperty.propertyType}
             </p>
@@ -717,7 +927,18 @@ export default function MapPage() {
         <button type="button" onClick={() => setShowNearbyPanel(false)} aria-label="Cerrar panel de propiedades" className="absolute top-4 right-6 w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-dim hover:text-on-surface transition-colors">
           <X className="w-4 h-4" />
         </button>
-        <div className="w-12 h-1.5 bg-outline/30 rounded-full mx-auto mb-4"></div>
+        {/* Handle para agrandar/achicar el panel: antes era una línea
+            puramente decorativa (sin onClick), por eso no hacía nada al
+            tocarla. */}
+        <button
+          type="button"
+          onClick={() => setNearbyPanelExpanded(v => !v)}
+          aria-label={nearbyPanelExpanded ? "Achicar panel de propiedades" : "Agrandar panel de propiedades"}
+          title={nearbyPanelExpanded ? "Achicar panel" : "Agrandar panel"}
+          className="flex items-center justify-center w-full py-1 -mt-2 mb-3 group"
+        >
+          <span className="w-12 h-1.5 bg-outline/30 rounded-full group-hover:bg-outline/60 transition-colors"></span>
+        </button>
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] font-mono text-on-surface-variant">
             Propiedades cerca ({nearbyProperties.length})
@@ -729,11 +950,14 @@ export default function MapPage() {
           </Link>
         </div>
 
-        <div className="flex gap-6 overflow-x-auto pb-2 hide-scrollbar">
+        {/* Agrandado (handle tocado): grilla que crece hacia arriba con
+            varias filas visibles a la vez, en vez de una sola tira que
+            scrollea de costado. */}
+        <div className={cn("gap-6 pb-2", nearbyPanelExpanded ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 overflow-y-auto max-h-[55vh] pr-1" : "flex overflow-x-auto hide-scrollbar")}>
           {nearbyProperties.length === 0 && <p className="text-sm text-on-surface-variant font-mono py-4">
               No hay propiedades en esta zona.
             </p>}
-          {nearbyProperties.slice(0, 12).map(p => <Card key={p.id} onClick={() => setSelectedId(p.id)} className={cn("min-w-[320px] flex-shrink-0 relative overflow-hidden cursor-pointer", p.id === selectedId ? "border-primary border-2" : "border-outline-variant")}>
+          {nearbyProperties.slice(0, 12).map(p => <Card key={p.id} onClick={() => setSelectedId(p.id)} className={cn("relative overflow-hidden cursor-pointer", nearbyPanelExpanded ? "w-full" : "min-w-[320px] flex-shrink-0", p.id === selectedId ? "border-primary border-2" : "border-outline-variant")}>
               <div className="p-4 flex gap-4">
                 {p.imageUrl && <img src={p.imageUrl} className="w-20 h-20 rounded-lg object-cover bg-surface-dim" alt={p.title} />}
                 <div className="flex-1 space-y-2">

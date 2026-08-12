@@ -88,8 +88,10 @@ export default function Dashboard() {
         <h2 className="text-2xl font-bold text-on-surface">{user ? `¡Hola, ${user.name?.split(" ")[0]}!` : "Bienvenido a Nidio"}</h2>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Quick Actions. "Publicar" vivía como botón suelto en la barra de
+          arriba (ya sacada de MainLayout); ahora es una card más acá, con
+          la misma explicación breve que el resto. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link to="/mapa" className="flex h-full">
           <Card className="hover:shadow-md transition-shadow cursor-pointer group border-primary/20 h-full w-full flex flex-col justify-between">
             <CardHeader>
@@ -124,39 +126,39 @@ export default function Dashboard() {
           </Card>
         </Link>
 
-        {isProfessional
-          ? <Link to="/publicar" className="flex h-full">
-              <Card className="bg-inverse-surface text-inverse-on-surface hover:shadow-md transition-shadow cursor-pointer group h-full w-full flex flex-col justify-between">
-                <CardHeader>
-                  <div className="w-10 h-10 rounded-full bg-inverse-primary/20 flex items-center justify-center mb-4 text-inverse-primary">
-                    <Plus className="w-5 h-5" />
-                  </div>
-                  <CardTitle className="text-inverse-on-surface">Publicar propiedad</CardTitle>
-                  <CardDescription className="text-inverse-on-surface/70 mt-2">Cargá un nuevo aviso al catálogo de Nidio en pocos pasos.</CardDescription>
-                </CardHeader>
-                <CardContent className="mt-4">
-                  <span className="text-sm font-bold text-inverse-primary flex items-center gap-1 group-hover:gap-2 transition-all">
-                    Publicar aviso <ArrowRight className="w-4 h-4" />
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>
-          : <Link to="/life-score" className="flex h-full">
-              <Card className="bg-inverse-surface text-inverse-on-surface hover:shadow-md transition-shadow cursor-pointer group h-full w-full flex flex-col justify-between">
-                <CardHeader>
-                  <div className="w-10 h-10 rounded-full bg-inverse-primary/20 flex items-center justify-center mb-4 text-inverse-primary">
-                    <HeartPulse className="w-5 h-5" />
-                  </div>
-                  <CardTitle className="text-inverse-on-surface">Life Score</CardTitle>
-                  <CardDescription className="text-inverse-on-surface/70 mt-2">Analizá el entorno urbano de una dirección según tus prioridades.</CardDescription>
-                </CardHeader>
-                <CardContent className="mt-4">
-                  <span className="text-sm font-bold text-inverse-primary flex items-center gap-1 group-hover:gap-2 transition-all">
-                    Calcular score <ArrowRight className="w-4 h-4" />
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>}
+        {!isProfessional && <Link to="/life-score" className="flex h-full">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer group h-full w-full flex flex-col justify-between">
+              <CardHeader>
+                <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center mb-4 text-secondary">
+                  <HeartPulse className="w-5 h-5" />
+                </div>
+                <CardTitle>Life Score</CardTitle>
+                <CardDescription className="mt-2">Analizá el entorno urbano de una dirección según tus prioridades.</CardDescription>
+              </CardHeader>
+              <CardContent className="mt-4">
+                <span className="text-sm font-bold text-secondary flex items-center gap-1 group-hover:gap-2 transition-all">
+                  Calcular score <ArrowRight className="w-4 h-4" />
+                </span>
+              </CardContent>
+            </Card>
+          </Link>}
+
+        <Link to="/publicar" className="flex h-full">
+          <Card className="bg-inverse-surface text-inverse-on-surface hover:shadow-md transition-shadow cursor-pointer group h-full w-full flex flex-col justify-between">
+            <CardHeader>
+              <div className="w-10 h-10 rounded-full bg-inverse-primary/20 flex items-center justify-center mb-4 text-inverse-primary">
+                <Plus className="w-5 h-5" />
+              </div>
+              <CardTitle className="text-inverse-on-surface">Publicar propiedad</CardTitle>
+              <CardDescription className="text-inverse-on-surface/70 mt-2">Cargá un nuevo aviso al catálogo de Nidio en pocos pasos.</CardDescription>
+            </CardHeader>
+            <CardContent className="mt-4">
+              <span className="text-sm font-bold text-inverse-primary flex items-center gap-1 group-hover:gap-2 transition-all">
+                Publicar aviso <ArrowRight className="w-4 h-4" />
+              </span>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Recent properties (o promo de login, si no hay sesión) */}

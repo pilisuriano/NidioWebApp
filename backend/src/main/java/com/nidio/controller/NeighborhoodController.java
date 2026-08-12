@@ -1,5 +1,6 @@
 package com.nidio.controller;
 
+import com.nidio.dto.GeoJsonGeometry;
 import com.nidio.dto.NeighborhoodPriceResponse;
 import com.nidio.dto.NeighborhoodRef;
 import com.nidio.model.OperationType;
@@ -28,5 +29,12 @@ public class NeighborhoodController {
     @GetMapping("/{id}/price")
     public NeighborhoodPriceResponse price(@PathVariable Long id, @RequestParam OperationType operationType) {
         return neighborhoodService.getPrice(id, operationType);
+    }
+
+    // Contorno de toda CABA (unión de los barrios), para dibujar el límite
+    // de la ciudad en el mapa de Explorar propiedades.
+    @GetMapping("/boundary")
+    public GeoJsonGeometry boundary() {
+        return neighborhoodService.getCabaBoundary();
     }
 }

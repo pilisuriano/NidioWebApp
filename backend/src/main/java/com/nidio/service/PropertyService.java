@@ -588,6 +588,10 @@ public class PropertyService {
     }
 
     private PropertySummaryResponse toSummary(Property property) {
+        ValuationRangeDto valuation = null;
+        if (property.getValuationRangeMin() != null && property.getValuationRangeMax() != null) {
+            valuation = new ValuationRangeDto(property.getValuationRangeMin(), property.getValuationRangeMax());
+        }
         return new PropertySummaryResponse(
                 property.getId(),
                 property.getTitle(),
@@ -603,6 +607,7 @@ public class PropertyService {
                 property.getAgeYears(),
                 property.getOrientation(),
                 property.getPublisherType(),
-                property.getImageUrls().isEmpty() ? null : property.getImageUrls().get(0));
+                property.getImageUrls().isEmpty() ? null : property.getImageUrls().get(0),
+                valuation);
     }
 }

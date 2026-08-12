@@ -85,6 +85,21 @@ body {
   transform: translate(-50%, -50%);
   cursor: pointer;
 }
+/* Color según tasación (ver valuationStatus/valuationPillClass en
+   MapPage.jsx): sobrevaluada en el rojo "alert-price" (mismo que
+   ValuationBadge en PropertyDetail/Valuacion), en rango en el verde
+   "tertiary". Subvaluada no tiene clase propia -- se queda con el celeste
+   "primary" de siempre (ver .price-dot/.price-pill arriba). Van antes de
+   "--selected" a propósito: si las dos clases coinciden (un pin
+   seleccionado que además está sobre/infravalorado), el dorado de
+   seleccionado tiene que ganar, y en un empate de especificidad CSS gana la
+   regla que aparece último en la hoja de estilos. */
+.price-dot--overvalued {
+  background: var(--color-alert-price);
+}
+.price-dot--fair {
+  background: var(--color-tertiary);
+}
 .price-dot--selected {
   background: #e0af00;
 }
@@ -103,6 +118,12 @@ body {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
   white-space: nowrap;
   cursor: pointer;
+}
+.price-pill--overvalued {
+  background: var(--color-alert-price);
+}
+.price-pill--fair {
+  background: var(--color-tertiary);
 }
 .price-pill--selected {
   background: #e0af00;
