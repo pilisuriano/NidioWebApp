@@ -147,7 +147,10 @@ body {
 
 /* El buscador (MapPage) ocupa la esquina superior izquierda del mapa, donde
    Leaflet pone el control de zoom por defecto: se lo baja para que no quede
-   tapado ni se superponga con la barra de búsqueda. */
+   tapado ni se superponga con la barra de búsqueda. 206px (antes 156px):
+   con el botón "Ver listado de propiedades" agregado debajo del buscador
+   (MapPage.jsx), la barra creció ~50px y el control de zoom quedaba tapado
+   por ese botón. */
 .leaflet-top.leaflet-left {
-  top: 156px;
+  top: 206px;
 }

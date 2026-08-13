@@ -251,7 +251,10 @@ export default function Dashboard() {
                 <BarChart data={chartData} margin={{
               top: 0,
               right: 16,
-              left: 16,
+              // 55 (antes 16): la etiqueta del primer barrio ("Puerto
+              // Madero"), rotada -35°, se extendía más a la izquierda de lo
+              // que dejaba el margen viejo y el SVG se la recortaba.
+              left: 55,
               bottom: 12
             }}>
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{
