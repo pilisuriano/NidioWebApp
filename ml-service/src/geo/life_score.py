@@ -315,7 +315,8 @@ def _category_pois(gdf, category: str, lat: float, lon: float) -> list[dict]:
             seen_idx.add(idx)
             try:
                 centroid = row.geometry.centroid
-            except Exception:
+            except (AttributeError, ValueError, TypeError) as exc:
+                logger.debug("POI con geometria invalida, se descarta: %s", exc)
                 continue
             distance_m = _haversine_m(lat, lon, centroid.y, centroid.x)
             # OSMnx ya trajo todo dentro del CUADRADO de RADIUS_M (ver

@@ -39,3 +39,5 @@ jobs:
           java-version: '17'
           cache: 'maven'
       - run: ./mvnw -B verify
+        env:
+          CUSTOM_PLACE_ENCRYPTION_KEY: ${{ secrets.CUSTOM_PLACE_ENCRYPTION_KEY }}
