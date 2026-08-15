@@ -1,0 +1,21 @@
+# Normaliza automáticamente los archivos de texto a LF en el repositorio,
+# sin importar en qué sistema operativo se editen (Windows/Mac/Linux).
+# Esto evita que git marque un archivo como "modificado" solo por el tipo
+# de fin de línea (CRLF vs LF) cuando el contenido real no cambió.
+* text=auto eol=lf
+
+# Artefactos binarios del modelo — nunca deben pasar por normalización de texto
+# (convertir sus fines de línea los corrompería).
+*.joblib binary
+*.pkl binary
+
+# Otros binarios comunes, por si se agregan más adelante.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

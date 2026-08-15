@@ -6,6 +6,8 @@ Base de datos: PostgreSQL + PostGIS. Los tipos `geometry` usan SRID 4326 (WGS84,
 
 **Actualizado (12/08/2026) para reflejar el schema real de las migraciones V1 a V29** — la versión anterior de este documento solo cubría hasta V1/V2 (el diseño inicial) y había quedado desactualizada respecto a lo agregado desde entonces.
 
+**Actualizado (13/08/2026, V30)**: nueva tabla `CUSTOM_PLACE` ("Mis lugares" de Life Score).
+
 ## Supuestos y decisiones abiertas (histórico) y su resolución real
 
 Estos eran los puntos abiertos al diseñar el modelo inicial (V1/V2). Se dejan documentados junto con cómo se resolvieron realmente, en vez de borrarlos, porque son parte del razonamiento de diseño:
@@ -28,6 +30,7 @@ erDiagram
     USER ||--o{ EMAIL_VERIFICATION_TOKEN : "solicita"
     USER ||--o{ PROPERTY : "publica (opcional)"
     USER ||--o{ FAVORITE : "marca"
+    USER ||--o{ CUSTOM_PLACE : "agrega"
     PROPERTY ||--o{ FAVORITE : "es marcada"
     PROPERTY ||--o{ PROPERTY_IMAGE : "tiene"
     NEIGHBORHOOD ||--o{ PROPERTY : "ubica"
@@ -180,6 +183,15 @@ erDiagram
         int weight "1-5"
         int poi_count
     }
+    CUSTOM_PLACE {
+        bigint id PK
+        bigint user_id FK
+        varchar label
+        text address "cifrado (AES-256-GCM), no geocodificable en SQL"
+        text lat "cifrado"
+        text lon "cifrado"
+        timestamp created_at
+    }
 ```
 
 ## Entidades por épica
@@ -205,8 +217,9 @@ erDiagram
 
 ### Épica 4 — Life Score
 
-- **LIFE_SCORE_QUERY** — una consulta de Life Score sobre una dirección (HU-13), con el score total resultante.
+- **LIFE_SCORE_QUERY** — una consulta de Life Score sobre una dirección (HU-13), con el score total resultante (ya combinando las 7 categorías fijas con "Mis lugares" si el usuario les puso peso — ver `LifeScoreService.blendTotalScore`).
 - **LIFE_SCORE_CATEGORY_WEIGHT** — el peso que el usuario asignó a cada una de las 7 categorías de POI (HU-14), y cuántos POIs se encontraron en esa categoría (soporta HU-15, ver los POIs en el mapa).
+- **CUSTOM_PLACE** — no estaba en las 18 HU originales (V30): "Mis lugares", direcciones personales que el usuario agrega a mano (trabajo, familia, gimnasio…) para sumarlas al Life Score. A diferencia de las 7 categorías (que vienen de OSM y se recalculan en cada consulta), son datos propios y persistidos por usuario, sin relación con `NEIGHBORHOOD`/`PROPERTY` — un punto libre dentro de CABA. El score de cada lugar se calcula en el momento (Haversine + decaimiento por distancia, no se cachea acá), así que esta tabla solo guarda el punto en sí, no el resultado de ninguna consulta puntual. **`address`/`lat`/`lon` se guardan cifrados a nivel de aplicación** (AES-256-GCM, `EncryptedStringConverter`, clave en `CUSTOM_PLACE_ENCRYPTION_KEY`) — es información personal del usuario (dónde vive, dónde trabaja), a diferencia de la dirección de una propiedad publicada (pública por diseño). Por eso son `text` y no un `geometry(Point)` nativo de PostGIS como el resto de las tablas geoespaciales: el cálculo de distancia se hace en Java (`GeoUtils.haversineMeters`), nunca con una consulta espacial SQL contra esta tabla, así que cifrar el punto no cuesta ninguna funcionalidad real.
 
 ### Épica 5 — Exploración de Propiedades
 
@@ -235,6 +248,7 @@ Necesarios desde la primera migración, no como optimización posterior — sin 
 | `NEIGHBORHOOD_PRICE_M2` | B-tree en (`neighborhood_id`, `operation_type`, `period`) | armar el heatmap de precios agrupado (HU-08, HU-09) |
 | `VALUATION_REQUEST` | B-tree en `user_id` | historial de valuaciones de un usuario |
 | `LIFE_SCORE_QUERY` | GiST en `location` | eventual reuso/caché de consultas por proximidad |
+| `CUSTOM_PLACE` | B-tree en `user_id` | traer "mis lugares" de un usuario en cada consulta de Life Score |
 
 En PostGIS, los índices espaciales se crean con `USING GIST`, por ejemplo:
 
@@ -275,6 +289,7 @@ Referencia rápida de qué migración tocó qué, para no tener que abrir cada a
 | V27 | Seed: usuario admin de prueba |
 | V28 | Nueva tabla `city_boundary` (sin datos) |
 | V29 | Seed: polígono real del perímetro de CABA en `city_boundary` (dataset "Perímetro" de Buenos Aires Data) |
+| V30 | Nueva tabla `custom_place` ("Mis lugares" de Life Score), con `address`/`lat`/`lon` cifrados a nivel de aplicación |
 
 ## Próximo paso sugerido
 

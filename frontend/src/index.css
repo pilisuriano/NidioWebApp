@@ -46,6 +46,11 @@
   --color-good-value: #1F4D36;
   --color-alert-price: #7F1D3D;
 
+  /* Mismo naranja que CUSTOM_PLACE_COLOR en LifeScore.jsx ("Mis lugares") --
+     acá como variable CSS porque los pines de mapa se dibujan con divIcon +
+     CSS (ver .custom-place-pin), no con estilos inline de React. */
+  --color-custom-place: #c2410c;
+
   --font-mono: 'JetBrains Mono', monospace;
   --font-sans: 'JetBrains Mono', monospace;
 
@@ -143,6 +148,55 @@ body {
   background: var(--color-primary);
   border: 3px solid #ffffff;
   box-shadow: 0 0 0 3px rgba(0, 100, 124, 0.25), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Pin de la propiedad consultada en Life Score: círculo con una casita
+   adentro (SVG propio inline, mismo criterio que .location-pin -- sin
+   depender del ícono PNG default de Leaflet, ver el bug documentado en
+   leaflet-setup.js). Más grande que el resto de los pines del mapa porque
+   es el único punto de referencia (la dirección consultada). */
+.property-pin-icon {
+  background: none;
+  border: none;
+}
+.property-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 100, 124, 0.25), 0 2px 6px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.property-pin svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Pin de "mis lugares" en el mapa de Life Score: círculo con una estrella
+   adentro, en el mismo color naranja (--color-custom-place) que se usa en
+   toda la sección "Mis lugares" -- reemplaza al CircleMarker liso de antes,
+   que a simple vista se confundía con los POIs de las 7 categorías. */
+.custom-place-pin-icon {
+  background: none;
+  border: none;
+}
+.custom-place-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-custom-place);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.custom-place-pin svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* El buscador (MapPage) ocupa la esquina superior izquierda del mapa, donde

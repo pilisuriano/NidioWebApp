@@ -592,6 +592,9 @@ public class PropertyService {
         if (property.getValuationRangeMin() != null && property.getValuationRangeMax() != null) {
             valuation = new ValuationRangeDto(property.getValuationRangeMin(), property.getValuationRangeMax());
         }
+        LocationDto location = property.getLocation() == null
+                ? null
+                : new LocationDto(property.getLocation().getY(), property.getLocation().getX());
         return new PropertySummaryResponse(
                 property.getId(),
                 property.getTitle(),
@@ -608,6 +611,7 @@ public class PropertyService {
                 property.getOrientation(),
                 property.getPublisherType(),
                 property.getImageUrls().isEmpty() ? null : property.getImageUrls().get(0),
-                valuation);
+                valuation,
+                location);
     }
 }

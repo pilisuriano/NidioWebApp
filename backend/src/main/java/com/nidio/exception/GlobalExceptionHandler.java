@@ -102,6 +102,11 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(TooManyCustomPlacesException.class)
+    public ResponseEntity<ErrorResponse> handleTooManyCustomPlaces(TooManyCustomPlacesException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(MlServiceException.class)
     public ResponseEntity<ErrorResponse> handleMlServiceException(MlServiceException ex, HttpServletRequest request) {
         return errorResponse(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);

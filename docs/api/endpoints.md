@@ -164,8 +164,15 @@ Responde siempre `200` con el mismo mensaje exista o no el email, para no filtra
 
 | Método | Endpoint | HU | Auth | Descripción |
 |--------|----------|----|------|-------------|
-| POST | `/api/life-score` | HU-13, HU-14, HU-15 | JWT | Recibe una dirección (o lat/lon) + peso 1-5 por cada una de las 7 categorías. Llama a `ml-service POST /life-score`, persiste `LIFE_SCORE_QUERY` + `LIFE_SCORE_CATEGORY_WEIGHT` (guarda el conteo por categoría, no cada POI individual) y devuelve en la misma respuesta el score total **y** el listado de POIs cercanos con lat/lon, para pintarlos en el mapa sin una segunda consulta. Debe responder en menos de 5 segundos (NFR). |
+| POST | `/api/life-score` | HU-13, HU-14, HU-15 | JWT | Recibe `address` + `lat`/`lon` (ya resueltos por el frontend vía `/api/addresses/search` o una propiedad favorita — el backend ya no geocodifica texto libre acá) + peso 1-5 por cada una de las 7 categorías + opcionalmente `customPlaceWeight`/`customPlaceRadiusKm`/`customPlaceIds` para "Mis lugares". Llama a `ml-service POST /life-score` para las 7 categorías, calcula en Java (Haversine) el score de cada lugar personal seleccionado, combina ambos en un único `totalScore` ponderado, persiste `LIFE_SCORE_QUERY` + `LIFE_SCORE_CATEGORY_WEIGHT` (solo las 7 categorías fijas — los lugares personales no se auditan por consulta) y devuelve el score total, los POIs cercanos y los lugares personales incluidos con su distancia/score. Debe responder en menos de 5 segundos (NFR). |
 | GET | `/api/life-score` | — | JWT | Últimas 20 consultas de Life Score del usuario autenticado (para "Mis búsquedas"). Devuelve `[{ id, address, totalScore, createdAt }]`. |
+| GET | `/api/custom-places` | — | JWT | "Mis lugares" del usuario autenticado. |
+| POST | `/api/custom-places` | — | JWT | Agrega un lugar personal (`label`, `address`, `lat`, `lon` — lat/lon ya resueltos del autocomplete, igual que arriba). Tope de 15 por usuario (`400` si se excede). |
+| DELETE | `/api/custom-places/{id}` | — | JWT | Elimina un lugar personal propio. `404` si no existe o no es del usuario. |
+
+**Decisión — cifrado de "Mis lugares":** `address`/`lat`/`lon` de `custom_place` se guardan cifrados a nivel de aplicación (AES-256-GCM, `EncryptedStringConverter`, clave `CUSTOM_PLACE_ENCRYPTION_KEY`) — son datos personales del usuario (dónde vive, dónde trabaja), a diferencia de la dirección de una propiedad publicada, que es pública por diseño y no pasa por este cifrado. El contrato REST (`CustomPlaceRequest`/`Response`) no cambia — siguen viajando en JSON como texto/números normales; el cifrado es puramente de almacenamiento, transparente para quien consume la API.
+
+**Decisión — `customPlaceIds`, selección de lugares por cálculo:** `LifeScoreRequest.customPlaceIds` (opcional, `List<Long>`) deja elegir qué subconjunto de "Mis lugares" entra en un cálculo puntual (checkbox por lugar en el frontend) — por ejemplo, ignorar "casa de mis papás" al tasar una propiedad para invertir, sin borrar el lugar guardado. `null` (el default de cualquier cliente que no mande el campo) sigue significando "usar todos", igual que antes de agregar esta opción — no rompe compatibilidad. Una lista vacía significa "ninguno para este cálculo". Los IDs que no pertenezcan al usuario autenticado se descartan en silencio (el filtro corre sobre la lista ya scopeada por `userEmail`, nunca contra toda la tabla).
 
 <details>
 <summary>Ejemplos de request/response — Épica 4</summary>
@@ -176,10 +183,15 @@ Responde siempre `200` con el mismo mensaje exista o no el email, para no filtra
 // Request
 {
   "address": "Av. Santa Fe 3253, CABA",
+  "lat": -34.5895,
+  "lon": -58.4106,
   "weights": {
     "TRANSPORT": 5, "COMMERCE": 3, "GREEN_SPACE": 4,
     "HEALTH": 2, "GASTRONOMY": 3, "NIGHTLIFE": 1, "EDUCATION": 2
-  }
+  },
+  "customPlaceWeight": 3,
+  "customPlaceRadiusKm": 2,
+  "customPlaceIds": [3, 7]
 }
 ```
 ```json
@@ -193,12 +205,21 @@ Responde siempre `200` con el mismo mensaje exista o no el email, para no filtra
       "category": "TRANSPORT",
       "weight": 5,
       "poiCount": 12,
+      "score": 92,
       "pois": [{ "name": "Subte D - Bulnes", "lat": -34.5889, "lon": -58.4102 }]
     }
-  ]
+  ],
+  "customPlaces": [
+    { "id": 3, "label": "Trabajo", "address": "Av. Corrientes 1200", "lat": -34.6035, "lon": -58.3847, "distanceM": 620, "score": 76 }
+  ],
+  "explanation": "Tu puntaje de 78 se apoya principalmente en Transporte y Comercios. Vida nocturna es lo que más lo baja: hay pocos lugares de ese tipo cerca, aunque le diste bastante peso. También se tuvieron en cuenta tus 3 lugares personales, a un promedio de 650 m — son datos privados y cifrados, solo vos podés verlos."
 }
 ```
 `502 Bad Gateway` si `ml-service`/OSMnx no responde a tiempo.
+
+**Decisión — "Mis lugares" vs. las 7 categorías fijas:** se calculan con la misma matemática de distancia (Haversine) pero con fórmulas de score distintas a propósito. Las 7 categorías son un índice de *densidad/cobertura* (cuántos POIs hay respecto de lo esperado en una zona bien servida — ver `ml-service/src/geo/life_score.py`) y se mantienen como el índice objetivo/comparable entre propiedades, con un radio de búsqueda fijo (no configurable). "Mis lugares" es una capa personalizada de un único punto por lugar, con *decaimiento por distancia* (100 hasta ~400m, decae a 0 al llegar al radio que el usuario elige, 1-3km, default 2km) — por eso el radio configurable se limita a esta capa y no a las categorías fijas, que perderían comparabilidad si cada usuario las calculara con un radio distinto.
+
+**Decisión — `explanation` en texto, no un desglose numérico tipo SHAP:** a diferencia del XGBoost de tasación (una caja negra que necesita una técnica de atribución como SHAP para estimar qué tan importante fue cada variable), el Life Score es una fórmula transparente por construcción (promedio ponderado) — la contribución de cada categoría ya es una cuenta exacta (`weight × score`), no una aproximación. Por eso `ml-service` ahora también devuelve `score` (0-100) por categoría, no solo `poiCount`: es el dato que le faltaba a Java para poder calcular esa contribución exacta y armar la oración. Se decidió no mostrarle números al usuario final (feedback de Pili: "mucha gente no entiende cuentas matemáticas") — el backend arma una explicación en español ya redactada, mismo criterio que `explanationText` en la tasación.
 
 </details>
 

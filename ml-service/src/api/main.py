@@ -1,8 +1,8 @@
 """Punto de entrada de la API FastAPI del servicio de ML.
 
-/predict usa el modelo XGBoost real (ver src/models/valuation.py). /life-score sigue
-con la implementacion sintetica temporal (pausado por ahora, ver roadmap) hasta que se
-retome la integracion con OSMnx.
+/predict usa el modelo XGBoost real (ver src/models/valuation.py). /life-score usa
+POIs reales de OpenStreetMap vía OSMnx/Overpass (ver src/geo/life_score.py) -- ya
+no hay ningun dato sintetico/inventado en ninguno de los dos endpoints.
 """
 
 from fastapi import FastAPI, HTTPException
@@ -31,6 +31,7 @@ class LifeScoreCategory(BaseModel):
     category: str
     poiCount: int
     pois: list[Poi]
+    score: int
 
 
 class LifeScoreResponse(BaseModel):

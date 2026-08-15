@@ -28,7 +28,23 @@ public class MlServiceClient {
     public MlServiceClient(@Value("${app.ml-service.base-url}") String baseUrl) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(2));
-        requestFactory.setReadTimeout(Duration.ofSeconds(8));
+        // 100s (antes 30s, antes 8s -- Ronda 6, 13/08/2026): /life-score
+        // consulta Overpass/OSM de verdad (ver
+        // ml-service/src/geo/life_score.py), y ese lado ahora: (a) tiene su
+        // propio timeout por intento en 45s (ox.settings.requests_timeout,
+        // confirmado insuficiente en 25s con un caso real de Pili -- una
+        // consulta fría en zona densa tardó y falló), y (b) reintenta
+        // automáticamente una vez si el primer intento falla
+        // (_MAX_FETCH_ATTEMPTS). Peor caso teórico del lado Python: ~90s
+        // (dos intentos de 45s). 100s acá le da margen para que sea
+        // ml-service quien corte primero con un error explicado, en vez de
+        // que este cliente corte a mitad del reintento y tire un timeout
+        // igual aunque el segundo intento hubiera funcionado. Es un peor
+        // caso, no lo típico -- la mayoría de las consultas (sobre todo ya
+        // con caché tibio) responden en pocos segundos. /predict (XGBoost)
+        // sigue siendo rápido, así que compartir este timeout más generoso
+        // no le cuesta nada.
+        requestFactory.setReadTimeout(Duration.ofSeconds(100));
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
@@ -65,7 +81,8 @@ public class MlServiceClient {
     public record LifeScoreMlRequest(double lat, double lon, Map<POICategory, Integer> weights) {
     }
 
-    public record LifeScoreMlCategory(POICategory category, int poiCount, List<PoiDto> pois) {
+    // score: 0-100, densidad de esta categoría sola (ver ml-service/src/geo/life_score.py).
+    public record LifeScoreMlCategory(POICategory category, int poiCount, List<PoiDto> pois, int score) {
     }
 
     public record LifeScoreMlResponse(BigDecimal totalScore, List<LifeScoreMlCategory> categories) {

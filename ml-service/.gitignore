@@ -19,3 +19,6 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+
+# cache local de Overpass/OSMnx (se regenera solo, no versionar)
+.osmnx_cache/

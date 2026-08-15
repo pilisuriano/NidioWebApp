@@ -27,6 +27,11 @@ public record PropertySummaryResponse(
         // esté sobrevaluada, en rango o subvaluada (ver PropertyMarkersLayer
         // en MapPage.jsx) -- antes solo viajaba en el detalle de una
         // propiedad individual.
-        ValuationRangeDto valuation
+        ValuationRangeDto valuation,
+        // lat/lon de la propiedad. Antes solo viajaba en el detalle
+        // individual; se agrega acá para que el dropdown "usar un favorito"
+        // de Life Score (LifeScore.jsx) pueda calcular directo sin volver a
+        // geocodificar la dirección.
+        LocationDto location
 ) {
 }
