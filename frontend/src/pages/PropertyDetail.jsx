@@ -51,19 +51,6 @@ const LOCATION_PIN_ICON = L.divIcon({
   iconAnchor: [11, 11]
 });
 
-// Life Score bajo demanda: si la propiedad no tiene uno calculado, se pide
-// con ponderación neutral (todas las categorías en 3/5) — el usuario puede
-// después ir a la pantalla de Life Score a personalizar sus prioridades.
-const NEUTRAL_LIFE_SCORE_WEIGHTS = {
-  TRANSPORT: 3,
-  COMMERCE: 3,
-  GREEN_SPACE: 3,
-  HEALTH: 3,
-  GASTRONOMY: 3,
-  NIGHTLIFE: 3,
-  EDUCATION: 3
-};
-
 // Mismo criterio y estilos que el ResultBadge de las tasaciones, para que la
 // clasificación se vea igual en toda la app.
 function ValuationBadge({ result }) {
@@ -134,9 +121,6 @@ export default function PropertyDetail() {
   const [calculatedValuation, setCalculatedValuation] = useState(null);
   const [calculatingValuation, setCalculatingValuation] = useState(false);
   const [valuationError, setValuationError] = useState(null);
-  const [calculatedLifeScore, setCalculatedLifeScore] = useState(null);
-  const [calculatingLifeScore, setCalculatingLifeScore] = useState(false);
-  const [lifeScoreError, setLifeScoreError] = useState(null);
   // Cotización dólar blue -- null mientras carga o si falló (ver lib/blueRate.js).
   // Hace falta porque el modelo SIEMPRE devuelve el rango en USD (venta y
   // alquiler por igual, ver bitácora del modelo 6.41 adendum), pero
@@ -154,7 +138,6 @@ export default function PropertyDetail() {
     setTermsAccepted(false);
     setPrivacyAccepted(false);
     setCalculatedValuation(null);
-    setCalculatedLifeScore(null);
     api.get(`/api/properties/${id}`).then(res => setProperty(res.data)).catch(err => setError(apiErrorMessage(err, "No se pudo cargar la propiedad")));
   }, [id]);
 
@@ -237,22 +220,6 @@ export default function PropertyDetail() {
     }
   }
 
-  async function handleCalcLifeScore() {
-    setLifeScoreError(null);
-    setCalculatingLifeScore(true);
-    try {
-      const res = await api.post("/api/life-score", {
-        address: `${property.address}, ${property.neighborhood.name}, CABA`,
-        weights: NEUTRAL_LIFE_SCORE_WEIGHTS
-      });
-      setCalculatedLifeScore(res.data);
-    } catch (err) {
-      setLifeScoreError(apiErrorMessage(err, "No se pudo calcular el Life Score"));
-    } finally {
-      setCalculatingLifeScore(false);
-    }
-  }
-
   if (error) {
     return <div className="p-8 max-w-2xl mx-auto text-center space-y-3">
         <p className="text-on-surface-variant">{error}</p>
@@ -296,7 +263,7 @@ export default function PropertyDetail() {
   }
   const showValuationArs = property.operationType === "RENT" && !!blueRate;
 
-  const lifeScoreValue = property.lifeScore ?? calculatedLifeScore?.totalScore ?? null;
+  const lifeScoreValue = property.lifeScore ?? null;
   const contactFieldErrors = contactAttempted ? validateContact() : {};
 
   return <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -476,8 +443,15 @@ export default function PropertyDetail() {
                 </button>}
             </div>}
 
-          {/* Life Score: mismo criterio — si ya tiene uno calculado se
-              muestra, si no se ofrece calcularlo con ponderación neutral. */}
+          {/* Life Score: si la propiedad ya tiene uno guardado, se muestra
+              directo. Si no, el botón redirige a la pantalla de Life Score
+              con la dirección de ESTA propiedad ya cargada -- antes se
+              calculaba acá mismo con ponderación neutral (todas las
+              categorías en 3/5), pero eso no reflejaba las prioridades
+              reales de la persona, y además /api/life-score ya no acepta
+              "address" suelto desde la Ronda 1 (exige lat/lon), así que
+              este cálculo inline había quedado roto. El cálculo real vive
+              únicamente en la pantalla de Life Score. */}
           <Card>
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
@@ -488,16 +462,14 @@ export default function PropertyDetail() {
                 ? <p className="text-sm text-on-surface-variant">
                     <Link to="/auth/login" className="text-primary font-semibold hover:underline">Iniciá sesión</Link> para calcular el Life Score de esta propiedad.
                   </p>
-                : <>
-                    {lifeScoreError && <p className="text-xs font-semibold text-error">{lifeScoreError}</p>}
-                    <Button type="button" size="sm" onClick={handleCalcLifeScore} disabled={calculatingLifeScore} className="gap-2">
-                      <HeartPulse className="w-4 h-4" /> {calculatingLifeScore ? "Calculando…" : "Calcular Life Score"}
-                    </Button>
-                    <p className="text-xs text-on-surface-variant italic">
-                      Se calcula con ponderación neutral entre las 7 categorías. Para personalizar tus prioridades, usá{" "}
-                      <Link to="/life-score" className="text-primary font-semibold hover:underline">Life Score</Link>.
-                    </p>
-                  </>)}
+                : <Button
+                    type="button"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => navigate(`/life-score?address=${encodeURIComponent(`${property.address}, ${property.neighborhood.name}, CABA`)}&lat=${property.location.lat}&lon=${property.location.lon}`)}
+                  >
+                    <HeartPulse className="w-4 h-4" /> Calcular Life Score
+                  </Button>)}
             </CardContent>
           </Card>
 

@@ -167,8 +167,14 @@ export default function MisPublicaciones() {
             <Link to={`/propiedades/${p.id}`}>
               <div className="h-40 bg-surface-dim relative">
                 {p.imageUrls?.[0] && <img src={p.imageUrls[0]} alt={p.title} className="w-full h-full object-cover" />}
-                <Badge className="absolute top-3 right-3" variant="good">{OPERATION_TYPE_LABEL[p.operationType]}</Badge>
-                <Badge className="absolute top-3 left-3" variant={p.active ? "default" : "alert"}>
+                <Badge className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur border border-good-value/20 shadow-sm" variant="good">{OPERATION_TYPE_LABEL[p.operationType]}</Badge>
+                <Badge
+                  className={cn(
+                    "absolute top-3 left-3 bg-surface-container-lowest/90 backdrop-blur border shadow-sm",
+                    p.active ? "border-primary/20" : "border-alert-price/20"
+                  )}
+                  variant={p.active ? "default" : "alert"}
+                >
                   {p.deactivatedByAdmin ? "Desactivada por admin" : p.active ? "Activa" : "Inactiva"}
                 </Badge>
               </div>

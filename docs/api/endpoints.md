@@ -164,7 +164,7 @@ Responde siempre `200` con el mismo mensaje exista o no el email, para no filtra
 
 | Método | Endpoint | HU | Auth | Descripción |
 |--------|----------|----|------|-------------|
-| POST | `/api/life-score` | HU-13, HU-14, HU-15 | JWT | Recibe `address` + `lat`/`lon` (ya resueltos por el frontend vía `/api/addresses/search` o una propiedad favorita — el backend ya no geocodifica texto libre acá) + peso 1-5 por cada una de las 7 categorías + opcionalmente `customPlaceWeight`/`customPlaceRadiusKm`/`customPlaceIds` para "Mis lugares". Llama a `ml-service POST /life-score` para las 7 categorías, calcula en Java (Haversine) el score de cada lugar personal seleccionado, combina ambos en un único `totalScore` ponderado, persiste `LIFE_SCORE_QUERY` + `LIFE_SCORE_CATEGORY_WEIGHT` (solo las 7 categorías fijas — los lugares personales no se auditan por consulta) y devuelve el score total, los POIs cercanos y los lugares personales incluidos con su distancia/score. Debe responder en menos de 5 segundos (NFR). |
+| POST | `/api/life-score` | HU-13, HU-14, HU-15 | JWT | Recibe `address` + `lat`/`lon` (ya resueltos por el frontend vía `/api/addresses/search` o una propiedad favorita — el backend ya no geocodifica texto libre acá) + peso 1-5 por cada una de las 7 categorías + opcionalmente `customPlaceWeights`/`customPlaceRadiusKm`/`customPlaceIds` para "Mis lugares". `customPlaceWeights` es un peso INDIVIDUAL por lugar (mapa id→peso, ver decisión de diseño más abajo) — antes (hasta el 15/08/2026) era un único peso para todo el conjunto de lugares. Llama a `ml-service POST /life-score` para las 7 categorías, calcula en Java (Haversine) el score de cada lugar personal seleccionado, combina ambos en un único `totalScore` ponderado, persiste `LIFE_SCORE_QUERY` + `LIFE_SCORE_CATEGORY_WEIGHT` (solo las 7 categorías fijas — los lugares personales no se auditan por consulta) y devuelve el score total, los POIs cercanos y los lugares personales incluidos con su distancia/score. Debe responder en menos de 5 segundos (NFR). |
 | GET | `/api/life-score` | — | JWT | Últimas 20 consultas de Life Score del usuario autenticado (para "Mis búsquedas"). Devuelve `[{ id, address, totalScore, createdAt }]`. |
 | GET | `/api/custom-places` | — | JWT | "Mis lugares" del usuario autenticado. |
 | POST | `/api/custom-places` | — | JWT | Agrega un lugar personal (`label`, `address`, `lat`, `lon` — lat/lon ya resueltos del autocomplete, igual que arriba). Tope de 15 por usuario (`400` si se excede). |
@@ -189,11 +189,12 @@ Responde siempre `200` con el mismo mensaje exista o no el email, para no filtra
     "TRANSPORT": 5, "COMMERCE": 3, "GREEN_SPACE": 4,
     "HEALTH": 2, "GASTRONOMY": 3, "NIGHTLIFE": 1, "EDUCATION": 2
   },
-  "customPlaceWeight": 3,
+  "customPlaceWeights": { "3": 15, "7": 1 },
   "customPlaceRadiusKm": 2,
   "customPlaceIds": [3, 7]
 }
 ```
+`customPlaceWeights` — mapa `id de custom_place → peso` (mismos 4 niveles que muestra el frontend: 1 "No es prioridad", 5 "Me importa", 15 "Me importa mucho", 40 "Es lo que más me importa"). Solo tiene efecto sobre los lugares presentes en `customPlaceIds` (los destildados no entran al cálculo, tengan o no un peso mandado). Un lugar sin entrada en el mapa usa el default (5, "Me importa") — compatibilidad con clientes viejos.
 ```json
 // Response
 {

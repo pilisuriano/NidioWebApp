@@ -573,13 +573,6 @@ export default function MapPage() {
           </Button>
         </div>
 
-        {/* Acceso directo al listado en grilla (mismos filtros ya aplicados
-            acá: operación, tipo, texto y "Más filtros"), para quien prefiere
-            esa vista a explorar el mapa. */}
-        <Link to={`/propiedades?${listingQueryString}`} className="mt-2 flex items-center justify-center gap-2 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant py-2.5 text-sm font-bold text-primary hover:bg-surface-dim transition-colors">
-          <List className="w-4 h-4" /> Ver listado de propiedades
-        </Link>
-
         {/* Panel de "Más filtros": ambientes, baños, precio, antigüedad, tipo
             de anunciante, orientación y características — todo filtra sobre
             lo que ya está cargado (ver filterProperties en
@@ -687,6 +680,14 @@ export default function MapPage() {
           las páginas, incluida esta -- este selector se corre más abajo
           para no quedar tapado por el chip en vez de al revés. */}
       <div className="absolute top-24 right-6 z-[1000] flex flex-col items-end gap-2">
+        {/* Acceso directo al listado en grilla (mismos filtros ya aplicados:
+            operación, tipo, texto y "Más filtros"). Antes vivía debajo de la
+            barra de búsqueda a ancho completo -- tapaba demasiado mapa; se
+            movió acá como botón chico, junto al resto de controles flotantes. */}
+        <Link to={`/propiedades?${listingQueryString}`} className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-4 py-2.5 flex items-center gap-2 text-sm font-bold text-primary hover:bg-surface-dim transition-colors">
+          <List className="w-4 h-4" /> Ver listado de propiedades
+        </Link>
+
         {/* Precios m² / Ruido / Seguridad: solo tienen sentido con el mapa
             de calor prendido (son tres formas de colorear los barrios). Con
             el mapa de calor apagado, elegir entre ellas no cambiaba nada a

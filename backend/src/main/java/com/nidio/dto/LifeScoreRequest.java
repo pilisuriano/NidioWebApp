@@ -35,12 +35,19 @@ public class LifeScoreRequest {
     @NotEmpty(message = "El campo 'weights' es obligatorio")
     private Map<POICategory, Integer> weights;
 
-    // "Mis lugares" (opcional): peso 1-5 de los lugares personales del
-    // usuario dentro del promedio ponderado total, tratados como una
-    // categoría más (ver LifeScoreService.blendTotalScore). Si es null, 0 o
-    // el usuario no tiene lugares cargados, no se suman al total -- solo se
-    // devuelven informativamente en la respuesta.
-    private Integer customPlaceWeight;
+    // "Mis lugares" (opcional): peso INDIVIDUAL de cada lugar personal
+    // (clave = id de custom_place, valor = nivel elegido en el frontend --
+    // CUSTOM_PLACE_WEIGHT_LEVELS en LifeScore.jsx: 1/5/15/40), dentro del
+    // promedio ponderado total (ver LifeScoreService.blendTotalScore). Antes
+    // era un único peso para todo el conjunto de lugares -- desde el
+    // 15/08/2026 cada lugar pesa por separado (a pedido de Pili: puede
+    // importar más estar cerca del gimnasio que de la casa de los papás). Un
+    // lugar sin entrada en el mapa usa el peso por defecto (ver
+    // LifeScoreService.DEFAULT_CUSTOM_PLACE_WEIGHT) -- por compatibilidad
+    // con clientes viejos o un lugar que el frontend no llegó a mandar. Si
+    // el usuario no tiene lugares cargados (o los destildó todos vía
+    // customPlaceIds), este campo no tiene efecto.
+    private Map<Long, Integer> customPlaceWeights;
 
     // Radio (km) hasta el que se considera "cerca" un lugar personal antes de
     // que su score empiece a decaer a 0 (ver LifeScoreService.decayScore).

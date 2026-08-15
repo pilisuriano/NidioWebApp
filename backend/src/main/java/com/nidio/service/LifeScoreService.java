@@ -53,6 +53,13 @@ public class LifeScoreService {
     private static final int NEGATIVE_DRIVER_MIN_WEIGHT = 3;
     private static final int NEGATIVE_DRIVER_MAX_SCORE = 50;
 
+    // Peso por defecto de UN lugar personal cuando no viene explícito en el
+    // request (cliente viejo, o un lugar que el frontend no llegó a mandar
+    // en el mapa de pesos) -- mismo valor que el nivel "Me importa" del
+    // selector (CUSTOM_PLACE_WEIGHT_LEVELS[1] en LifeScore.jsx), el default
+    // histórico de antes de que el peso pasara a ser por lugar (15/08/2026).
+    private static final int DEFAULT_CUSTOM_PLACE_WEIGHT = 5;
+
     private static final Map<POICategory, String> CATEGORY_LABEL_ES = Map.of(
             POICategory.TRANSPORT, "Transporte",
             POICategory.COMMERCE, "Comercios",
@@ -86,7 +93,7 @@ public class LifeScoreService {
                 scoreCustomPlaces(location, userEmail, request.getCustomPlaceRadiusKm(), request.getCustomPlaceIds());
 
         BigDecimal totalScore = blendTotalScore(
-                mlResponse.totalScore(), request.getWeights(), customPlaceScores, request.getCustomPlaceWeight());
+                mlResponse.totalScore(), request.getWeights(), customPlaceScores, request.getCustomPlaceWeights());
 
         LifeScoreQuery query = LifeScoreQuery.builder()
                 .user(user)
@@ -111,7 +118,7 @@ public class LifeScoreService {
                 })
                 .toList();
 
-        String explanation = buildExplanation(totalScore, categories, customPlaceScores, request.getCustomPlaceWeight());
+        String explanation = buildExplanation(totalScore, categories, customPlaceScores, request.getCustomPlaceWeights());
 
         return new LifeScoreResponse(query.getId(), totalScore, location, categories, customPlaceScores, explanation);
     }
@@ -177,25 +184,44 @@ public class LifeScoreService {
 
     // Combina el subtotal de las 7 categorías fijas (ya viene ponderado desde
     // ml-service, es el índice "objetivo" del entorno) con "mis lugares"
-    // tratados como una categoría más (la capa "personalizada"), pesando el
-    // subtotal por la SUMA de los pesos que ya representa -- es la
-    // generalización exacta de un promedio ponderado de promedios
-    // ponderados, no una aproximación:
-    //   total = (categoriesTotal * Σweights_1..7 + customAvg * customWeight)
-    //           / (Σweights_1..7 + customWeight)
-    // Si el usuario no cargó lugares personales, o no les puso peso, el total
-    // queda exactamente igual al de las 7 categorías (compatibilidad).
+    // tratados como una categoría más (la capa "personalizada"). Desde el
+    // 15/08/2026 (a pedido de Pili) cada lugar personal tiene SU PROPIO
+    // peso -- antes todos entraban con el mismo peso implícito (promedio
+    // liso). El subtotal de "mis lugares" ahora es un promedio ponderado
+    // por esos pesos individuales, y el peso que compite contra la suma de
+    // las 7 categorías es la SUMA de esos pesos individuales -- un nivel
+    // más de la misma generalización matemática de antes (promedio
+    // ponderado de un promedio ponderado de un promedio ponderado), no una
+    // aproximación:
+    //   customTotal = Σ(score_i * peso_i) / Σpeso_i
+    //   total = (categoriesTotal * Σweights_1..7 + customTotal * Σpeso_i)
+    //           / (Σweights_1..7 + Σpeso_i)
+    // Si el usuario no cargó lugares personales (o los destildó todos), el
+    // total queda exactamente igual al de las 7 categorías (compatibilidad).
     private static BigDecimal blendTotalScore(
             BigDecimal categoriesTotal, Map<POICategory, Integer> weights,
-            List<CustomPlaceScoreDto> customPlaceScores, Integer customPlaceWeight) {
-        if (customPlaceScores.isEmpty() || customPlaceWeight == null || customPlaceWeight <= 0) {
+            List<CustomPlaceScoreDto> customPlaceScores, Map<Long, Integer> customPlaceWeights) {
+        if (customPlaceScores.isEmpty()) {
             return categoriesTotal;
         }
         double categoriesWeightSum = weights.values().stream().mapToInt(Integer::intValue).sum();
-        double customAvg = customPlaceScores.stream().mapToInt(CustomPlaceScoreDto::score).average().orElse(0);
-        double blended = (categoriesTotal.doubleValue() * categoriesWeightSum + customAvg * customPlaceWeight)
-                / (categoriesWeightSum + customPlaceWeight);
+        double customWeightSum = customPlaceScores.stream()
+                .mapToInt(p -> placeWeight(p.id(), customPlaceWeights))
+                .sum();
+        double customWeightedAvg = customPlaceScores.stream()
+                .mapToDouble(p -> p.score() * placeWeight(p.id(), customPlaceWeights))
+                .sum() / customWeightSum;
+        double blended = (categoriesTotal.doubleValue() * categoriesWeightSum + customWeightedAvg * customWeightSum)
+                / (categoriesWeightSum + customWeightSum);
         return BigDecimal.valueOf(blended).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    // Peso de UN lugar puntual: el que mandó el frontend para ese id, o el
+    // default si no vino (ver DEFAULT_CUSTOM_PLACE_WEIGHT).
+    private static int placeWeight(Long placeId, Map<Long, Integer> customPlaceWeights) {
+        if (customPlaceWeights == null) return DEFAULT_CUSTOM_PLACE_WEIGHT;
+        Integer w = customPlaceWeights.get(placeId);
+        return (w == null || w <= 0) ? DEFAULT_CUSTOM_PLACE_WEIGHT : w;
     }
 
     // Explicación en texto plano, no un desglose numérico: el cálculo es una
@@ -206,7 +232,7 @@ public class LifeScoreService {
     // así que alcanza con contarla en palabras en vez de mostrar la cuenta.
     private static String buildExplanation(
             BigDecimal totalScore, List<LifeScoreCategoryResult> categories,
-            List<CustomPlaceScoreDto> customPlaceScores, Integer customPlaceWeight) {
+            List<CustomPlaceScoreDto> customPlaceScores, Map<Long, Integer> customPlaceWeights) {
         List<LifeScoreCategoryResult> weighted = categories.stream()
                 .filter(c -> c.weight() > 0 && c.score() > 0)
                 .toList();
@@ -246,34 +272,45 @@ public class LifeScoreService {
         }
         sb.append(".");
 
-        if (customPlaceWeight != null && customPlaceWeight > 0 && !customPlaceScores.isEmpty()) {
-            double avgDistanceM = customPlaceScores.stream()
-                    .mapToLong(CustomPlaceScoreDto::distanceM)
-                    .average()
-                    .orElse(0);
-            // "Mis lugares" como posible driver negativo, con el mismo
-            // criterio que una categoría fija (peso relevante + score
-            // bajo, ver "negative" arriba) -- sin esto, un caso real (Pili,
-            // 13/08/2026: las 7 categorías en 100 pero un lugar personal a
-            // ~4.8km, fuera del radio de "cercanía aceptable" elegido)
-            // mostraba "tu puntaje de 88 se apoya en X e Y" sin explicar
-            // por qué no era 100 si todo sonaba perfecto -- el texto
-            // omitía justo la única razón real de la diferencia.
-            double avgCustomScore = customPlaceScores.stream()
-                    .mapToInt(CustomPlaceScoreDto::score)
-                    .average()
-                    .orElse(0);
-            boolean customPlacesHurt = customPlaceWeight >= NEGATIVE_DRIVER_MIN_WEIGHT
-                    && avgCustomScore < NEGATIVE_DRIVER_MAX_SCORE;
-            sb.append(" También se tuvieron en cuenta tus ").append(customPlaceScores.size())
-                    .append(customPlaceScores.size() == 1 ? " lugar personal" : " lugares personales")
-                    .append(", a un promedio de ").append(Math.round(avgDistanceM)).append(" m");
+        if (!customPlaceScores.isEmpty()) {
+            // Detalle por lugar (nombre + distancia en km, no solo un
+            // promedio agregado) -- a pedido de Pili (15/08/2026): con el
+            // peso ahora por lugar, tiene sentido que el texto también sea
+            // específico sobre cuál es cuál, no solo "tus 2 lugares
+            // personales, a un promedio de 2084 m".
+            List<String> placeDetails = customPlaceScores.stream()
+                    .map(pl -> pl.label() + " (" + formatKm(pl.distanceM()) + ")")
+                    .toList();
+            // El lugar puntual que más resta, entre los que de verdad le
+            // importan al usuario (mismo criterio que una categoría fija:
+            // peso relevante + score bajo, ver "negative" arriba) -- sin
+            // esto, un caso real (Pili, 13/08/2026: las 7 categorías en 100
+            // pero un lugar personal a ~4.8km, fuera del radio de "cercanía
+            // aceptable" elegido) mostraba "tu puntaje de 88 se apoya en X
+            // e Y" sin explicar por qué no era 100 si todo sonaba
+            // perfecto. Se evalúa por lugar, no por la suma de los pesos:
+            // sumar rompería el corte original con 2+ lugares en el nivel
+            // más bajo (1+1 ya supera el umbral de 3 sin que ninguno le
+            // importe de verdad).
+            CustomPlaceScoreDto worstMeaningfulPlace = customPlaceScores.stream()
+                    .filter(pl -> placeWeight(pl.id(), customPlaceWeights) >= NEGATIVE_DRIVER_MIN_WEIGHT)
+                    .min(Comparator.comparingInt(CustomPlaceScoreDto::score))
+                    .orElse(null);
+            boolean customPlacesHurt = worstMeaningfulPlace != null && worstMeaningfulPlace.score() < NEGATIVE_DRIVER_MAX_SCORE;
+            sb.append(" También se tuv").append(customPlaceScores.size() == 1 ? "o" : "ieron")
+                    .append(" en cuenta tus lugares personales: ").append(String.join(", ", placeDetails)).append(".");
             if (customPlacesHurt) {
-                sb.append(" — bastante lejos del radio de \"cercanía aceptable\" que elegiste, así que le restan puntos al promedio final");
+                sb.append(" ").append(worstMeaningfulPlace.label())
+                        .append(" está bastante lejos del radio de \"cercanía aceptable\" que elegiste (")
+                        .append(formatKm(worstMeaningfulPlace.distanceM()))
+                        .append("), así que te resta puntos al promedio final.");
             }
-            sb.append(" — son datos privados y cifrados, solo vos podés verlos.");
         }
         return sb.toString();
+    }
+
+    private static String formatKm(long distanceM) {
+        return String.format(java.util.Locale.US, "%.1f km", distanceM / 1000.0);
     }
 
     private static String joinLabels(List<LifeScoreCategoryResult> items) {

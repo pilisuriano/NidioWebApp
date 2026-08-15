@@ -99,7 +99,7 @@ export default function PropertyListing() {
   const customAmenities = amenityFilter.filter(t => !AMENITY_OPTIONS.some(o => o.toLowerCase() === t.toLowerCase()));
 
   return <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 mt-8">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-on-surface">Listado de propiedades</h1>
           <p className="text-sm text-on-surface-variant font-mono">

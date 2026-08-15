@@ -1,12 +1,20 @@
 """Cálculo del Life Score.
 
-POIs REALES vía OSMnx (que a su vez consulta Overpass API, la API pública
-de OpenStreetMap) alrededor del punto consultado, dentro de un radio fijo
-(RADIUS_M). Reemplaza la implementación sintética que hubo antes (POIs con
-nombres inventados y densidad simulada por distancia al Obelisco) -- ya no
-hay ningún dato ficticio: si Overpass no devuelve resultados para una
-categoría, o la consulta falla, esa categoría queda en 0 (poiCount=0,
-pois=[]), nunca se rellena con datos inventados.
+POIs REALES para 6 de las 7 categorías vía OSMnx (que a su vez consulta
+Overpass API, la API pública de OpenStreetMap) alrededor del punto
+consultado, dentro de un radio fijo (RADIUS_M). Reemplaza la
+implementación sintética que hubo antes (POIs con nombres inventados y
+densidad simulada por distancia al Obelisco) -- ya no hay ningún dato
+ficticio: si Overpass no devuelve resultados para una categoría, o la
+consulta falla, esa categoría queda en 0 (poiCount=0, pois=[]), nunca se
+rellena con datos inventados.
+
+TRANSPORT es la excepción parcial: las paradas de colectivo salen del
+dataset oficial de BA Data (ver _load_bus_stops), no de Overpass -- en OSM
+casi ninguna parada de colectivo tiene tag de qué línea para ahí, así que
+Overpass servía nombres/líneas pero no identificaba la parada. Subte, tren
+y bicicletas públicas dentro de TRANSPORT siguen viniendo de Overpass como
+el resto de las categorías.
 
 Por qué OSMnx y no pegarle a Overpass "a mano": OSMnx arma la query
 Overpass QL, maneja reintentos/backoff según el header de rate-limit del
@@ -18,6 +26,7 @@ explícitamente no repetir la misma consulta más de lo necesario.
 
 from __future__ import annotations
 
+import csv
 import logging
 import math
 import os
@@ -72,8 +81,9 @@ CATEGORIES = [
 # generador sintético viejo): amenity=pharmacy es la clasificación
 # estándar de OSM para farmacias, y semánticamente es salud, no comercio.
 CATEGORY_TAGS: dict[str, list[tuple[str, str]]] = {
+    # highway=bus_stop NO está acá a propósito -- las paradas de colectivo
+    # salen del dataset de BA Data (ver _load_bus_stops), no de Overpass.
     "TRANSPORT": [
-        ("highway", "bus_stop"),
         ("railway", "station"),
         ("railway", "subway_entrance"),
         ("amenity", "bicycle_rental"),
@@ -118,7 +128,6 @@ CATEGORY_TAGS: dict[str, list[tuple[str, str]]] = {
 # común en paradas de colectivo, farmacias chicas, plazas sin nombre
 # propio, etc.) -- sin esto el frontend mostraría una tarjeta sin título.
 _FALLBACK_LABEL: dict[tuple[str, str], str] = {
-    ("highway", "bus_stop"): "Parada de colectivo",
     ("railway", "station"): "Estación de tren/subte",
     ("railway", "subway_entrance"): "Entrada de subte",
     ("amenity", "bicycle_rental"): "Estación de bicicletas públicas",
@@ -190,8 +199,26 @@ _FALLBACK_LABEL: dict[tuple[str, str], str] = {
 # y no hay evidencia de que esté mal calibrado). Sigue siendo un supuesto
 # documentado, no una medición estadística -- ajustar sin culpa si con más
 # zonas de prueba el score deja de sentirse representativo.
+#
+# ATENCIÓN -- TRANSPORT recalibrado de nuevo el 15/08/2026 (cambio de
+# fuente a BA Data para colectivos, ver _load_bus_stops): el dataset
+# oficial es mucho más denso que lo que OSM devolvía solo para bus_stop
+# (que ya dominaba el conteo viejo de TRANSPORT). Se midió la distancia
+# real (misma fórmula Haversine que usa production) desde 300 paradas
+# elegidas al azar en las 6962 del dataset hacia las demás, contando
+# cuántas caen dentro de RADIUS_M de cada una -- son solo colectivos,
+# TODAVÍA sin sumar subte/tren/bicicletas de Overpass encima: mínimo 13,
+# percentil 25 = 63, mediana = 86, percentil 75 = 128, percentil 90 = 176,
+# máximo 232. El umbral viejo (70) quedaba por debajo de la MEDIANA de
+# solo colectivos -- con eso, la categoría iba a saturar en 100 en más de
+# la mitad de CABA apenas se sumara subte/tren/bicicletas, reproduciendo
+# el mismo bug que motivó la Ronda 5 ("siempre da 100"). Se sube a 140
+# (entre p75 y p90 de colectivos solos, con margen para lo que sumen las
+# otras 3 categorías de Overpass) -- sigue siendo un supuesto, no dato
+# medido en producción: falta confirmar con un par de direcciones reales
+# post-deploy que el score de TRANSPORT diferencia bien entre zonas.
 _FULL_COVERAGE_COUNT: dict[str, int] = {
-    "TRANSPORT": 70,
+    "TRANSPORT": 140,
     "COMMERCE": 20,
     "GREEN_SPACE": 15,
     "HEALTH": 6,
@@ -297,43 +324,153 @@ def _fetch_osm_features(lat: float, lon: float):
             return None
 
 
-def _category_pois(gdf, category: str, lat: float, lon: float) -> list[dict]:
-    if gdf is None or gdf.empty:
-        return []
+_BUS_STOPS_CACHE: list[dict] | None = None
+
+
+def _bus_stops_csv_path() -> str:
+    return os.path.join(os.path.dirname(__file__), "..", "..", "data", "paradas-de-colectivo.csv")
+
+
+def _line_sort_key(line: str) -> tuple[int, str]:
+    """Ordena las líneas de colectivo numéricamente cuando se puede (la
+    gran mayoría son solo un número, ej. "60", "152") y por texto si no
+    (hay algunas con sufijo de ramal, ej. "168A") -- así "9" no queda
+    ordenada después de "60" solo por comparación de string."""
+    digits = "".join(ch for ch in line if ch.isdigit())
+    return (int(digits) if digits else 0, line)
+
+
+def _load_bus_stops() -> list[dict]:
+    """Carga (una sola vez por proceso) el dataset oficial de paradas de
+    colectivo de BA Data (Gobierno de la Ciudad de Buenos Aires,
+    data.buenosaires.gob.ar/dataset/colectivos-paradas, CC-BY 2.5 AR,
+    actualizado junio 2026) -- reemplaza a Overpass/OSM para esta
+    categoría puntual.
+
+    Motivo (15/08/2026, a pedido de Pili): en OSM, highway=bus_stop casi
+    nunca trae con qué línea corresponde esa parada, así que el frontend
+    terminaba mostrando la misma etiqueta genérica ("Parada de colectivo")
+    para todas las paradas cercanas -- no había forma de distinguir una de
+    otra. Este dataset oficial SIEMPRE trae las líneas (hasta 6 por
+    parada, columnas L1-L6) y es CABA-only (columna COMUNA 1-15, sin nada
+    de conurbano).
+
+    Se bundlea como CSV estático versionado en el repo (ver
+    ml-service/data/) en vez de pegarle a la API de BA Data en cada
+    consulta -- mismo criterio que ya se usa para los datasets de
+    valuación: nada de scraping ni de llamada externa extra en el camino
+    caliente de cada cálculo, y no depende de que ese servicio esté arriba
+    justo en el momento en que alguien pide su Life Score. Efecto
+    secundario bueno: al no ser una llamada de red, no compite con el
+    tiempo de respuesta de Overpass (ver requests_timeout más abajo).
+
+    Se degrada a lista vacía (TRANSPORT queda sin colectivos, pero sigue
+    funcionando con subte/tren/bicicletas de Overpass) si el archivo no
+    está -- por ejemplo, si alguien corre este servicio sin haber bajado
+    el dataset todavía. Nunca inventa una parada.
+    """
+    global _BUS_STOPS_CACHE
+    if _BUS_STOPS_CACHE is not None:
+        return _BUS_STOPS_CACHE
+    stops: list[dict] = []
+    path = _bus_stops_csv_path()
+    try:
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            for row in csv.DictReader(f):
+                try:
+                    # BA Data usa coma decimal (formato AR) -- coord_X es
+                    # longitud, coord_Y es latitud (confirmado con datos
+                    # reales: valores ~-58 y ~-34 respectivamente).
+                    lon = float(row["coord_X"].replace(",", "."))
+                    lat = float(row["coord_Y"].replace(",", "."))
+                except (KeyError, ValueError):
+                    continue
+                lines = sorted(
+                    {row.get(f"L{i}", "").strip() for i in range(1, 7)} - {""},
+                    key=_line_sort_key,
+                )
+                stops.append({"lat": lat, "lon": lon, "lines": lines})
+    except (OSError, csv.Error) as exc:
+        logger.warning(
+            "No se pudo cargar el dataset de paradas de colectivo (%s): %s -- "
+            "TRANSPORT queda sin datos de colectivos",
+            path, exc,
+        )
+        stops = []
+    _BUS_STOPS_CACHE = stops
+    return stops
+
+
+def _bus_stop_label(lines: list[str]) -> str:
+    if not lines:
+        return "Parada de colectivo"
+    word = "líneas" if len(lines) > 1 else "línea"
+    return f"Parada de colectivo: {word} " + ", ".join(lines)
+
+
+def _nearby_bus_stops(lat: float, lon: float) -> list[dict]:
+    """Mismo formato que las entradas que arma _category_pois desde
+    Overpass (con "_distance_m" incluido, para que se puedan mezclar y
+    ordenar juntas antes del corte final)."""
     pois = []
-    seen_idx = set()
-    for key, value in CATEGORY_TAGS[category]:
-        if key not in gdf.columns:
+    for stop in _load_bus_stops():
+        distance_m = _haversine_m(lat, lon, stop["lat"], stop["lon"])
+        if distance_m > RADIUS_M:
             continue
-        matches = gdf[gdf[key] == value]
-        for idx, row in matches.iterrows():
-            # Un mismo elemento puede calzar en dos tags de la MISMA
-            # categoría (ej. algo con amenity=hospital y otro tag de
-            # salud a la vez) -- se cuenta una sola vez.
-            if idx in seen_idx:
+        pois.append({
+            "name": _bus_stop_label(stop["lines"]),
+            "lat": round(stop["lat"], 6),
+            "lon": round(stop["lon"], 6),
+            "_distance_m": distance_m,
+        })
+    return pois
+
+
+def _category_pois(gdf, category: str, lat: float, lon: float, extra: list[dict] | None = None) -> list[dict]:
+    """`extra` son POIs ya armados (con "_distance_m" incluido) que no
+    vienen de Overpass -- hoy solo lo usa TRANSPORT, para sumar las
+    paradas de colectivo de BA Data al resultado final (ver
+    compute_life_score). Se mezclan ACÁ, antes del sort final, para que
+    "los 4 más cercanos" (ver LifeScore.jsx) salgan bien sin importar de
+    qué fuente vino cada POI."""
+    pois = []
+    if gdf is not None and not gdf.empty:
+        seen_idx = set()
+        for key, value in CATEGORY_TAGS[category]:
+            if key not in gdf.columns:
                 continue
-            seen_idx.add(idx)
-            try:
-                centroid = row.geometry.centroid
-            except (AttributeError, ValueError, TypeError) as exc:
-                logger.debug("POI con geometria invalida, se descarta: %s", exc)
-                continue
-            distance_m = _haversine_m(lat, lon, centroid.y, centroid.x)
-            # OSMnx ya trajo todo dentro del CUADRADO de RADIUS_M (ver
-            # _haversine_m) -- acá se recorta al CÍRCULO real de RADIUS_M,
-            # para que "poiCount" y "~800 m" en el frontend sean ciertos y
-            # no una aproximación optimista de hasta ~1131 m en las puntas.
-            if distance_m > RADIUS_M:
-                continue
-            name = row.get("name")
-            if not isinstance(name, str) or not name.strip():
-                name = _FALLBACK_LABEL.get((key, value), value)
-            pois.append({
-                "name": name,
-                "lat": round(centroid.y, 6),
-                "lon": round(centroid.x, 6),
-                "_distance_m": distance_m,
-            })
+            matches = gdf[gdf[key] == value]
+            for idx, row in matches.iterrows():
+                # Un mismo elemento puede calzar en dos tags de la MISMA
+                # categoría (ej. algo con amenity=hospital y otro tag de
+                # salud a la vez) -- se cuenta una sola vez.
+                if idx in seen_idx:
+                    continue
+                seen_idx.add(idx)
+                try:
+                    centroid = row.geometry.centroid
+                except (AttributeError, ValueError, TypeError) as exc:
+                    logger.debug("POI con geometria invalida, se descarta: %s", exc)
+                    continue
+                distance_m = _haversine_m(lat, lon, centroid.y, centroid.x)
+                # OSMnx ya trajo todo dentro del CUADRADO de RADIUS_M (ver
+                # _haversine_m) -- acá se recorta al CÍRCULO real de
+                # RADIUS_M, para que "poiCount" y "~800 m" en el frontend
+                # sean ciertos y no una aproximación optimista de hasta
+                # ~1131 m en las puntas.
+                if distance_m > RADIUS_M:
+                    continue
+                name = row.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    name = _FALLBACK_LABEL.get((key, value), value)
+                pois.append({
+                    "name": name,
+                    "lat": round(centroid.y, 6),
+                    "lon": round(centroid.x, 6),
+                    "_distance_m": distance_m,
+                })
+    if extra:
+        pois.extend(extra)
     # Los más cercanos primero -- el frontend solo muestra los primeros 4
     # de cada categoría (ver LifeScore.jsx), tiene que priorizar los útiles.
     pois.sort(key=lambda p: p["_distance_m"])
@@ -353,7 +490,8 @@ def compute_life_score(lat: float, lon: float, weights: dict[str, int]) -> dict:
     total_weight = 0
 
     for category in CATEGORIES:
-        pois = _category_pois(gdf, category, lat, lon)
+        extra = _nearby_bus_stops(lat, lon) if category == "TRANSPORT" else None
+        pois = _category_pois(gdf, category, lat, lon, extra=extra)
         count = len(pois)
         full_coverage = _FULL_COVERAGE_COUNT[category]
         coverage = min(1.0, count / full_coverage)

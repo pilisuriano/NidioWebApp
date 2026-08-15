@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -104,6 +105,40 @@ function FitBounds({ points }) {
   return null;
 }
 
+// Botón para volver a centrar el mapa en la propiedad, pegado debajo del
+// "-" del control de zoom nativo -- mismo criterio que RecenterControl de
+// MapPage.jsx (ver el comentario de esa función para el detalle de por qué
+// se inserta el link directamente en la caja de zoom en vez de armar un
+// control propio con su propia caja aparte). Acá en vez de recentrar en
+// CABA, vuelve a la propiedad calculada (result.location), por eso recibe
+// las coordenadas por prop en lugar de tenerlas fijas.
+function RecenterToPropertyControl({ to }) {
+  const map = useMap();
+  useEffect(() => {
+    const zoomContainer = map.zoomControl?.getContainer();
+    if (!zoomContainer) return;
+    const link = L.DomUtil.create("a", "", zoomContainer);
+    link.href = "#";
+    link.title = "Volver a la propiedad";
+    link.setAttribute("aria-label", "Volver a la propiedad");
+    link.setAttribute("role", "button");
+    // Mismo ícono de "casa" que PROPERTY_PIN_ICON (el pin de la propiedad
+    // en el mapa, más arriba), para que se entienda de un vistazo que este
+    // botón vuelve a esa marca.
+    link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M3 11.5L12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-9"/><path d="M9.5 20v-6h5v6"/></svg>';
+    link.style.display = "flex";
+    link.style.alignItems = "center";
+    link.style.justifyContent = "center";
+    L.DomEvent.disableClickPropagation(link);
+    L.DomEvent.on(link, "click", e => {
+      L.DomEvent.preventDefault(e);
+      map.flyTo(to, 15, { duration: 0.75 });
+    });
+    return () => L.DomUtil.remove(link);
+  }, [map, to]);
+  return null;
+}
+
 export default function LifeScore() {
   // Dirección a consultar: autocomplete real (georef.ar vía /api/addresses/search,
   // mismo patrón que Publicar.jsx) -- no se puede calcular sin elegir una
@@ -137,9 +172,15 @@ export default function LifeScore() {
     EDUCATION: 4
   });
 
-  // "Mis lugares": nivel de importancia (ver CUSTOM_PLACE_WEIGHT_LEVELS) y
-  // radio de cercanía aceptable. Default "Me importa" (nivel intermedio).
-  const [customPlaceWeight, setCustomPlaceWeight] = useState(CUSTOM_PLACE_WEIGHT_LEVELS[1].value);
+  // "Mis lugares": nivel de importancia POR LUGAR (id -> valor de
+  // CUSTOM_PLACE_WEIGHT_LEVELS) -- antes era un único peso para todo el
+  // conjunto; desde el 15/08/2026 cada lugar pesa por separado (a pedido de
+  // Pili: puede importar más estar cerca del gimnasio que de la casa de los
+  // papás). Un lugar sin entrada acá usa el default (ver getPlaceWeight).
+  const [placeWeights, setPlaceWeights] = useState({});
+  // Radio de cercanía aceptable (compartido entre todos los lugares -- a
+  // diferencia del peso, no tiene sentido que cada lugar tenga su propio
+  // radio: es la distancia a la que "ya no está cerca", no una prioridad).
   const [customPlaceRadiusKm, setCustomPlaceRadiusKm] = useState(2);
 
   const [customPlaces, setCustomPlaces] = useState([]);
@@ -170,8 +211,36 @@ export default function LifeScore() {
     loadCustomPlaces();
   }, []);
 
+  // Si se llega acá con ?address=&lat=&lon= (desde el botón "Calcular Life
+  // Score" de la ficha de una propiedad, ver PropertyDetail.jsx), se
+  // precarga esa dirección lista para calcular. No se auto-calcula: el
+  // usuario ajusta sus propios pesos por categoría antes de tocar
+  // "Calcular" (por eso el cálculo neutral que había en PropertyDetail.jsx
+  // se sacó, en vez de simplemente moverse acá).
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const qAddress = searchParams.get("address");
+    const qLat = searchParams.get("lat");
+    const qLon = searchParams.get("lon");
+    if (qAddress && qLat && qLon) {
+      setAddress(qAddress);
+      setLat(parseFloat(qLat));
+      setLon(parseFloat(qLon));
+      setShowManualAddress(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function loadCustomPlaces() {
     api.get("/api/custom-places").then(res => setCustomPlaces(res.data)).catch(() => {});
+  }
+
+  function getPlaceWeight(id) {
+    return placeWeights[id] ?? CUSTOM_PLACE_WEIGHT_LEVELS[1].value;
+  }
+
+  function setPlaceWeight(id, value) {
+    setPlaceWeights(w => ({ ...w, [id]: value }));
   }
 
   function togglePlaceSelection(id) {
@@ -253,12 +322,17 @@ export default function LifeScore() {
       const selectedPlaceIds = customPlaces
         .filter(p => !deselectedPlaceIds.has(p.id))
         .map(p => p.id);
+      // Solo se manda el peso de los lugares SELECCIONADOS -- el peso de un
+      // lugar destildado no importa (no entra al cálculo de todos modos).
+      const customPlaceWeights = Object.fromEntries(
+        selectedPlaceIds.map(id => [id, getPlaceWeight(id)])
+      );
       const res = await api.post("/api/life-score", {
         address,
         lat,
         lon,
         weights,
-        customPlaceWeight: selectedPlaceIds.length > 0 ? customPlaceWeight : null,
+        customPlaceWeights: selectedPlaceIds.length > 0 ? customPlaceWeights : null,
         customPlaceRadiusKm,
         // null si no tiene ningún lugar cargado -- el backend interpreta
         // null como "usar todos" (compatibilidad), pero acá igual da lo
@@ -366,10 +440,22 @@ export default function LifeScore() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <h1 className="text-3xl font-bold text-on-surface">Life Score</h1>
         <Badge variant="secondary" className="px-3 py-1 text-[10px] tracking-widest uppercase">
-          CATEGORÍAS: DATOS REALES (OPENSTREETMAP)
+          DATOS REALES (OPENSTREETMAP)
+        </Badge>
+        {/* Crédito del dataset de paradas de colectivo -- antes iba en un
+            renglón aparte debajo del mapa, movido acá junto con la otra
+            fuente de datos reales a pedido de Pili (15/08/2026). Licencia
+            CC-BY 2.5 AR: el texto completo de la atribución queda en el
+            title (tooltip), para no alargar el badge visualmente. */}
+        <Badge
+          variant="secondary"
+          className="px-3 py-1 text-[10px] tracking-widest uppercase"
+          title="Datos de paradas de colectivo: Gobierno de la Ciudad de Buenos Aires (CC-BY 2.5 AR) — data.buenosaires.gob.ar"
+        >
+          GOBIERNO DE BUENOS AIRES (DATA.BUENOSAIRES.GOB.AR)
         </Badge>
       </div>
       <p className="text-on-surface-variant max-w-3xl font-mono text-sm">
@@ -465,7 +551,7 @@ export default function LifeScore() {
           </div>
           <p className="text-xs text-on-surface-variant max-w-2xl font-mono">
             Direcciones que te interesa tener cerca (trabajo, familia, gimnasio…). Se suman al cálculo con el peso y el
-            radio de acá abajo, además de las 7 categorías de arriba.
+            radio de acá abajo, además de las 7 categorías de arriba. Son datos privados y cifrados: solo vos podés verlos.
           </p>
 
           <div className="space-y-2 max-w-sm">
@@ -479,41 +565,76 @@ export default function LifeScore() {
               className="w-full h-1.5 cursor-pointer"
               style={{ accentColor: CUSTOM_PLACE_COLOR }}
             />
-            <p className="text-xs text-on-surface-variant font-mono">
-              Puntaje pleno hasta ~400 m caminables; a partir de ahí decae hasta 0 al llegar a este radio.
-            </p>
           </div>
+          {/* Texto explicativo del radio, afuera del max-w-sm del slider (que
+              lo achicaba de más y lo hacía saltar de línea justo a la mitad) --
+              acá aprovecha el ancho completo de la card, y además se acortó
+              un poco el texto para que entre en un renglón. */}
+          <p className="text-xs text-on-surface-variant font-mono">
+            Puntaje pleno hasta ~400 m; decae a 0 al llegar a este radio.
+          </p>
 
           {customPlaces.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-on-surface-variant font-mono">
-                Elegí cuáles usar en el próximo cálculo (por defecto se usan todos):
+                Elegí cuáles usar en el próximo cálculo y qué tan importante es cada uno
+                (por defecto se usan todos, con importancia "Me importa"):
               </p>
               {customPlaces.map(place => {
                 const selected = !deselectedPlaceIds.has(place.id);
+                const placeWeight = getPlaceWeight(place.id);
                 return (
-                  <div key={place.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5">
-                    <label className="flex items-center gap-3 min-w-0 cursor-pointer flex-1">
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() => togglePlaceSelection(place.id)}
-                        className="shrink-0 w-4 h-4 cursor-pointer"
-                        style={{ accentColor: CUSTOM_PLACE_COLOR }}
-                        aria-label={`Incluir ${place.label} en el cálculo`}
-                      />
-                      <div className={`min-w-0 ${selected ? "" : "opacity-50"}`}>
-                        <p className="text-sm font-bold text-on-surface truncate">{place.label}</p>
-                        <p className="text-xs text-on-surface-variant truncate font-mono">{place.address}</p>
-                      </div>
-                    </label>
-                    <button
-                      type="button" onClick={() => setPlaceToDelete(place)}
-                      className="shrink-0 p-2 rounded-md text-outline hover:text-error hover:bg-error-container/40 transition-colors"
-                      aria-label={`Eliminar ${place.label}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div key={place.id} className="bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="flex items-center gap-3 min-w-0 cursor-pointer flex-1">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => togglePlaceSelection(place.id)}
+                          className="shrink-0 w-4 h-4 cursor-pointer"
+                          style={{ accentColor: CUSTOM_PLACE_COLOR }}
+                          aria-label={`Incluir ${place.label} en el cálculo`}
+                        />
+                        <div className={`min-w-0 ${selected ? "" : "opacity-50"}`}>
+                          <p className="text-sm font-bold text-on-surface truncate">{place.label}</p>
+                          <p className="text-xs text-on-surface-variant truncate font-mono">{place.address}</p>
+                        </div>
+                      </label>
+                      <button
+                        type="button" onClick={() => setPlaceToDelete(place)}
+                        className="shrink-0 p-2 rounded-md text-outline hover:text-error hover:bg-error-container/40 transition-colors"
+                        aria-label={`Eliminar ${place.label}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {/* Importancia de ESTE lugar en particular -- antes vivía
+                        como un único selector global, aparte de la lista
+                        (en la tarjeta de preferencias). Deshabilitado si el
+                        lugar está destildado: no tiene sentido elegir
+                        importancia de algo que no se va a usar en este
+                        cálculo. */}
+                    <div className={`flex flex-wrap gap-1.5 pl-7 ${selected ? "" : "opacity-40"}`}>
+                      {CUSTOM_PLACE_WEIGHT_LEVELS.map(level => {
+                        const levelSelected = placeWeight === level.value;
+                        return (
+                          <button
+                            key={level.value}
+                            type="button"
+                            disabled={!selected}
+                            onClick={() => setPlaceWeight(place.id, level.value)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-mono border transition-colors disabled:cursor-not-allowed ${
+                              levelSelected
+                                ? "text-white border-transparent"
+                                : "bg-surface border-outline-variant text-on-surface-variant hover:bg-surface-container"
+                            }`}
+                            style={levelSelected ? { backgroundColor: CUSTOM_PLACE_COLOR } : undefined}
+                          >
+                            {level.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
@@ -563,16 +684,16 @@ export default function LifeScore() {
         <span>{error}</span>
       </div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Preferencias */}
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="text-sm font-bold text-on-surface uppercase tracking-widest flex items-center gap-2 mb-8">
+        <Card className="lg:col-span-1">
+          <CardContent className="p-5">
+            <h3 className="text-sm font-bold text-on-surface uppercase tracking-widest flex items-center gap-2 mb-4">
               <SlidersHorizontal className="w-5 h-5 text-primary" />
               PREFERENCIA DE ANÁLISIS
             </h3>
 
-            <div className="space-y-6">
+            <div className="space-y-3">
               {CATEGORIES.map(item => (
                 <div key={item.key} className="space-y-2">
                   <div className="flex justify-between items-center">
@@ -590,32 +711,11 @@ export default function LifeScore() {
               ))}
             </div>
 
-            <div className="pt-6 mt-6 border-t border-outline-variant/50 space-y-2">
+            <div className="pt-4 mt-4 border-t border-outline-variant/50 space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-on-surface font-medium flex items-center gap-2">
                   <Star className="w-4 h-4 text-on-surface-variant" /> Mis lugares personales
                 </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {CUSTOM_PLACE_WEIGHT_LEVELS.map(level => {
-                  const selected = customPlaceWeight === level.value;
-                  return (
-                    <button
-                      key={level.value}
-                      type="button"
-                      disabled={selectedPlaceCount === 0}
-                      onClick={() => setCustomPlaceWeight(level.value)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-mono border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                        selected
-                          ? "text-white border-transparent"
-                          : "bg-surface-container-lowest border-outline-variant text-on-surface-variant hover:bg-surface-container"
-                      }`}
-                      style={selected ? { backgroundColor: CUSTOM_PLACE_COLOR } : undefined}
-                    >
-                      {level.label}
-                    </button>
-                  );
-                })}
               </div>
               {customPlaces.length === 0 ? (
                 <p className="text-xs text-on-surface-variant font-mono">
@@ -627,126 +727,136 @@ export default function LifeScore() {
                 </p>
               ) : (
                 <p className="text-xs text-on-surface-variant font-mono">
-                  Se van a usar {selectedPlaceCount} de {customPlaces.length} lugares (tildá/destildá abajo).
+                  Se van a usar {selectedPlaceCount} de {customPlaces.length} lugares, cada uno con la
+                  importancia que le elegiste más abajo, en "Mis lugares".
                 </p>
               )}
             </div>
 
-            <Button onClick={() => handleSubmit()} disabled={submitting} className="w-full h-12 mt-8 text-base gap-2 disabled:opacity-60">
+            <Button onClick={() => handleSubmit()} disabled={submitting} className="w-full h-11 mt-4 text-base gap-2 disabled:opacity-60">
               <Calculator className="w-5 h-5" />
               {submitting ? "Calculando…" : "Calcular Life Score"}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Score */}
-        <Card className="flex flex-col items-center justify-center text-center p-8 relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 text-surface-dim opacity-20">
-            <Calculator className="w-64 h-64" />
-          </div>
-
-          <h3 className="text-xs font-bold text-outline uppercase tracking-widest mb-10 z-10">
-            PUNTAJE DE UBICACIÓN
-          </h3>
-
-          <div className="relative w-48 h-48 mb-8 z-10 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="45" fill="none" stroke="#cfdaf2" strokeWidth="8" />
-              <circle
-                cx="50" cy="50" r="45" fill="none" stroke="#00647c" strokeWidth="8"
-                strokeDasharray={circumference}
-                strokeDashoffset={circumference - circumference * ((score ?? 0) / 100)}
-                strokeLinecap="round"
-                style={{ transition: "stroke-dashoffset 0.6s ease" }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-6xl font-bold text-primary tracking-tighter">
-                {score != null ? Math.round(score) : "—"}
-              </span>
-              <span className="text-xs font-mono text-on-surface-variant mt-1">pts / 100</span>
-            </div>
-          </div>
-
-          {score != null ? (
-            <>
-              <Badge variant="outline" className="text-primary border-primary/30 mb-6 font-bold tracking-widest px-4 py-1.5 z-10">
-                NIVEL: {scoreLabel(score)}
-              </Badge>
-              <p className="text-sm font-mono text-on-surface-variant max-w-[250px] z-10">
-                {address}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm font-mono text-on-surface-variant max-w-[250px] z-10">
-              Ingresá una dirección y calculá el score para ver el resultado.
-            </p>
-          )}
-        </Card>
-
-        {/* Mapa */}
-        <Card className="p-2 overflow-hidden bg-surface-container-lowest">
-          <div className="w-full h-full rounded-lg relative overflow-hidden min-h-[400px]">
-            {result ? (
-              <MapContainer key={result.id} center={[result.location.lat, result.location.lon]} zoom={15} className="w-full h-full min-h-[400px]">
-                <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <FitBounds points={mapPoints} />
-                <Marker position={[result.location.lat, result.location.lon]} icon={PROPERTY_PIN_ICON}>
-                  <Popup>{address}</Popup>
-                </Marker>
-                {result.categories.flatMap(cat => cat.pois.map((poi, i) => (
-                  <CircleMarker
-                    key={`${cat.category}-${i}`} center={[poi.lat, poi.lon]} radius={6}
-                    pathOptions={{ color: CATEGORY_COLOR[cat.category], fillColor: CATEGORY_COLOR[cat.category], fillOpacity: 0.7, weight: 1 }}
-                  >
-                    <Popup>
-                      <strong>{poi.name}</strong>
-                      <br />
-                      {CATEGORIES.find(c => c.key === cat.category)?.label}
-                    </Popup>
-                  </CircleMarker>
-                )))}
-                {result.customPlaces?.map(place => (
-                  <Marker
-                    key={`custom-${place.id}`} position={[place.lat, place.lon]} icon={CUSTOM_PLACE_PIN_ICON}
-                  >
-                    <Popup>
-                      <strong>{place.label}</strong>
-                      <br />
-                      {place.address}
-                      <br />
-                      {place.distanceM} m · score {place.score}
-                    </Popup>
+        {/* Columna derecha: mapa (más chico que antes) y, debajo, puntaje +
+            explicación -- a pedido de Pili (15/08/2026), para que las tres
+            piezas queden agrupadas juntas al lado de las preferencias, en
+            vez del mapa grande solo en su propia fila. */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Mapa */}
+          <Card className="p-2 overflow-hidden bg-surface-container-lowest">
+            <div className="w-full h-full rounded-lg relative overflow-hidden min-h-[420px]">
+              {result ? (
+                <MapContainer key={result.id} center={[result.location.lat, result.location.lon]} zoom={15} className="w-full h-full min-h-[420px]">
+                  <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <FitBounds points={mapPoints} />
+                  <RecenterToPropertyControl to={[result.location.lat, result.location.lon]} />
+                  <Marker position={[result.location.lat, result.location.lon]} icon={PROPERTY_PIN_ICON}>
+                    <Popup>{address}</Popup>
                   </Marker>
-                ))}
-              </MapContainer>
-            ) : (
-              <div className="w-full h-full min-h-[400px] bg-[#e5e9f0] flex items-center justify-center">
-                <p className="text-sm font-mono text-on-surface-variant text-center px-8">
-                  El mapa con los POIs cercanos aparece acá después de calcular.
-                </p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      {/* Explicación en texto del puntaje -- no un desglose numérico: la
-          cuenta exacta ya se hizo del lado del backend, esto solo la cuenta
-          en palabras (ver LifeScoreService.buildExplanation). */}
-      {result?.explanation && (
-        <Card>
-          <CardContent className="p-6 flex items-start gap-3">
-            <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-            <div>
-              <h3 className="text-sm font-bold text-on-surface uppercase tracking-widest mb-2">
-                ¿Por qué este puntaje?
-              </h3>
-              <p className="text-sm text-on-surface-variant">{result.explanation}</p>
+                  {result.categories.flatMap(cat => cat.pois.map((poi, i) => (
+                    <CircleMarker
+                      key={`${cat.category}-${i}`} center={[poi.lat, poi.lon]} radius={6}
+                      pathOptions={{ color: CATEGORY_COLOR[cat.category], fillColor: CATEGORY_COLOR[cat.category], fillOpacity: 0.7, weight: 1 }}
+                    >
+                      <Popup>
+                        <strong>{poi.name}</strong>
+                        <br />
+                        {CATEGORIES.find(c => c.key === cat.category)?.label}
+                      </Popup>
+                    </CircleMarker>
+                  )))}
+                  {result.customPlaces?.map(place => (
+                    <Marker
+                      key={`custom-${place.id}`} position={[place.lat, place.lon]} icon={CUSTOM_PLACE_PIN_ICON}
+                    >
+                      <Popup>
+                        <strong>{place.label}</strong>
+                        <br />
+                        {place.address}
+                        <br />
+                        {place.distanceM} m · score {place.score}
+                      </Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
+              ) : (
+                <div className="w-full h-full min-h-[420px] bg-[#e5e9f0] flex items-center justify-center">
+                  <p className="text-sm font-mono text-on-surface-variant text-center px-8">
+                    El mapa con los POIs cercanos aparece acá después de calcular.
+                  </p>
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </Card>
+
+          {/* Puntaje total + explicación, debajo del mapa. La explicación se
+              muestra siempre, con placeholder antes de calcular (mismo
+              criterio que ya usan el mapa y el círculo de puntaje), para que
+              la fila no quede con un hueco vacío al lado del círculo. */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Score */}
+            <Card className="flex flex-col items-center justify-center text-center p-5 relative overflow-hidden">
+              <h3 className="text-xs font-bold text-outline uppercase tracking-widest mb-4 z-10">
+                PUNTAJE DE UBICACIÓN
+              </h3>
+
+              <div className="relative w-32 h-32 mb-3 z-10 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="#cfdaf2" strokeWidth="8" />
+                  <circle
+                    cx="50" cy="50" r="45" fill="none" stroke="#00647c" strokeWidth="8"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={circumference - circumference * ((score ?? 0) / 100)}
+                    strokeLinecap="round"
+                    style={{ transition: "stroke-dashoffset 0.6s ease" }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-primary tracking-tighter">
+                    {score != null ? Math.round(score) : "—"}
+                  </span>
+                  <span className="text-[10px] font-mono text-on-surface-variant mt-0.5">pts / 100</span>
+                </div>
+              </div>
+
+              {score != null ? (
+                <>
+                  <Badge variant="outline" className="text-primary border-primary/30 mb-2 font-bold tracking-widest px-4 py-1.5 z-10">
+                    NIVEL: {scoreLabel(score)}
+                  </Badge>
+                  <p className="text-sm font-mono text-on-surface-variant max-w-[250px] z-10">
+                    {address}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm font-mono text-on-surface-variant max-w-[250px] z-10">
+                  Ingresá una dirección y calculá el score para ver el resultado.
+                </p>
+              )}
+            </Card>
+
+            {/* Explicación en texto del puntaje -- no un desglose numérico: la
+                cuenta exacta ya se hizo del lado del backend, esto solo la cuenta
+                en palabras (ver LifeScoreService.buildExplanation). */}
+            <Card className="lg:col-span-2">
+              <CardContent className="p-5 flex items-start gap-3 h-full">
+                <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-bold text-on-surface uppercase tracking-widest mb-2">
+                    ¿Por qué este puntaje?
+                  </h3>
+                  <p className="text-sm text-on-surface-variant">
+                    {result?.explanation ?? "Calculá el score para ver acá el detalle de por qué dio ese resultado."}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
 
       {/* POIs por categoría */}
       {result && <div className="space-y-4 pt-4">
@@ -790,31 +900,6 @@ export default function LifeScore() {
               </Card>
             );
           })}
-        </div>
-      </div>}
-
-      {/* Resultado de "mis lugares" */}
-      {result && result.customPlaces?.length > 0 && <div className="space-y-4 pt-4">
-        <h2 className="text-xl font-bold text-on-surface">Mis Lugares</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {result.customPlaces.map(place => (
-            <Card key={place.id} className="border-t-4" style={{ borderTopColor: CUSTOM_PLACE_COLOR }}>
-              <CardContent className="p-6 space-y-3">
-                <h4 className="text-sm font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: CUSTOM_PLACE_COLOR }}>
-                  <Star className="w-4 h-4" /> {place.label}
-                </h4>
-                <p className="text-xs text-on-surface-variant font-mono">{place.address}</p>
-                <div className="flex justify-between items-center pt-1">
-                  <span className="text-xs font-mono text-on-surface-variant">
-                    {place.distanceM >= 1000 ? `${(place.distanceM / 1000).toFixed(1)} km` : `${place.distanceM} m`}
-                  </span>
-                  <Badge variant="good" className="bg-primary/5 text-primary shrink-0">
-                    Score {place.score}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
         </div>
       </div>}
 
