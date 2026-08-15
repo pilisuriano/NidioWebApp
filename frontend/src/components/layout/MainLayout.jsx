@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Home, Map, Calculator, HeartPulse, Heart, ClipboardList, User, LogOut, ShieldCheck, Menu, X } from "lucide-react";
+import { Home, Map, Calculator, HeartPulse, Heart, ClipboardList, User, LogOut, ShieldCheck, Menu, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { Footer } from "./Footer";
@@ -141,24 +141,35 @@ export function MainLayout() {
         </button>}
 
       {/* Usuario logueado: ya no hay barra blanca arriba, pero se mantiene
-          un acceso rápido al perfil como chip flotante arriba a la derecha.
+          un acceso rápido al perfil como chip flotante arriba a la derecha,
+          junto con el botón de "Publicar propiedad" al lado (a pedido, para
+          tenerlo a mano en todas las páginas y no solo como card en Inicio).
           Mismo z-[1300] que el botón de abrir menú, por la misma razón.
           Siempre arriba a la derecha del todo, en TODAS las páginas
           (antes, en Explorar propiedades quedaba más abajo -- top-40 -- para
           no chocar con el selector de capas de esa página; ahora es al
           revés: el selector de capas de MapPage.jsx es el que se corre para
           abajo, ver el comentario junto a "Selector de capas" ahí). */}
-      {user && <Link
-          to="/perfil"
-          className="fixed top-4 right-4 z-[1300] flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-surface-container-lowest shadow-lg border border-outline-variant hover:shadow-xl transition-shadow group"
-        >
-          <span className="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
-            {user.name?.charAt(0).toUpperCase() ?? "?"}
-          </span>
-          <span className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">
-            {user.name?.split(" ")[0]}
-          </span>
-        </Link>}
+      {user && <div className="fixed top-4 right-4 z-[1300] flex items-center gap-2">
+          <Link
+            to="/publicar"
+            className="flex items-center gap-1.5 pl-3 pr-4 py-1.5 rounded-full bg-primary text-on-primary shadow-lg hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">Publicar</span>
+          </Link>
+          <Link
+            to="/perfil"
+            className="flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-surface-container-lowest shadow-lg border border-outline-variant hover:shadow-xl transition-shadow group"
+          >
+            <span className="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
+              {user.name?.charAt(0).toUpperCase() ?? "?"}
+            </span>
+            <span className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">
+              {user.name?.split(" ")[0]}
+            </span>
+          </Link>
+        </div>}
 
       {/* Main Content Area. Sin topbar: la vieja barra blanca con el título
           de la página y el botón "Publicar" se sacó; Publicar ahora vive

@@ -573,6 +573,13 @@ export default function MapPage() {
           </Button>
         </div>
 
+        {/* Acceso directo al listado en grilla (mismos filtros ya aplicados
+            acá: operación, tipo, texto y "Más filtros"), para quien prefiere
+            esa vista a explorar el mapa. */}
+        <Link to={`/propiedades?${listingQueryString}`} className="mt-2 flex items-center justify-center gap-2 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant py-2.5 text-sm font-bold text-primary hover:bg-surface-dim transition-colors">
+          <List className="w-4 h-4" /> Ver listado de propiedades
+        </Link>
+
         {/* Panel de "Más filtros": ambientes, baños, precio, antigüedad, tipo
             de anunciante, orientación y características — todo filtra sobre
             lo que ya está cargado (ver filterProperties en
