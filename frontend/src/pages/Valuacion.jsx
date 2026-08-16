@@ -379,13 +379,18 @@ export default function Valuacion() {
 
                   <div className="text-center mb-12">
                     <p className="text-xs font-bold text-outline uppercase tracking-widest mb-2">VALOR ESTIMADO SUGERIDO</p>
-                    <div className="flex items-start justify-center gap-2">
-                      <span className="text-xl font-bold text-on-surface-variant mt-2">{currency}</span>
-                      <span className="text-6xl font-bold text-on-surface tracking-tighter">{formatNumber(estimatedMid)}</span>
-                    </div>
-                    {showArs && <p className="text-sm text-on-surface-variant mt-2">
-                        ≈ ARS {formatNumber(toArs(estimatedMid))}/mes (cotización dólar blue del momento del cálculo: ${formatNumber(lastRequest.blueRateUsed)})
-                      </p>}
+                    {showArs ? <>
+                        <div className="flex items-start justify-center gap-2">
+                          <span className="text-xl font-bold text-on-surface-variant mt-2">ARS</span>
+                          <span className="text-6xl font-bold text-on-surface tracking-tighter">{formatNumber(toArs(estimatedMid))}</span>
+                        </div>
+                        <p className="text-sm text-on-surface-variant mt-2">
+                          ≈ {currency} {formatNumber(estimatedMid)} (cotización dólar blue del momento del cálculo: ${formatNumber(lastRequest.blueRateUsed)})
+                        </p>
+                      </> : <div className="flex items-start justify-center gap-2">
+                        <span className="text-xl font-bold text-on-surface-variant mt-2">{currency}</span>
+                        <span className="text-6xl font-bold text-on-surface tracking-tighter">{formatNumber(estimatedMid)}</span>
+                      </div>}
                   </div>
 
                   {/* Barra de rango */}
@@ -423,15 +428,15 @@ export default function Valuacion() {
                     </div>
                     <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
                       <p className="text-xs text-on-surface-variant">Mínimo estimado</p>
-                      <p className="text-lg font-bold text-on-surface">{formatNumber(result.estimatedMin)}</p>
-                      <p className="text-[10px] font-mono text-on-surface-variant">{currency}</p>
-                      {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ ARS {formatNumber(toArs(result.estimatedMin))}</p>}
+                      <p className="text-lg font-bold text-on-surface">{showArs ? formatNumber(toArs(result.estimatedMin)) : formatNumber(result.estimatedMin)}</p>
+                      <p className="text-[10px] font-mono text-on-surface-variant">{showArs ? "ARS" : currency}</p>
+                      {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ {currency} {formatNumber(result.estimatedMin)}</p>}
                     </div>
                     <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
                       <p className="text-xs text-on-surface-variant">Máximo estimado</p>
-                      <p className="text-lg font-bold text-on-surface">{formatNumber(result.estimatedMax)}</p>
-                      <p className="text-[10px] font-mono text-on-surface-variant">{currency}</p>
-                      {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ ARS {formatNumber(toArs(result.estimatedMax))}</p>}
+                      <p className="text-lg font-bold text-on-surface">{showArs ? formatNumber(toArs(result.estimatedMax)) : formatNumber(result.estimatedMax)}</p>
+                      <p className="text-[10px] font-mono text-on-surface-variant">{showArs ? "ARS" : currency}</p>
+                      {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ {currency} {formatNumber(result.estimatedMax)}</p>}
                     </div>
                   </div>
 
