@@ -315,35 +315,40 @@ public class LifeScoreService {
             sb.append(" También se tuv").append(customPlaceScores.size() == 1 ? "o" : "ieron")
                     .append(" en cuenta tus lugares personales: ").append(String.join(", ", placeDetails)).append(".");
             if (customPlacesHurt) {
-                // Fix anterior (Pili, 16/08/2026): acá se mostraba la
-                // distancia AL LUGAR en vez del radio elegido -- ya
-                // corregido, ver customPlaceRadiusKm más abajo.
+                // Fix 1 (Pili, 16/08/2026): acá se mostraba la distancia AL
+                // LUGAR en vez del radio elegido -- ya corregido, ver
+                // customPlaceRadiusKm más abajo.
                 //
-                // Segundo bug real, encontrado por Pili probando el fix
-                // anterior (16/08/2026, mismo día): con el radio ya
-                // mostrado correctamente, el texto seguía sin tener
-                // sentido en casos como "Casa Mama (1.8 km)... está
-                // bastante lejos del radio... que elegiste (2.0 km)" --
-                // 1.8 km NO es más que 2.0 km, así que decir "lejos del
-                // radio que elegiste" es contradictorio con los propios
-                // números de la oración. Causa: decayScore() no es un
-                // corte binario (adentro/afuera del radio) -- da 100
-                // puntos hasta CUSTOM_PLACE_FULL_SCORE_M (400m,
-                // "caminable") y decae LINEALMENTE hasta 0 recién AL
-                // LLEGAR al radio elegido. Un lugar a 1.8km con un radio
-                // de 2.0km todavía está adentro, pero ya usó el 90% del
-                // "presupuesto" de distancia (1400 de los 1600m entre
-                // 400m y 2000m), así que el score da bajo (~13) aunque
-                // técnicamente no se haya pasado del radio. "Bastante
-                // lejos del radio... que elegiste" daba a entender que
-                // el lugar quedaba FUERA del radio elegido, lo cual es
-                // falso salvo que la distancia realmente iguale o supere
-                // ese radio (score=0, ver decayScore). Fix: distinguir
-                // los dos casos reales -- si distanceM >= radiusM, el
-                // lugar está literalmente fuera del radio elegido; si
-                // no, está adentro pero cerca del límite (por eso resta
-                // tanto), y el texto ahora lo dice así, sin afirmar algo
-                // que los propios números contradicen.
+                // Fix 2 (Pili, mismo día): "está bastante lejos del radio...
+                // que elegiste" daba a entender que el lugar quedaba FUERA
+                // del radio, contradiciendo los propios números cuando la
+                // distancia era menor al radio (ej. 1.8 km de un radio de
+                // 2 km) -- reemplazado por "cerca del límite".
+                //
+                // Fix 3 (Pili, mismo día, probando el fix 2): "cerca del
+                // límite" TAMPOCO es siempre cierto. Caso real que lo
+                // encontró: Casa Mama a 1.8 km con radio 2.5 km (score ~33)
+                // y de nuevo con radio 3 km (score ~46) -- en ninguno de
+                // los dos casos 1.8 km está realmente "cerca del límite"
+                // (a 0.7 km o 1.2 km de distancia del borde, según el
+                // radio), pero como decayScore() sigue devolviendo menos
+                // de NEGATIVE_DRIVER_MAX_SCORE (50) en ambos, el texto
+                // afirmaba una cercanía geométrica al borde que no existía.
+                // El problema de fondo es el mismo de los dos fixes
+                // anteriores: describir la posición del lugar en términos
+                // de "cerca/lejos del radio" (un concepto binario/de borde)
+                // cuando decayScore() en realidad es una rampa continua
+                // desde los 400m (caminable, 100 puntos) hasta el radio
+                // elegido (0 puntos) -- cualquier frase que hable del
+                // "límite" o del "radio" como si fuera un punto de
+                // referencia geométrico va a ser engañosa para *algún*
+                // valor de distancia/radio. Fix real: dejar de describir
+                // la posición relativa al radio, y describir la posición
+                // relativa a los 400m "caminables" (el otro extremo de la
+                // rampa, que es un umbral fijo, no depende del radio que
+                // elija el usuario) -- afirmación que vale para cualquier
+                // combinación de distancia/radio mientras el lugar siga
+                // adentro del radio elegido.
                 long radiusM = Math.round(customPlaceRadiusKm * 1000);
                 boolean beyondRadius = worstMeaningfulPlace.distanceM() >= radiusM;
                 sb.append(" ").append(worstMeaningfulPlace.label());
@@ -352,7 +357,19 @@ public class LifeScoreService {
                             .append(formatKm(radiusM))
                             .append("), así que no suma puntos al promedio final.");
                 } else {
-                    sb.append(" está cerca del límite de tu radio de \"cercanía aceptable\" (")
+                    // Fix 4 (Pili, mismo día): se había agregado el score
+                    // numérico del lugar ("suma 33 de 100 puntos") para que
+                    // el efecto del radio quedara visible -- pero Pili lo
+                    // rechazó explícitamente ("la gente no entiende de
+                    // puntos"), mismo criterio ya usado en toda esta
+                    // función desde el diseño original (ver comentario de
+                    // buildExplanation más arriba: se descartó SHAP y
+                    // cualquier desglose numérico a propósito, a favor de
+                    // texto en lenguaje llano). Se saca el número: el
+                    // radio sigue afectando el cálculo real igual que
+                    // antes (eso no cambió, ver Fix 4 más arriba en el
+                    // historial), simplemente no se expone en el texto.
+                    sb.append(" está lejos de la zona caminable (aunque dentro del radio de \"cercanía aceptable\" que elegiste, ")
                             .append(formatKm(radiusM))
                             .append("), así que resta bastante al promedio final.");
                 }
