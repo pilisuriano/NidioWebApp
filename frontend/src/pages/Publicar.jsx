@@ -4,7 +4,9 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
+import { Switch } from "@/components/ui/Switch";
 import { ImageUploader } from "@/components/ui/ImageUploader";
+import { PublishingOverlay } from "@/components/ui/PublishingOverlay";
 import { Check, AlertCircle, CheckCircle2, MapPin, Building2, Calculator, Loader2 } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { formatPrice, formatNumber } from "@/lib/format";
@@ -18,6 +20,15 @@ const PROPERTY_TYPES = [{ value: "APARTMENT", label: "Departamento" }, { value: 
 const PUBLISHER_TYPES = [{ value: "OWNER", label: "Dueño directo" }, { value: "AGENCY", label: "Inmobiliaria" }];
 
 const ORIENTATIONS = [{ value: "", label: "Sin especificar" }, { value: "Frente", label: "Frente" }, { value: "Contrafrente", label: "Contrafrente" }, { value: "Interno", label: "Interno" }, { value: "Lateral", label: "Lateral" }];
+
+// Mismos 4 valores que espera el backend/modelo (ver ValuationCreateRequest.java y
+// valuation.py::_CONDITION_MAP), copiados de Valuacion.jsx -- "" (no especifica) no se manda.
+const PROPERTY_CONDITIONS = [{ value: "", label: "No especifica" }, { value: "NEW", label: "A estrenar" }, { value: "USED_GOOD_CONDITION", label: "Usado, buen estado" }, { value: "NEEDS_RENOVATION", label: "A reciclar" }];
+
+// Características opcionales que el modelo usa (vía SHAP) para una tasación
+// automática más ajustada al publicar (ver PropertyService.createProperty) --
+// mismos campos/labels que AMENITY_SWITCHES de Valuacion.jsx.
+const AMENITY_SWITCHES = [{ field: "hasPool", label: "Pileta" }, { field: "hasGarage", label: "Cochera" }, { field: "buildingAmenities", label: "Amenities del edificio" }, { field: "security24h", label: "Seguridad 24hs" }, { field: "bright", label: "Luminoso" }, { field: "aptoCredito", label: "Apto crédito" }, { field: "furnished", label: "Amoblado" }];
 
 // El borrador se guarda para poder ir a "Tasación" a mitad de carga (a
 // consultar un precio de referencia) y volver acá sin perder lo cargado.
@@ -58,6 +69,12 @@ export default function Publicar() {
   const [neighborhoods, setNeighborhoods] = useState([]);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Fase de la pantalla de espera (PublishingOverlay): "loading" mientras se
+  // espera que el backend termine de tasar con ml-service /predict antes de
+  // crear la propiedad (ver PropertyService.createProperty, Ronda 13 del
+  // roadmap), "success" un instante antes de mostrar la pantalla final --
+  // ver handlePublish más abajo.
+  const [publishPhase, setPublishPhase] = useState(null);
   const [created, setCreated] = useState(null);
   // Foto que se muestra grande en el paso "Revisá antes de publicar" — se
   // elige haciendo click en alguna de las miniaturas de abajo, para poder
@@ -88,7 +105,18 @@ export default function Publicar() {
       orientation: "",
       price: "",
       imageUrls: [],
-      description: ""
+      description: "",
+      // Características opcionales de V24 (ver PROPERTY_CONDITIONS/AMENITY_SWITCHES
+      // arriba) -- el modelo las usa para la tasación automática al publicar.
+      propertyCondition: "",
+      expensesUsd: "",
+      hasPool: false,
+      hasGarage: false,
+      buildingAmenities: false,
+      security24h: false,
+      bright: false,
+      aptoCredito: false,
+      furnished: false
     };
     if (!draft?.form) return base;
     return { ...base, ...draft.form, imageUrls: Array.isArray(draft.form.imageUrls) ? draft.form.imageUrls : [] };
@@ -115,6 +143,10 @@ export default function Publicar() {
 
   function update(field, value) {
     setForm(f => ({ ...f, [field]: value }));
+  }
+
+  function toggleAmenity(field) {
+    setForm(f => ({ ...f, [field]: !f[field] }));
   }
 
   // Autocomplete de dirección (georef.ar, vía backend en /api/addresses/search):
@@ -213,6 +245,7 @@ export default function Publicar() {
   async function handlePublish() {
     setError(null);
     setSubmitting(true);
+    setPublishPhase("loading");
     try {
       const res = await api.post("/api/properties", {
         propertyType: form.propertyType,
@@ -230,21 +263,49 @@ export default function Publicar() {
         price: Number(form.price),
         imageUrls: form.imageUrls,
         description: form.description.trim() || null,
-        publisherType: form.publisherType
+        publisherType: form.publisherType,
+        // Características opcionales de V24 -- el backend las usa para
+        // calcular automáticamente el rango de precio de Nidio al publicar
+        // (ver PropertyService.createProperty). Si el ml-service no
+        // responde, esta llamada falla entera y no se crea la propiedad
+        // (a propósito, ver el comentario en PropertyService).
+        propertyCondition: form.propertyCondition || null,
+        expensesUsd: form.expensesUsd ? Number(form.expensesUsd) : null,
+        hasPool: form.hasPool,
+        hasGarage: form.hasGarage,
+        buildingAmenities: form.buildingAmenities,
+        security24h: form.security24h,
+        bright: form.bright,
+        aptoCredito: form.aptoCredito,
+        furnished: form.furnished
       });
+      // Pequeña pausa a propósito: deja que el relleno del logo termine de
+      // llegar al 100% en pantalla antes de saltar a la pantalla de
+      // "publicado" -- si no, el usuario nunca ve el cierre.
+      setPublishPhase("success");
+      await new Promise(resolve => setTimeout(resolve, 900));
       setCreated(res.data);
       clearDraft();
     } catch (err) {
-      setError(apiErrorMessage(err, "No se pudo publicar el aviso"));
+      // No es un fallo apenas tarda: mientras el backend está esperando la
+      // respuesta de ml-service, esta llamada simplemente sigue pendiente
+      // (el overlay de arriba se queda mostrando el progreso) -- este catch
+      // solo se dispara si el backend terminó respondiendo un error real
+      // (ml-service caído/con error después de sus reintentos, dirección
+      // inválida, etc.), nunca por el solo hecho de estar tardando.
+      setError(apiErrorMessage(err, "No se pudo publicar el aviso: no se pudo calcular la tasación automática. Probá de nuevo en un momento."));
     } finally {
       setSubmitting(false);
+      setPublishPhase(null);
     }
   }
 
   const selectedNeighborhood = neighborhoods.find(n => String(n.id) === form.neighborhoodId);
 
   if (created) {
-    return <div className="p-8 max-w-2xl mx-auto animate-in fade-in duration-500">
+    return <>
+      <PublishingOverlay phase={publishPhase} />
+      <div className="p-8 max-w-2xl mx-auto animate-in fade-in duration-500">
         <Card>
           <CardContent className="p-10 text-center space-y-6">
             <div className="w-16 h-16 rounded-full bg-good-value/10 text-good-value flex items-center justify-center mx-auto">
@@ -258,7 +319,7 @@ export default function Publicar() {
               <Button variant="outline" onClick={() => {
                 setCreated(null);
                 setStep(0);
-                setForm(f => ({ ...f, address: "", lat: null, lon: null, surfaceM2: "", totalSurfaceM2: "", bathrooms: "", ageYears: "", orientation: "", price: "", imageUrls: [], description: "" }));
+                setForm(f => ({ ...f, address: "", lat: null, lon: null, surfaceM2: "", totalSurfaceM2: "", bathrooms: "", ageYears: "", orientation: "", price: "", imageUrls: [], description: "", propertyCondition: "", expensesUsd: "", hasPool: false, hasGarage: false, buildingAmenities: false, security24h: false, bright: false, aptoCredito: false, furnished: false }));
               }}>
                 Publicar otro
               </Button>
@@ -268,10 +329,13 @@ export default function Publicar() {
             </div>
           </CardContent>
         </Card>
-      </div>;
+      </div>
+    </>;
   }
 
-  return <div className="p-8 max-w-4xl mx-auto space-y-2 animate-in fade-in duration-500">
+  return <>
+    <PublishingOverlay phase={publishPhase} />
+    <div className="p-8 max-w-4xl mx-auto space-y-2 animate-in fade-in duration-500">
       <div className="text-center space-y-1 mb-6">
         <h1 className="text-2xl font-bold text-on-surface">Publicá tu propiedad</h1>
         <p className="text-sm text-on-surface-variant">Cargala en pocos pasos y sumala al catálogo de Nidio.</p>
@@ -349,7 +413,7 @@ export default function Publicar() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="surface">Superficie total (m²)</label>
+                  <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="surface">Superficie cubierta (m²)</label>
                   <Input id="surface" type="number" min={1} placeholder="Ej: 45" value={form.surfaceM2} onChange={e => update("surfaceM2", e.target.value)} />
                 </div>
                 <div className="space-y-3">
@@ -377,9 +441,12 @@ export default function Publicar() {
 
               <div className="space-y-3">
                 <label className="text-xs font-bold text-outline uppercase tracking-widest">Características adicionales (opcional)</label>
+                <p className="text-xs text-on-surface-variant">
+                  Ninguno de estos datos es obligatorio, pero cuantos más cargues, más ajustado va a ser el rango de precio que calcula Nidio automáticamente al publicar.
+                </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs text-on-surface-variant" htmlFor="totalSurface">Superficie cubierta (m²)</label>
+                    <label className="text-xs text-on-surface-variant" htmlFor="totalSurface">Superficie total (m²)</label>
                     <Input id="totalSurface" type="number" min={0} placeholder="Ej: 50" value={form.totalSurfaceM2} onChange={e => update("totalSurfaceM2", e.target.value)} />
                   </div>
                   <div className="space-y-2">
@@ -396,6 +463,20 @@ export default function Publicar() {
                       {ORIENTATIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant" htmlFor="condition">Estado</label>
+                    <select id="condition" value={form.propertyCondition} onChange={e => update("propertyCondition", e.target.value)} className="w-full h-10 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary">
+                      {PROPERTY_CONDITIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-on-surface-variant" htmlFor="expenses">Expensas (USD)</label>
+                    <Input id="expenses" type="number" min={0} placeholder="Ej: 120" value={form.expensesUsd} onChange={e => update("expensesUsd", e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+                  {AMENITY_SWITCHES.map(({ field, label }) => <Switch key={field} checked={form[field]} onCheckedChange={() => toggleAmenity(field)} label={label} />)}
                 </div>
               </div>
             </div>}
@@ -432,8 +513,8 @@ export default function Publicar() {
                   </div>
                   <div className="flex flex-wrap gap-4 text-xs font-mono border-t border-outline-variant pt-3">
                     <span className="flex items-center gap-1"><Building2 className="w-3 h-3" /> {form.rooms} amb.</span>
-                    <span>{form.surfaceM2 ? `${formatNumber(Number(form.surfaceM2))} m² tot.` : "—"}</span>
-                    {form.totalSurfaceM2 && <span>{formatNumber(Number(form.totalSurfaceM2))} m² cub.</span>}
+                    <span>{form.surfaceM2 ? `${formatNumber(Number(form.surfaceM2))} m² cub.` : "—"}</span>
+                    {form.totalSurfaceM2 && <span>{formatNumber(Number(form.totalSurfaceM2))} m² tot.</span>}
                     {form.bathrooms && <span>{form.bathrooms} baño{Number(form.bathrooms) > 1 ? "s" : ""}</span>}
                     {form.ageYears !== "" && <span>{Number(form.ageYears) === 0 ? "A estrenar" : `${form.ageYears} años`}</span>}
                     {form.orientation && <span>{form.orientation}</span>}
@@ -460,5 +541,6 @@ export default function Publicar() {
       <p className="text-center text-xs text-on-surface-variant pt-2">
         ¿Cambiaste de idea? <Link to="/" className="text-primary font-semibold hover:underline">Volver a Inicio</Link>
       </p>
-    </div>;
+    </div>
+  </>;
 }

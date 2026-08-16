@@ -65,6 +65,9 @@ public class PropertyService {
     private final GeocodingService geocodingService;
     private final JavaMailSender mailSender;
     private final String mailFrom;
+    // Para la tasación automática al publicar (ver createProperty) -- mismo
+    // cliente que ya usa ValuationService para /predict.
+    private final MlServiceClient mlServiceClient;
 
     public PropertyService(
             PropertyRepository propertyRepository,
@@ -73,7 +76,8 @@ public class PropertyService {
             FavoriteRepository favoriteRepository,
             GeocodingService geocodingService,
             JavaMailSender mailSender,
-            @Value("${app.mail.from}") String mailFrom
+            @Value("${app.mail.from}") String mailFrom,
+            MlServiceClient mlServiceClient
     ) {
         this.propertyRepository = propertyRepository;
         this.neighborhoodRepository = neighborhoodRepository;
@@ -82,6 +86,7 @@ public class PropertyService {
         this.geocodingService = geocodingService;
         this.mailSender = mailSender;
         this.mailFrom = mailFrom;
+        this.mlServiceClient = mlServiceClient;
     }
 
     @Transactional(readOnly = true)
@@ -111,15 +116,38 @@ public class PropertyService {
         return toDetail(property);
     }
 
-    // HU "Publicar": un usuario logueado carga su propia propiedad. No pasa
-    // por el ml-service (a diferencia de /api/valuations): el precio y la
-    // dirección los define el usuario, no un modelo. A diferencia del resto
-    // de la app, acá NO se usa el geocoder sintético (ver GeocodingService):
-    // el frontend hace elegir la dirección de un listado de sugerencias reales
-    // de georef.ar (ver AddressController), y acá se verifica que esas
-    // coordenadas realmente caigan dentro del barrio elegido (point-in-polygon
-    // contra el boundary de Neighborhood) antes de guardarlas como ubicación
-    // de la propiedad.
+    // HU "Publicar": un usuario logueado carga su propia propiedad. A
+    // diferencia del resto de la app, acá NO se usa el geocoder sintético
+    // (ver GeocodingService): el frontend hace elegir la dirección de un
+    // listado de sugerencias reales de georef.ar (ver AddressController), y
+    // acá se verifica que esas coordenadas realmente caigan dentro del
+    // barrio elegido (point-in-polygon contra el boundary de Neighborhood)
+    // antes de guardarlas como ubicación de la propiedad.
+    //
+    // Tasación automática al publicar (agregado 15/08/2026, a pedido de
+    // Pili: "quiero que ya esté el rango medido por Nidio... como las demás
+    // del dataset de muestra"). Antes de este cambio, createProperty NUNCA
+    // llamaba al ml-service -- el precio lo define el usuario, pero el
+    // RANGO ESTIMADO de Nidio (para poder mostrar el mismo cartel
+    // sobre/sub/en-rango que ya tienen las 200 propiedades de muestra) no se
+    // calculaba para nada en este flujo, quedaba silenciosamente sin tasar.
+    // Se llama a mlServiceClient.predict() con el mismo contrato que ya usa
+    // ValuationService (mismo /predict), ANTES de construir/guardar la
+    // Property: si el ml-service no responde, la publicación falla entera
+    // (nada queda guardado a medias) -- decisión explícita de Pili, para
+    // garantizar que ninguna propiedad quede publicada sin su rango de
+    // Nidio, aceptando que la publicación depende de que el ml-service esté
+    // arriba en ese momento (ver ítem de Render/spin-down en el roadmap).
+    //
+    // declaredPrice se manda en null a propósito, igual que hace
+    // generar_200_propiedades_paso2.py al sembrar las 200 de muestra: ese
+    // campo del modelo está documentado como "USD only" y mezclar un precio
+    // de alquiler en ARS (property.price, ver convención de moneda) sería
+    // un error de unidades -- no hace falta de todos modos, ese campo solo
+    // sirve para la comparación EN_RANGO/SUB/SOBRE de la pantalla de
+    // Tasación en vivo, que acá se calcula del lado del frontend
+    // (PropertyDetail.jsx / ValuationBadge) comparando property.price
+    // contra el rango, no en este punto.
     @Transactional
     public PropertyDetailResponse createProperty(CreatePropertyRequest request, String userEmail) {
         Neighborhood neighborhood = neighborhoodRepository.findById(request.getNeighborhoodId())
@@ -141,6 +169,25 @@ public class PropertyService {
                     "La dirección ingresada no está dentro de " + neighborhood.getName() + "." + suggestion);
         }
 
+        MlServiceClient.PredictResponse prediction = mlServiceClient.predict(new MlServiceClient.PredictRequest(
+                request.getOperationType(),
+                request.getPropertyType(),
+                neighborhood.getName(),
+                request.getSurfaceM2(),
+                request.getRooms(),
+                request.getTotalSurfaceM2(),
+                request.getBathrooms(),
+                request.getPropertyCondition(),
+                request.getExpensesUsd(),
+                request.getHasPool(),
+                request.getHasGarage(),
+                request.getBuildingAmenities(),
+                request.getSecurity24h(),
+                request.getBright(),
+                request.getAptoCredito(),
+                request.getFurnished(),
+                null));
+
         Property property = Property.builder()
                 .title(buildTitle(request.getPropertyType(), request.getOperationType(), neighborhood.getName()))
                 .propertyType(request.getPropertyType())
@@ -159,6 +206,17 @@ public class PropertyService {
                 .description(request.getDescription())
                 .createdBy(user)
                 .publisherType(request.getPublisherType())
+                .propertyCondition(request.getPropertyCondition())
+                .expensesUsd(request.getExpensesUsd())
+                .hasPool(request.getHasPool())
+                .hasGarage(request.getHasGarage())
+                .buildingAmenities(request.getBuildingAmenities())
+                .security24h(request.getSecurity24h())
+                .bright(request.getBright())
+                .aptoCredito(request.getAptoCredito())
+                .furnished(request.getFurnished())
+                .valuationRangeMin(prediction.min())
+                .valuationRangeMax(prediction.max())
                 .build();
         property = propertyRepository.save(property);
 

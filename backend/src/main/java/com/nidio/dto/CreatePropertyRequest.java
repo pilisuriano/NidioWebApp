@@ -72,4 +72,18 @@ public class CreatePropertyRequest {
 
     @NotNull(message = "El campo 'publisherType' es obligatorio")
     private PublisherType publisherType;
+
+    // Características opcionales de V24, iguales a ValuationCreateRequest --
+    // el modelo las usa (vía SHAP) para una tasación automática más ajustada
+    // al publicar (ver PropertyService.createProperty). Ninguna es
+    // obligatoria: si no se cargan, el modelo tasa igual con lo que haya.
+    private String propertyCondition;
+    private BigDecimal expensesUsd;
+    private Boolean hasPool;
+    private Boolean hasGarage;
+    private Boolean buildingAmenities;
+    private Boolean security24h;
+    private Boolean bright;
+    private Boolean aptoCredito;
+    private Boolean furnished;
 }

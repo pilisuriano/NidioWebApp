@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, Map, Calculator, HeartPulse, Heart, ClipboardList, User, LogOut, ShieldCheck, Menu, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -130,15 +131,18 @@ export function MainLayout() {
           que también arranca pegado a la esquina de arriba -- en el resto
           de las páginas (Inicio, etc.) no hay nada fijo en esa esquina, así
           que va arriba a la izquierda, la posición "de siempre". */}
-      {!sidebarOpen && <button
+      {!sidebarOpen && createPortal(
+        <button
           type="button"
           onClick={() => setSidebarOpen(true)}
           aria-label="Abrir menú"
           title="Abrir menú"
-          className={cn("fixed z-[1300] p-2.5 rounded-lg bg-inverse-surface text-inverse-on-surface shadow-lg hover:opacity-90 transition-opacity", isMapPage ? "top-1/2 left-4 -translate-y-1/2" : "top-4 left-4")}
+          className={cn("fixed z-[1300] p-2.5 rounded-lg bg-inverse-surface text-inverse-on-surface shadow-lg hover:opacity-90 transition-opacity will-change-transform", isMapPage ? "top-1/2 left-4 -translate-y-1/2" : "top-4 left-4")}
         >
           <Menu className="w-5 h-5" />
-        </button>}
+        </button>,
+        document.body
+      )}
 
       {/* Usuario logueado: ya no hay barra blanca arriba, pero se mantiene
           un acceso rápido al perfil como chip flotante arriba a la derecha,
@@ -150,7 +154,8 @@ export function MainLayout() {
           no chocar con el selector de capas de esa página; ahora es al
           revés: el selector de capas de MapPage.jsx es el que se corre para
           abajo, ver el comentario junto a "Selector de capas" ahí). */}
-      {user && <div className="fixed top-4 right-4 z-[1300] flex items-center gap-2">
+      {user && createPortal(
+        <div className="fixed top-4 right-4 z-[1300] flex items-center gap-2 will-change-transform">
           <Link
             to="/publicar"
             className="flex items-center gap-1.5 pl-3 pr-4 py-1.5 rounded-full bg-primary text-on-primary shadow-lg hover:opacity-90 transition-opacity"
@@ -169,7 +174,9 @@ export function MainLayout() {
               {user.name?.split(" ")[0]}
             </span>
           </Link>
-        </div>}
+        </div>,
+        document.body
+      )}
 
       {/* Main Content Area. Sin topbar: la vieja barra blanca con el título
           de la página y el botón "Publicar" se sacó; Publicar ahora vive

@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import { formatPrice, formatPriceShort, formatNumber } from "@/lib/format";
 import { useBlueRate } from "@/lib/blueRate";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
+import { NidioLoadingMark } from "@/components/ui/NidioLoadingMark";
 import {
   filterProperties, countActiveFilters, buildFilterQueryString, fetchAllProperties,
   ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS
@@ -295,6 +296,10 @@ export default function MapPage() {
   const [propertyType, setPropertyType] = useState("");
   const [properties, setProperties] = useState([]);
   const [locations, setLocations] = useState({});
+  // Para mostrar el logo de Nidio "llenándose" sobre el mapa mientras se
+  // trae el catálogo completo (ver efecto de fetchAllProperties más abajo) --
+  // a pedido de Pili, mismo componente que ya usa la pantalla de Publicar.
+  const [propertiesLoading, setPropertiesLoading] = useState(true);
   // Si se llega desde el buscador de Inicio (/mapa?search=...), arranca con
   // ese término ya cargado.
   const navigate = useNavigate();
@@ -361,6 +366,7 @@ export default function MapPage() {
       // interpreta la ausencia del param como "sin filtrar por tipo".
       ...(propertyType ? { propertyType } : {})
     };
+    setPropertiesLoading(true);
     fetchAllProperties(api, baseParams).then(async allContent => {
       setProperties(allContent);
       // El listado no trae lat/lon: se piden los detalles para ubicar los pins.
@@ -376,7 +382,7 @@ export default function MapPage() {
         }
       }
       setLocations(locs);
-    }).catch(() => setProperties([]));
+    }).catch(() => setProperties([])).finally(() => setPropertiesLoading(false));
   }, [operationType, propertyType]);
   useEffect(() => {
     // Si cambia el filtro, la propiedad seleccionada puede ya no estar en el
@@ -728,6 +734,9 @@ export default function MapPage() {
 
       {/* Mapa */}
       <div className="flex-1 w-full relative">
+        {propertiesLoading && <div className="absolute inset-0 z-[900] flex items-center justify-center bg-surface/85 backdrop-blur-[2px] animate-in fade-in duration-200">
+          <NidioLoadingMark phase="loading" size={120} message="Cargando propiedades…" />
+        </div>}
         {/* scrollWheelZoom prendido a pedido: permite acercar/alejar con la
             rueda del mouse directamente sobre el mapa. El mapa ocupa toda
             la altura de la página, así que con esto activo el usuario ya no

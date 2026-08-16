@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { NidioLoadingMark } from "@/components/ui/NidioLoadingMark";
 import { MapPin, SlidersHorizontal, Bus, ShoppingBag, TreePine, Cross, Utensils, Wine, GraduationCap, Calculator, AlertCircle, Heart, Star, Plus, Trash2, Info } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 
@@ -784,9 +785,13 @@ export default function LifeScore() {
                 </MapContainer>
               ) : (
                 <div className="w-full h-full min-h-[420px] bg-[#e5e9f0] flex items-center justify-center">
-                  <p className="text-sm font-mono text-on-surface-variant text-center px-8">
-                    El mapa con los POIs cercanos aparece acá después de calcular.
-                  </p>
+                  {submitting ? (
+                    <NidioLoadingMark phase="loading" size={120} message="Calculando el Life Score…" />
+                  ) : (
+                    <p className="text-sm font-mono text-on-surface-variant text-center px-8">
+                      El mapa con los POIs cercanos aparece acá después de calcular.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

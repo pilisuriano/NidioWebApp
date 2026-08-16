@@ -228,11 +228,14 @@ Responde siempre `200` con el mismo mensaje exista o no el email, para no filtra
 
 | Método | Endpoint | HU | Auth | Descripción |
 |--------|----------|----|------|-------------|
+| POST | `/api/properties` | — | JWT | Publica una propiedad nueva (flujo "Publicar", distinto de HU-16/17/18 que son de exploración). Recibe los campos obligatorios (tipo, operación, barrio, dirección con lat/lon ya resueltos, superficie cubierta, ambientes, baños, precio) más 9 campos opcionales de V24 (estado, expensas, pileta, cochera, amenities de edificio, seguridad 24hs, luminoso, apto crédito, amoblado — mismo shape que `POST /api/valuations`). **Tasa automáticamente al publicar (agregado 15/08/2026)**: antes de guardar la propiedad, llama a `ml-service POST /predict` con esos mismos datos (`declaredPrice` siempre `null` — mismo criterio que el seed de las 200 propiedades, ver sección 3 del roadmap: ese campo es solo para la comparación en vivo de la pantalla de Tasación, y mezclar un precio de alquiler en ARS sería un error de unidad) y guarda el resultado en `valuationRangeMin`/`valuationRangeMax`, igual que las 200 propiedades semilla. **Si el `ml-service` falla, la publicación se bloquea entera** (`502 Bad Gateway`, sin crear la propiedad) — decisión explícita de Pili, para no dejar publicaciones sin tasar. |
 | GET | `/api/properties?propertyType=&neighborhood=&operationType=&minPrice=&maxPrice=&page=&size=` | HU-16 | JWT | Catálogo de propiedades sintéticas con filtros, paginado. |
 | GET | `/api/properties/{id}` | HU-17 | JWT | Detalle de una propiedad, incluyendo su rango de valuación y Life Score cacheados. |
 | GET | `/api/properties/nearby?address=&radiusKm=2&page=&size=` | HU-18 | JWT | Propiedades dentro de un radio (default 2km) de una dirección, vía `ST_DWithin` sobre `PROPERTY.location`. Mismo formato paginado que el listado. |
 
 **Decisión — paginación:** offset/limit estándar de Spring Data (`page`, `size`, default `page=0&size=20`), no cursor. Es más simple de implementar y el catálogo sintético no tiene el volumen que justificaría cursor-based pagination.
+
+**Decisión — bloquear la publicación si falla la tasación automática (15/08/2026):** se evaluaron dos opciones — publicar igual y dejar la propiedad sin rango (con algún fallback en la UI), o bloquear hasta que la tasación se calcule con éxito. Pili eligió la segunda, para que ninguna propiedad publicada por un usuario real quede nunca sin rango de Nidio (mismo estándar que ya cumplen las 200 propiedades semilla). Técnicamente no hizo falta ningún manejo de error nuevo: `mlServiceClient.predict()` se llama dentro del mismo método `@Transactional` que crea la propiedad, así que una excepción ahí ya aborta toda la operación (rollback automático) y `GlobalExceptionHandler` ya mapeaba `MlServiceException` → `502 Bad Gateway` desde la integración original del modelo (sección 2 del roadmap).
 
 <details>
 <summary>Ejemplos de request/response — Épica 5</summary>
