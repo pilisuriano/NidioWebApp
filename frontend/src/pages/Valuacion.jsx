@@ -221,12 +221,12 @@ export default function Valuacion() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Form */}
-        <div className="w-full">
+        <div className="lg:col-span-5">
           <Card>
-            <CardContent className="p-6 space-y-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
+            <CardContent className="p-5 space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Operación */}
                 <div className="flex rounded-md border border-outline-variant p-1 bg-surface-container-low">
                   {["SALE", "RENT"].map(op => <button key={op} type="button" onClick={() => setOperationType(op)} className={cn("flex-1 rounded text-sm py-2 transition-all", operationType === op ? "font-bold bg-primary text-on-primary shadow-sm" : "font-medium text-on-surface-variant hover:text-on-surface")}>
@@ -235,7 +235,7 @@ export default function Valuacion() {
                 </div>
 
                 {/* Tipo */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-xs font-bold text-outline uppercase tracking-widest">TIPO DE PROPIEDAD</label>
                   <div className="flex gap-2">
                     {PROPERTY_TYPES.map(t => <button key={t.value} type="button" onClick={() => setPropertyType(t.value)} className={cn("flex-1 text-sm py-2 rounded-md transition-all", propertyType === t.value ? "border-2 border-primary bg-primary/5 text-primary font-bold" : "border border-outline-variant hover:border-outline text-on-surface-variant font-medium")}>
@@ -245,7 +245,7 @@ export default function Valuacion() {
                 </div>
 
                 {/* Barrio */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="barrio">
                     BARRIO (CABA)
                   </label>
@@ -258,13 +258,13 @@ export default function Valuacion() {
 
                 {/* Superficie y ambientes */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="surface">
                       SUPERFICIE CUBIERTA (M²)
                     </label>
                     <Input id="surface" placeholder="Ej: 45" type="number" min={10} required value={surfaceM2} onChange={e => setSurfaceM2(e.target.value)} />
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <label className="text-xs font-bold text-outline uppercase tracking-widest">AMBIENTES</label>
                     <div className="flex border border-outline-variant rounded-md overflow-hidden bg-surface-container-lowest h-10">
                       <button type="button" onClick={() => setRooms(Math.max(1, rooms - 1))} className="px-3 hover:bg-surface-container transition-colors border-r border-outline-variant">
@@ -279,7 +279,7 @@ export default function Valuacion() {
                 </div>
 
                 {/* Precio declarado */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="declared">
                     PRECIO PUBLICADO (OPCIONAL)
                   </label>
@@ -297,18 +297,18 @@ export default function Valuacion() {
 
                 {/* Características opcionales -- no son obligatorias, pero el modelo
                     las aprovecha (SHAP) para un rango más ajustado. */}
-                <div className="space-y-4 pt-2 border-t border-outline-variant">
-                  <p className="text-xs font-bold text-outline uppercase tracking-widest pt-4">
+                <div className="space-y-2 pt-2 border-t border-outline-variant">
+                  <p className="text-xs font-bold text-outline uppercase tracking-widest pt-3">
                     Características adicionales (opcional)
                   </p>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="totalSurface">
                         SUPERFICIE TOTAL (M²)
                       </label>
                       <Input id="totalSurface" placeholder="Ej: 50" type="number" min={0} value={totalSurfaceM2} onChange={e => setTotalSurfaceM2(e.target.value)} />
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="bathrooms">
                         BAÑOS
                       </label>
@@ -317,7 +317,7 @@ export default function Valuacion() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="condition">
                         ESTADO
                       </label>
@@ -327,7 +327,7 @@ export default function Valuacion() {
                           </option>)}
                       </select>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <label className="text-xs font-bold text-outline uppercase tracking-widest" htmlFor="expenses">
                         EXPENSAS (USD)
                       </label>
@@ -358,16 +358,16 @@ export default function Valuacion() {
         </div>
 
         {/* Result */}
-        <div className="w-full">
-          <Card className="flex flex-col">
-            <CardContent className="p-8 flex-1 flex flex-col">
-              {!result ? <div className="flex-1 flex flex-col items-center justify-center text-center text-on-surface-variant gap-4 py-20">
+        <div className="lg:col-span-7">
+          <Card className="h-full flex flex-col">
+            <CardContent className="p-6 flex-1 flex flex-col">
+              {!result ? <div className="flex-1 flex flex-col items-center justify-center text-center text-on-surface-variant gap-4 py-10">
                   <Calculator className="w-16 h-16 text-surface-dim" />
                   <p className="font-mono text-sm max-w-xs">
                     Completá el formulario y calculá una valuación para ver el rango estimado acá.
                   </p>
                 </div> : <>
-                  <div className="flex justify-between items-start mb-8">
+                  <div className="flex justify-between items-start mb-5">
                     <div>
                       <h3 className="text-xs font-bold text-outline uppercase tracking-widest mb-1">RESULTADO DEL ANÁLISIS</h3>
                       <h2 className="text-2xl font-bold text-on-surface">
@@ -377,7 +377,7 @@ export default function Valuacion() {
                     <ResultBadge result={result.result} />
                   </div>
 
-                  <div className="text-center mb-12">
+                  <div className="text-center mb-6">
                     <p className="text-xs font-bold text-outline uppercase tracking-widest mb-2">VALOR ESTIMADO SUGERIDO</p>
                     {showArs ? <>
                         <div className="flex items-start justify-center gap-2">
@@ -394,7 +394,7 @@ export default function Valuacion() {
                   </div>
 
                   {/* Barra de rango */}
-                  <div className="mb-12 relative px-4">
+                  <div className="mb-6 relative px-4">
                     {declaredPct != null && lastRequest?.declaredPriceInput != null && <div className="absolute -top-8 transform -translate-x-1/2 bg-inverse-surface text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap" style={{
                   left: `${declaredPct}%`
                 }}>
@@ -418,7 +418,7 @@ export default function Valuacion() {
                   </div>
 
                   {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4 mb-8">
+                  <div className="grid grid-cols-3 gap-3 mb-6">
                     <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
                       <p className="text-xs text-on-surface-variant">Precio x m² (est.)</p>
                       <p className="text-lg font-bold text-on-surface">
@@ -439,6 +439,19 @@ export default function Valuacion() {
                       {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ {currency} {formatNumber(result.estimatedMax)}</p>}
                     </div>
                   </div>
+
+                  {/* Explicación del modelo (SHAP) -- viene lista en español desde
+                      el backend (ValuationResponse.explanationText, ver
+                      MlServiceClient.PredictResponse) -- puede venir null si el
+                      backend no llegó a calcularla, así que no se muestra nada en
+                      ese caso, en vez de un bloque vacío. */}
+                  {result.explanationText && <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 flex items-start gap-2.5">
+                      <Info className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                      <div>
+                        <p className="text-xs font-bold text-outline uppercase tracking-widest mb-1">¿Por qué este rango?</p>
+                        <p className="text-sm text-on-surface-variant">{result.explanationText}</p>
+                      </div>
+                    </div>}
                 </>}
             </CardContent>
           </Card>
