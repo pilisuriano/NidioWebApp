@@ -411,9 +411,9 @@ export default function Valuacion() {
                   }}></div>}
                     </div>
                     <div className="flex justify-between text-xs font-mono text-on-surface-variant">
-                      <span>{formatNumber(result.estimatedMin)}</span>
+                      <span>{showArs ? formatNumber(toArs(result.estimatedMin)) : formatNumber(result.estimatedMin)}</span>
                       <span className="font-bold text-primary text-center">RANGO<br />ESTIMADO</span>
-                      <span>{formatNumber(result.estimatedMax)}</span>
+                      <span>{showArs ? formatNumber(toArs(result.estimatedMax)) : formatNumber(result.estimatedMax)}</span>
                     </div>
                   </div>
 
