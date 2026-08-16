@@ -315,19 +315,47 @@ public class LifeScoreService {
             sb.append(" También se tuv").append(customPlaceScores.size() == 1 ? "o" : "ieron")
                     .append(" en cuenta tus lugares personales: ").append(String.join(", ", placeDetails)).append(".");
             if (customPlacesHurt) {
-                // Bug real (Pili, 16/08/2026): acá se mostraba de nuevo la
-                // distancia AL LUGAR (ya dicha unas palabras antes, ej.
-                // "Casa Mama (1.8 km)"), en vez del radio de "cercanía
-                // aceptable" que el usuario efectivamente eligió (ej. 2 km o
-                // 1.5 km) -- con el bug, el texto decía literalmente "el
-                // radio... que elegiste (1.8 km)" sin importar qué radio se
-                // hubiera configurado. Fix: usar customPlaceRadiusKm (el
-                // mismo valor ya resuelto/clamped que usó scoreCustomPlaces
-                // para calcular el score de decaimiento), no la distancia.
-                sb.append(" ").append(worstMeaningfulPlace.label())
-                        .append(" está bastante lejos del radio de \"cercanía aceptable\" que elegiste (")
-                        .append(formatKm(Math.round(customPlaceRadiusKm * 1000)))
-                        .append("), así que te resta puntos al promedio final.");
+                // Fix anterior (Pili, 16/08/2026): acá se mostraba la
+                // distancia AL LUGAR en vez del radio elegido -- ya
+                // corregido, ver customPlaceRadiusKm más abajo.
+                //
+                // Segundo bug real, encontrado por Pili probando el fix
+                // anterior (16/08/2026, mismo día): con el radio ya
+                // mostrado correctamente, el texto seguía sin tener
+                // sentido en casos como "Casa Mama (1.8 km)... está
+                // bastante lejos del radio... que elegiste (2.0 km)" --
+                // 1.8 km NO es más que 2.0 km, así que decir "lejos del
+                // radio que elegiste" es contradictorio con los propios
+                // números de la oración. Causa: decayScore() no es un
+                // corte binario (adentro/afuera del radio) -- da 100
+                // puntos hasta CUSTOM_PLACE_FULL_SCORE_M (400m,
+                // "caminable") y decae LINEALMENTE hasta 0 recién AL
+                // LLEGAR al radio elegido. Un lugar a 1.8km con un radio
+                // de 2.0km todavía está adentro, pero ya usó el 90% del
+                // "presupuesto" de distancia (1400 de los 1600m entre
+                // 400m y 2000m), así que el score da bajo (~13) aunque
+                // técnicamente no se haya pasado del radio. "Bastante
+                // lejos del radio... que elegiste" daba a entender que
+                // el lugar quedaba FUERA del radio elegido, lo cual es
+                // falso salvo que la distancia realmente iguale o supere
+                // ese radio (score=0, ver decayScore). Fix: distinguir
+                // los dos casos reales -- si distanceM >= radiusM, el
+                // lugar está literalmente fuera del radio elegido; si
+                // no, está adentro pero cerca del límite (por eso resta
+                // tanto), y el texto ahora lo dice así, sin afirmar algo
+                // que los propios números contradicen.
+                long radiusM = Math.round(customPlaceRadiusKm * 1000);
+                boolean beyondRadius = worstMeaningfulPlace.distanceM() >= radiusM;
+                sb.append(" ").append(worstMeaningfulPlace.label());
+                if (beyondRadius) {
+                    sb.append(" está fuera del radio de \"cercanía aceptable\" que elegiste (")
+                            .append(formatKm(radiusM))
+                            .append("), así que no suma puntos al promedio final.");
+                } else {
+                    sb.append(" está cerca del límite de tu radio de \"cercanía aceptable\" (")
+                            .append(formatKm(radiusM))
+                            .append("), así que resta bastante al promedio final.");
+                }
             }
         }
         return sb.toString();
