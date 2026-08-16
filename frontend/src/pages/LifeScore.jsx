@@ -783,7 +783,20 @@ export default function LifeScore() {
                     </Marker>
                   ))}
                 </MapContainer>
-              ) : (
+              ) : null}
+              {/* Referencia de colores de los circulitos de POIs por categoría
+                  (mismo patrón que la leyenda de pines por tasación en
+                  MapPage.jsx/Explorar) -- solo tiene sentido una vez que hay
+                  un resultado calculado, que es cuando aparecen los POIs. */}
+              {result && <div className="absolute bottom-6 right-3 z-[1000] bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-2.5 rounded-lg shadow-sm space-y-1 text-[10px] font-bold text-on-surface max-h-[85%] overflow-y-auto">
+                  {CATEGORIES.map(c => (
+                    <div key={c.key} className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: CATEGORY_COLOR[c.key] }}></span>
+                      {c.label}
+                    </div>
+                  ))}
+                </div>}
+              {!result && (
                 <div className="w-full h-full min-h-[420px] bg-[#e5e9f0] flex items-center justify-center">
                   {submitting ? (
                     <NidioLoadingMark phase="loading" size={120} message="Calculando el Life Score…" />
