@@ -439,13 +439,6 @@ export default function Valuacion() {
                       {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ {currency} {formatNumber(result.estimatedMax)}</p>}
                     </div>
                   </div>
-
-                  <div className="mt-auto pt-6 border-t border-outline-variant">
-                    <p className="text-sm text-on-surface-variant italic text-center">
-                      Estimación generada con datos sintéticos de demo (consulta #{result.id}). Quedó guardada en{" "}
-                      <span className="font-bold">Mis búsquedas</span>.
-                    </p>
-                  </div>
                 </>}
             </CardContent>
           </Card>
