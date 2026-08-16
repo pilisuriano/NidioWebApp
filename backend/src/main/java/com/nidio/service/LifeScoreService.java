@@ -89,8 +89,9 @@ public class LifeScoreService {
         MlServiceClient.LifeScoreMlResponse mlResponse = mlServiceClient.lifeScore(
                 new MlServiceClient.LifeScoreMlRequest(location.lat(), location.lon(), request.getWeights()));
 
+        double customPlaceRadiusKm = resolveCustomPlaceRadiusKm(request.getCustomPlaceRadiusKm());
         List<CustomPlaceScoreDto> customPlaceScores =
-                scoreCustomPlaces(location, userEmail, request.getCustomPlaceRadiusKm(), request.getCustomPlaceIds());
+                scoreCustomPlaces(location, userEmail, customPlaceRadiusKm, request.getCustomPlaceIds());
 
         BigDecimal totalScore = blendTotalScore(
                 mlResponse.totalScore(), request.getWeights(), customPlaceScores, request.getCustomPlaceWeights());
@@ -118,7 +119,8 @@ public class LifeScoreService {
                 })
                 .toList();
 
-        String explanation = buildExplanation(totalScore, categories, customPlaceScores, request.getCustomPlaceWeights());
+        String explanation = buildExplanation(
+                totalScore, categories, customPlaceScores, request.getCustomPlaceWeights(), customPlaceRadiusKm);
 
         return new LifeScoreResponse(query.getId(), totalScore, location, categories, customPlaceScores, explanation);
     }
@@ -129,6 +131,21 @@ public class LifeScoreService {
                 .map(q -> new LifeScoreSummaryResponse(
                         q.getId(), q.getAddress(), q.getTotalScore(), q.getCreatedAt()))
                 .toList();
+    }
+
+    // Resuelve el radio de "cercanía aceptable" efectivo (clamped al rango
+    // permitido, o el default si el cliente no mandó ninguno). Se calcula
+    // UNA sola vez en calculateLifeScore y se reusa tanto para puntuar los
+    // lugares (scoreCustomPlaces, vía decayScore) como para el texto de la
+    // explicación (buildExplanation) -- antes cada uno resolvía su propio
+    // valor por separado, y el texto de la explicación terminaba mostrando
+    // la distancia AL LUGAR en vez del radio elegido por el usuario (bug
+    // real, reportado por Pili el 16/08/2026, ver el comentario en
+    // buildExplanation).
+    private static double resolveCustomPlaceRadiusKm(Double requestedRadiusKm) {
+        return requestedRadiusKm == null
+                ? DEFAULT_CUSTOM_PLACE_RADIUS_KM
+                : Math.min(MAX_CUSTOM_PLACE_RADIUS_KM, Math.max(MIN_CUSTOM_PLACE_RADIUS_KM, requestedRadiusKm));
     }
 
     // Se calcula acá (Java), no en ml-service: son puntos propios del
@@ -146,10 +163,7 @@ public class LifeScoreService {
     // ajeno a mano) se ignoran en silencio, porque el filtro es contra la
     // lista que YA viene scopeada por userEmail, nunca contra la tabla entera.
     private List<CustomPlaceScoreDto> scoreCustomPlaces(
-            LocationDto location, String userEmail, Double requestedRadiusKm, List<Long> selectedIds) {
-        double radiusKm = requestedRadiusKm == null
-                ? DEFAULT_CUSTOM_PLACE_RADIUS_KM
-                : Math.min(MAX_CUSTOM_PLACE_RADIUS_KM, Math.max(MIN_CUSTOM_PLACE_RADIUS_KM, requestedRadiusKm));
+            LocationDto location, String userEmail, double radiusKm, List<Long> selectedIds) {
         double radiusM = radiusKm * 1000;
 
         List<CustomPlace> places = customPlaceRepository.findByUserEmailOrderByCreatedAtDesc(userEmail);
@@ -232,7 +246,8 @@ public class LifeScoreService {
     // así que alcanza con contarla en palabras en vez de mostrar la cuenta.
     private static String buildExplanation(
             BigDecimal totalScore, List<LifeScoreCategoryResult> categories,
-            List<CustomPlaceScoreDto> customPlaceScores, Map<Long, Integer> customPlaceWeights) {
+            List<CustomPlaceScoreDto> customPlaceScores, Map<Long, Integer> customPlaceWeights,
+            double customPlaceRadiusKm) {
         List<LifeScoreCategoryResult> weighted = categories.stream()
                 .filter(c -> c.weight() > 0 && c.score() > 0)
                 .toList();
@@ -300,9 +315,18 @@ public class LifeScoreService {
             sb.append(" También se tuv").append(customPlaceScores.size() == 1 ? "o" : "ieron")
                     .append(" en cuenta tus lugares personales: ").append(String.join(", ", placeDetails)).append(".");
             if (customPlacesHurt) {
+                // Bug real (Pili, 16/08/2026): acá se mostraba de nuevo la
+                // distancia AL LUGAR (ya dicha unas palabras antes, ej.
+                // "Casa Mama (1.8 km)"), en vez del radio de "cercanía
+                // aceptable" que el usuario efectivamente eligió (ej. 2 km o
+                // 1.5 km) -- con el bug, el texto decía literalmente "el
+                // radio... que elegiste (1.8 km)" sin importar qué radio se
+                // hubiera configurado. Fix: usar customPlaceRadiusKm (el
+                // mismo valor ya resuelto/clamped que usó scoreCustomPlaces
+                // para calcular el score de decaimiento), no la distancia.
                 sb.append(" ").append(worstMeaningfulPlace.label())
                         .append(" está bastante lejos del radio de \"cercanía aceptable\" que elegiste (")
-                        .append(formatKm(worstMeaningfulPlace.distanceM()))
+                        .append(formatKm(Math.round(customPlaceRadiusKm * 1000)))
                         .append("), así que te resta puntos al promedio final.");
             }
         }
