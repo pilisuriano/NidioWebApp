@@ -261,10 +261,27 @@ def _configure_osmnx() -> None:
     # MlServiceClient (lado Java) tiene su propio read-timeout, subido en
     # conjunto para dar margen a esto (ver MlServiceClient.java).
     ox.settings.requests_timeout = 45
-    # Respeta el backoff que pide el propio servidor Overpass ante uso
-    # intenso, en vez de reintentar a lo loco -- es justamente lo que pide
-    # la política de uso de las instancias públicas.
-    ox.settings.overpass_rate_limit = True
+    # Desactivado (16/08/2026, Ronda 15) -- antes en True. Este flag hace que
+    # OSMnx, ANTES de cada consulta real, le pegue a `/api/status` del mismo
+    # servidor para leer su rate-limit y calcular una pausa de cortesía
+    # (`_get_overpass_pause`) -- un request de red adicional que comparte el
+    # mismo `requests_timeout` de arriba. Con el mirror de respaldo agregado
+    # en esta misma ronda (ver _OVERPASS_ENDPOINTS más abajo), cada intento
+    # podía tardar hasta 90s en el peor caso (45s del chequeo + 45s de la
+    # consulta real) en vez de 45s -- con los 2 endpoints, el peor caso
+    # total llegaba a ~180s, muy por encima de los 100s que tolera
+    # MlServiceClient.java (ver Ronda 6) y del propio proxy de Render, sin
+    # que ml-service llegue a loguear ningún error (la consulta no falla,
+    # simplemente tarda tanto que corta otro eslabón de la cadena antes).
+    # Justamente ese chequeo de `/api/status` fue el que se cayó con
+    # `ConnectionRefusedError` en el incidente real que motivó el mirror,
+    # así que sacarlo de encima también elimina ese punto de falla
+    # puntual. Es una cortesía pensada para uso masivo (evitar saturar el
+    # servidor público bajo carga alta) -- no aplica al volumen de una
+    # demo de tesis, así que el trade-off es razonable: el timeout embebido
+    # en la propia consulta Overpass QL (`[timeout:45]`, ver comentario de
+    # requests_timeout arriba) sigue siendo el límite real de cada intento.
+    ox.settings.overpass_rate_limit = False
     ox.settings.http_user_agent = (
         "Nidio-TFI-IngenieriaInformatica/1.0 (+https://github.com/pilisuriano/NidioWebApp)"
     )
