@@ -283,43 +283,63 @@ def _all_osm_tags() -> dict[str, list[str]]:
     return {key: sorted(values) for key, values in tags.items()}
 
 
-# Cuántas veces se intenta la consulta a Overpass antes de rendirse.
-# Agregado (13/08/2026, Ronda 6) porque Pili tuvo un caso real: una
-# dirección nueva (caché frío) tardó, falló (probablemente timeout contra
-# el servidor público, ver requests_timeout arriba) y al reintentar
-# manualmente (volver a apretar "Calcular") anduvo bien -- un solo
-# reintento automático evita que el usuario tenga que notar el error y
-# volver a intentar a mano.
-_MAX_FETCH_ATTEMPTS = 2
+# Instancias públicas de Overpass a probar, en orden. Overpass no es un
+# servicio único: hay varias instancias independientes que corren el mismo
+# software sobre una copia sincronizada de los mismos datos de OpenStreetMap
+# (mismo protocolo de consulta, mismos resultados) -- lo único que cambia es
+# quién las opera, así que su disponibilidad es independiente entre sí.
+#
+# Agregado (16/08/2026, Ronda 15) tras una caída real del endpoint principal
+# en producción, confirmada con el log de Render: `overpass-api.de` rechazó
+# la conexión (`ConnectionRefusedError`) justo cuando el chequeo interno de
+# rate-limit de OSMnx le pegaba a `/api/status`, degradando en silencio las
+# 6 categorías que dependen de Overpass a 0 POIs (Transporte no se vio
+# afectado porque los colectivos salen de un dataset local, ver
+# _load_bus_stops). En ese momento se decidió con Pili documentar el riesgo
+# nada más (ver Sección 6.7.8 del informe) -- pero ante una segunda caída
+# real, se agregó esta mitigación: en vez de reintentar dos veces contra el
+# MISMO servidor caído (lo que hacía antes esta función), ahora cada
+# reintento prueba un servidor DISTINTO. `overpass.kumi.systems` es un
+# mirror público conocido, operado independientemente de `overpass-api.de`.
+_OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+]
 
 
 def _fetch_osm_features(lat: float, lon: float):
     """Devuelve el GeoDataFrame de OSMnx con todo lo encontrado en el radio,
-    o None si no hay nada o la consulta falló (Overpass caído, timeout,
-    rate limit agotado, etc., incluso después de reintentar) -- en
-    cualquiera de esos casos el resultado real es "no se pudo determinar",
-    nunca se inventa un valor."""
+    o None si no hay nada o la consulta falló contra TODOS los endpoints de
+    _OVERPASS_ENDPOINTS (cada uno caído, timeout, rate limit agotado,
+    etc.) -- en cualquiera de esos casos el resultado real es "no se pudo
+    determinar", nunca se inventa un valor."""
     _configure_osmnx()
     tags = _all_osm_tags()
-    for attempt in range(1, _MAX_FETCH_ATTEMPTS + 1):
+    for attempt, endpoint in enumerate(_OVERPASS_ENDPOINTS, start=1):
+        # Se pisa el endpoint en las settings globales de OSMnx antes de
+        # cada intento -- es la forma que expone la librería de elegir a
+        # qué servidor pegarle (no hay un parámetro por-consulta).
+        ox.settings.overpass_endpoint = endpoint
         try:
             return ox.features_from_point((lat, lon), tags=tags, dist=RADIUS_M)
         except ox._errors.InsufficientResponseError:
             # Overpass respondió pero no hay NINGÚN elemento de NINGÚN tag
             # en el radio -- pasa en zonas poco densas. No es un error: es
-            # un resultado real (las 7 categorías quedan en 0). Reintentar
-            # no cambiaría nada, así que no se cuenta como intento fallido.
+            # un resultado real (las 7 categorías quedan en 0). Es la MISMA
+            # base de datos de OSM detrás de cualquier endpoint, así que
+            # probar otro servidor no cambiaría este resultado -- no tiene
+            # sentido intentar el mirror para esto.
             return None
         except Exception as exc:
-            if attempt < _MAX_FETCH_ATTEMPTS:
+            if attempt < len(_OVERPASS_ENDPOINTS):
                 logger.warning(
-                    "Intento %d/%d de Overpass/OSMnx falló para lat=%s lon=%s (%s) -- reintentando",
-                    attempt, _MAX_FETCH_ATTEMPTS, lat, lon, exc,
+                    "Endpoint de Overpass %s falló para lat=%s lon=%s (%s) -- probando el siguiente (%s)",
+                    endpoint, lat, lon, exc, _OVERPASS_ENDPOINTS[attempt],
                 )
                 continue
             logger.exception(
-                "Overpass/OSMnx falló %d/%d veces para lat=%s lon=%s -- se degrada a 0 POIs",
-                attempt, _MAX_FETCH_ATTEMPTS, lat, lon,
+                "Los %d endpoints de Overpass configurados fallaron para lat=%s lon=%s -- se degrada a 0 POIs",
+                len(_OVERPASS_ENDPOINTS), lat, lon,
             )
             return None
 
