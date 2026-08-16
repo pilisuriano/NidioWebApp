@@ -360,7 +360,7 @@ export default function PropertyDetail() {
             {property.expensesUsd != null && <p className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant">
                 <Wallet className="w-4 h-4" />
                 {blueRate
-                  ? <>Expensas: <strong className="text-on-surface">≈ ARS {formatNumber(property.expensesUsd * blueRate)}/mes</strong> (cotización dólar blue actual)</>
+                  ? <>Expensas: <strong className="text-on-surface">≈ ARS {formatNumber(property.expensesUsd * blueRate)}/mes</strong> (cotización dólar blue actual: 1 USD ≈ ${formatNumber(blueRate)})</>
                   : blueRateError
                     ? "Expensas: no se pudo obtener la cotización del dólar para mostrarlas"
                     : "Expensas: consultando cotización…"}
@@ -397,7 +397,7 @@ export default function PropertyDetail() {
                               ARS {formatNumber(valuationRange.min * blueRate)} – ARS {formatNumber(valuationRange.max * blueRate)}<span className="text-base font-semibold text-on-surface-variant">/mes</span>
                             </p>
                             <p className="text-xs text-on-surface-variant">
-                              ≈ USD {formatNumber(valuationRange.min)} – USD {formatNumber(valuationRange.max)}/mes (cotización dólar blue actual)
+                              ≈ USD {formatNumber(valuationRange.min)} – USD {formatNumber(valuationRange.max)}/mes (cotización dólar blue actual: 1 USD ≈ ${formatNumber(blueRate)})
                             </p>
                           </>
                         : <p className="text-sm text-on-surface-variant">
