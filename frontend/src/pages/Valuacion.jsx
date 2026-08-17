@@ -394,19 +394,28 @@ export default function Valuacion() {
                   </div>
 
                   {/* Barra de rango */}
-                  <div className="mb-6 relative px-4">
-                    {declaredPct != null && lastRequest?.declaredPriceInput != null && <div className="absolute -top-8 transform -translate-x-1/2 bg-inverse-surface text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap" style={{
-                  left: `${declaredPct}%`
-                }}>
-                        Tu precio: {lastRequest.operationType === "RENT" ? "ARS" : "USD"} {formatNumber(lastRequest.declaredPriceInput)}
-                        <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-inverse-surface"></div>
-                      </div>}
+                  <div className="mb-6 px-4">
+                    {/* Frame de posicionamiento único: tanto el tooltip como la línea
+                        marcadora se calculan sobre ESTE div (mismo ancho que la barra
+                        de colores), y no sobre el div externo con padding -- si el
+                        tooltip usara el externo (más ancho, por el px-4) y la línea el
+                        interno, un mismo declaredPct% cae en dos posiciones absolutas
+                        distintas y quedan desalineados entre sí (hasta ~16px cerca de
+                        los bordes, 0 en el centro). */}
+                    <div className="relative">
+                      {declaredPct != null && lastRequest?.declaredPriceInput != null && <div className="absolute -top-8 transform -translate-x-1/2 bg-inverse-surface text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap" style={{
+                    left: `${declaredPct}%`
+                  }}>
+                          Tu precio: {lastRequest.operationType === "RENT" ? "ARS" : "USD"} {formatNumber(lastRequest.declaredPriceInput)}
+                          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-inverse-surface"></div>
+                        </div>}
 
-                    <div className="h-4 flex rounded-full overflow-hidden mb-2 relative">
-                      <div className="h-full bg-alert-price/30 w-1/4"></div>
-                      <div className="h-full bg-primary w-2/4"></div>
-                      <div className="h-full bg-alert-price/30 w-1/4"></div>
-                      {declaredPct != null && <div className="absolute top-0 bottom-0 w-1 bg-inverse-surface shadow-[0_0_0_2px_#fff]" style={{
+                      <div className="h-4 flex rounded-full overflow-hidden mb-2">
+                        <div className="h-full bg-alert-price/30 w-1/4"></div>
+                        <div className="h-full bg-primary w-2/4"></div>
+                        <div className="h-full bg-alert-price/30 w-1/4"></div>
+                      </div>
+                      {declaredPct != null && <div className="absolute top-0 h-4 w-1 bg-inverse-surface shadow-[0_0_0_2px_#fff]" style={{
                     left: `${declaredPct}%`
                   }}></div>}
                     </div>
