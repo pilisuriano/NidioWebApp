@@ -1,6 +1,9 @@
 package com.nidio.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.nidio.dto.AddressSuggestionDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -24,6 +27,8 @@ import java.util.Set;
 @Component
 public class GeorefClient {
 
+    private static final Logger log = LoggerFactory.getLogger(GeorefClient.class);
+
     private static final String CABA_PROVINCIA = "Ciudad Autónoma de Buenos Aires";
 
     // Preposiciones/artículos que en un nombre de calle argentino van en
@@ -43,13 +48,23 @@ public class GeorefClient {
     }
 
     // Solo se leen los campos que se usan; georef devuelve bastantes más
-    // (altura, calle, departamento/comuna, provincia...) que Jackson ignora.
+    // (altura, calle, departamento/comuna, provincia, cantidad/inicio/
+    // parametros/total a nivel raíz...) -- @JsonIgnoreProperties(ignoreUnknown
+    // = true) es IMPRESCINDIBLE acá: por defecto Jackson NO ignora campos no
+    // declarados, falla. Sin esta anotación, cualquier campo nuevo que georef
+    // agregue a su respuesta (pasó real el 17/08/2026: agregaron cantidad/
+    // inicio/parametros/total a nivel raíz) rompe el parseo silenciosamente
+    // -- la excepción cae en el catch de mas abajo y el autocomplete deja de
+    // traer resultados sin ningún error visible ni logueado.
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record DireccionesResponse(List<Direccion> direcciones) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record Direccion(String nomenclatura, Ubicacion ubicacion) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record Ubicacion(double lat, double lon) {
     }
 
@@ -87,6 +102,11 @@ public class GeorefClient {
             }
             return byLabel.values().stream().limit(6).toList();
         } catch (RestClientException e) {
+            // No se propaga -- el buscador de direcciones no tiene por qué
+            // tirar abajo el formulario -- pero SÍ se loguea, para no volver
+            // a quedar a ciegas la próxima vez que georef falle o cambie de
+            // forma (ver bug del 17/08/2026: faltaba este log por completo).
+            log.warn("Fallo la busqueda de direcciones en georef.ar para query '{}': {}", query, e.getMessage());
             return List.of();
         }
     }
