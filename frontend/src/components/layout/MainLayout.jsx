@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Home, Map, Calculator, HeartPulse, Heart, ClipboardList, User, LogOut, ShieldCheck, Menu, X, Plus } from "lucide-react";
+import { Home, Map, Calculator, HeartPulse, Heart, ClipboardList, User, LogOut, ShieldCheck, Menu, X, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { Footer } from "./Footer";
@@ -28,6 +28,12 @@ const NAV_ITEMS = [{
   path: "/life-score",
   // Solo tiene sentido para quien busca comprar/alquilar, no para una
   // cuenta profesional (inmobiliaria/broker/desarrollador) que publica.
+  hideForProfessional: true
+}, {
+  icon: Sparkles,
+  label: "Recomendador",
+  path: "/recomendador",
+  // Mismo criterio que Life Score: es para quien busca, no para quien publica.
   hideForProfessional: true
 }, {
   icon: Heart,

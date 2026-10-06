@@ -17,7 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest
+// Clave de cifrado solo para pruebas (32 bytes en cero, base64): no es ninguna clave real. El contexto necesita
+// app.crypto.custom-place-key para crear EncryptedStringConverter; sin esto la prueba depende de que la variable de
+// entorno CUSTOM_PLACE_ENCRYPTION_KEY esté definida en la máquina que corre los tests.
+@SpringBootTest(properties = "app.crypto.custom-place-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
 @Transactional
 class AuthServiceTest {
 

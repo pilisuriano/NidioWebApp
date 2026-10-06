@@ -68,6 +68,9 @@ public class PropertyService {
     // Para la tasación automática al publicar (ver createProperty) -- mismo
     // cliente que ya usa ValuationService para /predict.
     private final MlServiceClient mlServiceClient;
+    // Puntajes de Life Score por categoría para el recomendador (se calculan al
+    // publicar y al cambiar la dirección; ver PropertyLifeScoreService).
+    private final PropertyLifeScoreService propertyLifeScoreService;
 
     public PropertyService(
             PropertyRepository propertyRepository,
@@ -77,7 +80,8 @@ public class PropertyService {
             GeocodingService geocodingService,
             JavaMailSender mailSender,
             @Value("${app.mail.from}") String mailFrom,
-            MlServiceClient mlServiceClient
+            MlServiceClient mlServiceClient,
+            PropertyLifeScoreService propertyLifeScoreService
     ) {
         this.propertyRepository = propertyRepository;
         this.neighborhoodRepository = neighborhoodRepository;
@@ -87,6 +91,7 @@ public class PropertyService {
         this.mailSender = mailSender;
         this.mailFrom = mailFrom;
         this.mlServiceClient = mlServiceClient;
+        this.propertyLifeScoreService = propertyLifeScoreService;
     }
 
     @Transactional(readOnly = true)
@@ -220,6 +225,10 @@ public class PropertyService {
                 .build();
         property = propertyRepository.save(property);
 
+        // Si ml-service no responde, la publicación sigue: la propiedad queda sin
+        // puntajes por categoría y el relleno de arranque los calcula después.
+        propertyLifeScoreService.computeAndStore(property);
+
         return toDetail(property);
     }
 
@@ -307,7 +316,8 @@ public class PropertyService {
 
         // Solo re-geocodifica si la dirección cambió: evita mover el pin en
         // el mapa por una edición que no toca la ubicación.
-        if (!property.getAddress().equals(request.getAddress())) {
+        boolean addressChanged = !property.getAddress().equals(request.getAddress());
+        if (addressChanged) {
             LocationDto location = geocodingService.geocode(request.getAddress(), neighborhood);
             property.setLocation(GEOMETRY_FACTORY.createPoint(new Coordinate(location.lon(), location.lat())));
         }
@@ -329,6 +339,9 @@ public class PropertyService {
         property.setPublisherType(request.getPublisherType());
 
         property = propertyRepository.save(property);
+        if (addressChanged) {
+            propertyLifeScoreService.computeAndStore(property);
+        }
         return toAdminResponse(property);
     }
 
@@ -645,7 +658,8 @@ public class PropertyService {
                 result.getTotalPages());
     }
 
-    private PropertySummaryResponse toSummary(Property property) {
+    // Visibilidad de paquete: la usa RecommendationService para devolver el mismo resumen del catálogo.
+    PropertySummaryResponse toSummary(Property property) {
         ValuationRangeDto valuation = null;
         if (property.getValuationRangeMin() != null && property.getValuationRangeMax() != null) {
             valuation = new ValuationRangeDto(property.getValuationRangeMin(), property.getValuationRangeMax());

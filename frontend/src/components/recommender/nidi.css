@@ -1,0 +1,42 @@
+/* Animación de Nidi (CSS puro). Versión inicial: la ilustración es plana, así que solo se
+   puede respirar, saltar y mover el ala (el ala es una capa aparte sobre el cuerpo).
+   La capa de 313x368 px se escala con --nidi-scale desde el componente. */
+.nidi-box { position: relative; flex: none; }
+.nidi-scale { position: absolute; top: 0; left: 0; width: 313px; height: 368px; transform-origin: 0 0; }
+.nidi-fig { position: relative; width: 313px; height: 368px; transform-origin: 50% 100%; }
+.nidi-fig img { position: absolute; inset: 0; width: 313px; height: 368px; user-select: none; pointer-events: none; }
+.nidi-fig .nidi-wing { transform-origin: 226px 175px; }
+
+/* En reposo: respira y mueve un poco el ala. */
+.nidi-idle .nidi-fig { animation: nidi-breathe 3.2s ease-in-out infinite; }
+.nidi-idle .nidi-wing { animation: nidi-wave 2.4s ease-in-out infinite; }
+/* Buscando: saltitos y ala más rápida. */
+.nidi-searching .nidi-fig { animation: nidi-hop 0.9s ease-in-out infinite; }
+.nidi-searching .nidi-wing { animation: nidi-flap 0.45s ease-in-out infinite; }
+/* Contento (resultados): un salto y el ala arriba. */
+.nidi-happy .nidi-fig { animation: nidi-cheer 1.1s ease-out 1; }
+.nidi-happy .nidi-wing { animation: nidi-wave 1.6s ease-in-out infinite; }
+
+@keyframes nidi-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 0.985); } }
+@keyframes nidi-wave { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-7deg); } }
+@keyframes nidi-hop {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  35% { transform: translateY(-14px) rotate(-2deg); }
+  60% { transform: translateY(0) rotate(1.5deg) scale(1.02, 0.97); }
+}
+@keyframes nidi-flap { 0%, 100% { transform: rotate(2deg); } 50% { transform: rotate(-16deg); } }
+@keyframes nidi-cheer {
+  0% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(-22px) rotate(-3deg); }
+  55% { transform: translateY(0) scale(1.03, 0.96); }
+  75% { transform: translateY(-6px); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+/* Aparición escalonada de los pasos y de las tarjetas de resultado. */
+@keyframes nidi-pop { from { opacity: 0; transform: translateY(12px) scale(0.97); } to { opacity: 1; transform: none; } }
+.nidi-pop { opacity: 0; animation: nidi-pop 0.5s ease forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nidi-fig, .nidi-wing, .nidi-pop { animation: none !important; opacity: 1 !important; }
+}

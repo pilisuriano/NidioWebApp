@@ -13,6 +13,14 @@ import java.math.BigDecimal;
 
 public interface PropertyRepository extends JpaRepository<Property, Long> {
 
+    // Catálogo completo (activas) de una operación, con el barrio ya cargado: lo usa el
+    // recomendador (RecommendationService).
+    @Query("""
+        SELECT p FROM Property p JOIN FETCH p.neighborhood
+        WHERE p.active = true AND p.operationType = :operationType
+        """)
+    java.util.List<Property> findActiveByOperationType(@Param("operationType") OperationType operationType);
+
     // Catálogo público: solo propiedades activas (ver Property.active).
     @Query("""
         SELECT p FROM Property p

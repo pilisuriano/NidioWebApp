@@ -20,6 +20,7 @@ import {
   ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS
 } from "@/lib/propertyFilters";
 import { cn } from "@/lib/utils";
+import { BASE_TILES } from "@/lib/mapTiles";
 
 const PROPERTY_TYPE_OPTIONS = [["", "Todos los tipos"], ["APARTMENT", "Departamento"], ["HOUSE", "Casa"], ["PH", "PH"]];
 
@@ -744,12 +745,11 @@ export default function MapPage() {
             (la rueda queda capturada por el zoom) — el zoom con botones
             +/-, doble click o pellizco (touch) sigue funcionando igual. */}
         <MapContainer center={CABA_CENTER} zoom={12} scrollWheelZoom={true} className="w-full h-full absolute inset-0">
-          {/* Tiles de CARTO en vez del tile server crudo de OSM: éste último
-              aplica rate-limiting agresivo a apps que no calzan su política
-              de uso (justo lo que causaba el mapa "gris", sin tiles, en
-              desarrollo). CARTO reusa datos de OSM pero con un CDN pensado
-              para incrustar en apps de terceros sin necesidad de API key. */}
-          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+          {/* Mapa base de CARTO (necesita VITE_CARTO_API_KEY; ver lib/mapTiles.js). Se prefiere
+              al tile server crudo de OSM porque éste aplica rate-limiting a apps que no calzan
+              su política de uso (causaba el mapa "gris", sin tiles, en desarrollo); sin clave,
+              mapTiles.js cae a OSM. */}
+          <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
           {/* El control de zoom nativo de MapContainer se baja con CSS
               (ver .leaflet-top.leaflet-left en index.css) para no quedar
               tapado por la barra de búsqueda. No se reemplaza por un

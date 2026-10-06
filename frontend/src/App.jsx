@@ -18,6 +18,7 @@ import PropertyListing from "./pages/PropertyListing";
 import PropertyDetail from "./pages/PropertyDetail";
 import Valuacion from "./pages/Valuacion";
 import LifeScore from "./pages/LifeScore";
+import Recomendador from "./pages/Recomendador";
 import Favoritos from "./pages/Favoritos";
 import MisPublicaciones from "./pages/MisPublicaciones";
 import Perfil from "./pages/Perfil";
@@ -45,6 +46,11 @@ export default function App() {
               <Route path="life-score" element={<RequireAuth>
                     <RequireNotProfessional>
                       <LifeScore />
+                    </RequireNotProfessional>
+                  </RequireAuth>} />
+              <Route path="recomendador" element={<RequireAuth>
+                    <RequireNotProfessional>
+                      <Recomendador />
                     </RequireNotProfessional>
                   </RequireAuth>} />
               <Route path="favoritos" element={<RequireAuth>

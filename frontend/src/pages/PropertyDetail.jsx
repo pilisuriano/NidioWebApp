@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "react-toastify";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
 import { COUNTRY_CODES } from "@/lib/countries";
+import { BASE_TILES } from "@/lib/mapTiles";
 
 // Preguntas rápidas tipo Zonaprop ("Preguntas para la inmobiliaria"): en vez
 // de escribir desde cero, un click completa el mensaje.
@@ -75,6 +76,10 @@ function ValuationBadge({ result }) {
 export default function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  // En una pestaña nueva (por ejemplo desde el Recomendador) no hay historial dentro de la app:
+  // location.key vale "default" en la primera pantalla, y navigate(-1) no haría nada.
+  const location = useLocation();
+  const canGoBack = location.key !== "default";
   const { user, updateProfile } = useAuth();
   // Las cuentas profesionales publican avisos, no contactan a otros
   // publicadores como si fueran un comprador/inquilino más — perfil más
@@ -267,8 +272,8 @@ export default function PropertyDetail() {
   const contactFieldErrors = contactAttempted ? validateContact() : {};
 
   return <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <button type="button" onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Volver
+      <button type="button" onClick={() => canGoBack ? navigate(-1) : navigate("/propiedades")} className="flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors">
+        <ArrowLeft className="w-4 h-4" /> {canGoBack ? "Volver" : "Ver más propiedades"}
       </button>
 
       {/* Galería estilo Zonaprop: foto grande + mosaico de 4, con "ver todas
@@ -477,7 +482,7 @@ export default function PropertyDetail() {
             <h2 className="text-xs font-bold text-outline uppercase tracking-widest">Ubicación</h2>
             <div className="h-64 rounded-xl overflow-hidden border border-outline-variant">
               <MapContainer center={[property.location.lat, property.location.lon]} zoom={15} scrollWheelZoom={false} className="w-full h-full">
-                <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
                 <Marker position={[property.location.lat, property.location.lon]} icon={LOCATION_PIN_ICON} />
               </MapContainer>
             </div>
