@@ -104,6 +104,25 @@ class RecommendationEngineTest {
     }
 
     @Test
+    void funnelCountsHowManyPropertiesSurviveEachFilter() {
+        List<Candidate> catalog = List.of(
+                cand(1, PropertyType.APARTMENT, 1000, 3, 900L, 1100L, flat(50), 50, 50, null, null),
+                cand(2, PropertyType.HOUSE, 1000, 3, 900L, 1100L, flat(50), 50, 50, null, null),       // otro tipo
+                cand(3, PropertyType.APARTMENT, 5000, 3, 4500L, 5500L, flat(50), 50, 50, null, null),  // fuera del presupuesto
+                cand(4, PropertyType.APARTMENT, 1000, 1, 900L, 1100L, flat(50), 50, 50, null, null));  // pocos ambientes
+        RecommendationRequest r = request();
+        r.setPropertyTypes(List.of(PropertyType.APARTMENT));
+        r.setBudgetMax(BigDecimal.valueOf(2000));
+        r.setHousehold(Household.FAMILY); // mínimo 3 ambientes
+
+        List<RecommendationEngine.FunnelStep> funnel = engine.recommend(r, catalog).funnel();
+
+        assertEquals(List.of("CATALOG", "TYPE", "BUDGET", "ROOMS", "PRICE", "DEALBREAKER"),
+                funnel.stream().map(RecommendationEngine.FunnelStep::code).toList());
+        assertEquals(List.of(4, 3, 2, 1, 1, 1), funnel.stream().map(RecommendationEngine.FunnelStep::remaining).toList());
+    }
+
+    @Test
     void chosenMinRoomsOverridesTheHouseholdSuggestion() {
         List<Candidate> catalog = List.of(
                 cand(1, PropertyType.APARTMENT, 1000, 1, 900L, 1100L, flat(50), 50, 50, null, null),

@@ -85,7 +85,11 @@ public class RecommendationService {
                     scored.explanation(),
                     workKm));
         }
-        return new RecommendationResponse(items, result.broadened(), result.message());
+        List<RecommendationResponse.FunnelStep> funnel = new ArrayList<>();
+        for (RecommendationEngine.FunnelStep step : result.funnel()) {
+            funnel.add(new RecommendationResponse.FunnelStep(step.code(), step.remaining()));
+        }
+        return new RecommendationResponse(items, result.broadened(), result.message(), funnel);
     }
 
     /**

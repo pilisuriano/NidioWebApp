@@ -14,8 +14,10 @@ import {
 } from "@/lib/recommender";
 import { Nidi } from "@/components/recommender/Nidi";
 import { BudgetSlider } from "@/components/recommender/BudgetSlider";
-import { SearchingScreen, STEP_MS } from "@/components/recommender/SearchingScreen";
+import { SearchingScreen } from "@/components/recommender/SearchingScreen";
 import { RecommendationResults } from "@/components/recommender/RecommendationResults";
+
+const MIN_SEARCH_MS = 800;
 
 const QUESTIONS = {
   operation: "¿Qué estás buscando?",
@@ -166,8 +168,9 @@ export default function Recomendador() {
     const steps = searchingSteps(finalAnswers);
     setSearchSteps(steps);
     setPhase("searching");
-    // Mínimo de pantalla de búsqueda para que se alcance a leer; se termina cuando llega la respuesta y pasó ese mínimo.
-    const minimum = new Promise(resolve => setTimeout(resolve, steps.length * STEP_MS + 300));
+    // Mínimo de pantalla de búsqueda solo para que no parpadee si el servidor responde al instante.
+    // No simula avance: apenas llega la respuesta (y pasó ese mínimo) se muestran los resultados.
+    const minimum = new Promise(resolve => setTimeout(resolve, MIN_SEARCH_MS));
     try {
       const [res] = await Promise.all([api.post("/api/recommendations", buildRequest(finalAnswers, blueRate)), minimum]);
       if (runRef.current !== runId) return;
@@ -206,7 +209,7 @@ export default function Recomendador() {
   const shell = children => <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="space-y-1 mt-8">
         <h1 className="text-2xl font-bold text-on-surface">Recomendador con Nidi</h1>
-        <p className="text-sm text-on-surface-variant font-mono">Respondé unas preguntas y te recomiendo 3 propiedades, con el porqué de cada una.</p>
+        <p className="text-sm text-on-surface-variant font-mono">Respondé unas preguntas y te recomiendo 3 propiedades y te explico por qué encaja cada una.</p>
       </div>
       {children}
     </div>;

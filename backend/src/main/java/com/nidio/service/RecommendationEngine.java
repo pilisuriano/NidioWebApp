@@ -16,6 +16,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Motor del recomendador: filtros duros + promedio ponderado por criterio, sin
@@ -107,7 +108,11 @@ public class RecommendationEngine {
     ) {
     }
 
-    public record Result(List<Scored> items, boolean broadened, String message) {
+    /** Cuántas propiedades quedaban después de cada filtro (code: CATALOG, TYPE, BUDGET, ROOMS, PRICE, DEALBREAKER). */
+    public record FunnelStep(String code, int remaining) {
+    }
+
+    public record Result(List<Scored> items, boolean broadened, String message, List<FunnelStep> funnel) {
     }
 
     private record Entry(Criterion criterion, double weight, double score) {
@@ -117,12 +122,11 @@ public class RecommendationEngine {
 
     /** @param catalog todas las propiedades activas de la operación pedida, con sus puntajes completos. */
     public Result recommend(RecommendationRequest request, List<Candidate> catalog) {
-        List<Candidate> base = new ArrayList<>();
-        for (Candidate c : catalog) {
-            if (passesHardFilters(request, c)) {
-                base.add(c);
-            }
-        }
+        // Filtros duros uno detrás del otro; se guarda cuántas quedan en cada paso para poder mostrar cómo se llegó al resultado.
+        List<Candidate> afterType = keep(catalog, c -> passesType(request, c));
+        List<Candidate> afterBudget = keep(afterType, c -> passesBudget(request, c));
+        List<Candidate> afterRooms = keep(afterBudget, c -> passesRooms(request, c));
+        List<Candidate> base = keep(afterRooms, c -> passesPrice(request, c));
 
         Criterion dealbreaker = dealbreakerCriterion(request.getDealbreaker());
         List<Candidate> pool = aboveThreshold(base, dealbreaker,
@@ -166,7 +170,14 @@ public class RecommendationEngine {
                     + " con el tipo, el presupuesto y los ambientes que elegiste.";
             message = message == null ? few : message + " " + few;
         }
-        return new Result(top, broadened, message);
+        List<FunnelStep> funnel = List.of(
+                new FunnelStep("CATALOG", catalog.size()),
+                new FunnelStep("TYPE", afterType.size()),
+                new FunnelStep("BUDGET", afterBudget.size()),
+                new FunnelStep("ROOMS", afterRooms.size()),
+                new FunnelStep("PRICE", base.size()),
+                new FunnelStep("DEALBREAKER", pool.size()));
+        return new Result(top, broadened, message, funnel);
     }
 
     /**
@@ -218,20 +229,32 @@ public class RecommendationEngine {
         return r.getMinRooms() != null ? r.getMinRooms() : minRooms(r.getHousehold());
     }
 
-    private boolean passesHardFilters(RecommendationRequest r, Candidate c) {
-        if (r.getPropertyTypes() != null && !r.getPropertyTypes().isEmpty()
-                && !r.getPropertyTypes().contains(c.type())) {
-            return false;
+    private static List<Candidate> keep(List<Candidate> candidates, Predicate<Candidate> test) {
+        List<Candidate> kept = new ArrayList<>();
+        for (Candidate c : candidates) {
+            if (test.test(c)) {
+                kept.add(c);
+            }
         }
+        return kept;
+    }
+
+    private static boolean passesType(RecommendationRequest r, Candidate c) {
+        return r.getPropertyTypes() == null || r.getPropertyTypes().isEmpty() || r.getPropertyTypes().contains(c.type());
+    }
+
+    private static boolean passesBudget(RecommendationRequest r, Candidate c) {
         if (r.getBudgetMin() != null && c.price().compareTo(r.getBudgetMin()) < 0) {
             return false;
         }
-        if (r.getBudgetMax() != null && c.price().compareTo(r.getBudgetMax()) > 0) {
-            return false;
-        }
-        if (c.rooms() == null || c.rooms() < requiredRooms(r)) {
-            return false;
-        }
+        return r.getBudgetMax() == null || c.price().compareTo(r.getBudgetMax()) <= 0;
+    }
+
+    private static boolean passesRooms(RecommendationRequest r, Candidate c) {
+        return c.rooms() != null && c.rooms() >= requiredRooms(r);
+    }
+
+    private static boolean passesPrice(RecommendationRequest r, Candidate c) {
         return !(r.getOverpricedPolicy() == OverpricedPolicy.HIDE && priceStatus(c) == PriceStatus.ABOVE);
     }
 

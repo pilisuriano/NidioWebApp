@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRequest, defaultProximity, formatBudgetRange, initialAnswers, isStepAnswered, allRequiredAnswered,
-  searchingSteps, shuffle, effectiveMinRooms, suggestedMinRooms, budgetAtPosition, countWithinBudget, formatDistance, PROXIMITY_CATEGORIES, STEP_IDS, REQUIRED_STEPS
+  searchingSteps, shuffle, effectiveMinRooms, suggestedMinRooms, budgetAtPosition, countWithinBudget, formatDistance, funnelSummary, PROXIMITY_CATEGORIES, STEP_IDS, REQUIRED_STEPS
 } from '../lib/recommender';
 
 function completeAnswers(overrides = {}) {
@@ -17,6 +17,26 @@ function completeAnswers(overrides = {}) {
     ...overrides,
   };
 }
+
+describe('funnelSummary', () => {
+  it('lists the real counts after each filter and skips filters that removed nothing', () => {
+    const funnel = [
+      { code: 'CATALOG', remaining: 112 }, { code: 'TYPE', remaining: 112 }, { code: 'BUDGET', remaining: 47 },
+      { code: 'ROOMS', remaining: 30 }, { code: 'PRICE', remaining: 30 }, { code: 'DEALBREAKER', remaining: 22 },
+    ];
+    expect(funnelSummary(funnel)).toEqual([
+      '112 propiedades publicadas',
+      '47 dentro de tu presupuesto',
+      '30 con los ambientes que necesitás',
+      '22 después de dejar de lado las zonas que descartarías',
+    ]);
+  });
+
+  it('returns nothing without data (an older backend)', () => {
+    expect(funnelSummary(undefined)).toEqual([]);
+    expect(funnelSummary([])).toEqual([]);
+  });
+});
 
 describe('budget bar', () => {
   const PRICES = [400000, 500000, 600000, 700000, 800000, 900000, 1000000, 1200000, 1500000, 2000000];

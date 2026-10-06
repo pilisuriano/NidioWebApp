@@ -7,7 +7,17 @@ import java.util.List;
  * umbral de la pregunta de descarte porque quedaban muy pocas propiedades;
  * {@code message} es el aviso para mostrar al usuario (null si no hay nada que avisar).
  */
-public record RecommendationResponse(List<RecommendationItem> items, boolean broadened, String message) {
+public record RecommendationResponse(List<RecommendationItem> items, boolean broadened, String message,
+                                     List<FunnelStep> funnel) {
+
+    /**
+     * Cuántas propiedades quedaban después de cada filtro, en orden: CATALOG (publicadas), TYPE, BUDGET,
+     * ROOMS, PRICE (sin las muy por encima del precio estimado, solo si se pidió) y DEALBREAKER (después
+     * de dejar de lado las zonas que la persona descartaría). La pantalla lo usa para explicar cómo se llegó al resultado.
+     */
+    public record FunnelStep(String code, int remaining) {
+    }
+
 
     /**
      * @param matchScore  0-100, para pruebas y validación; la pantalla NO lo muestra (decisión de

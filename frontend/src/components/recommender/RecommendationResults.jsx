@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatPrice, formatNumber, OPERATION_TYPE_LABEL, PROPERTY_TYPE_LABEL } from "@/lib/format";
-import { PRICE_STATUS_TEXT, formatDistance } from "@/lib/recommender";
+import { PRICE_STATUS_TEXT, formatDistance, funnelSummary } from "@/lib/recommender";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
 import { Nidi } from "./Nidi";
 
@@ -14,6 +14,7 @@ const PRICE_BADGE_VARIANT = { IN_RANGE: "good", BELOW: "good", ABOVE: "alert" };
 export function RecommendationResults({ result, onEdit, onRestart }) {
   const items = result.items ?? [];
   const found = items.length > 0;
+  const funnel = funnelSummary(result.funnel);
   return <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-center gap-5">
         <Nidi mode={found ? "happy" : "idle"} width={120} />
@@ -74,6 +75,14 @@ export function RecommendationResults({ result, onEdit, onRestart }) {
             </Link>;
         })}
       </div>
+
+      {funnel.length > 1 && <details className="rounded-lg border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface">
+          <summary className="cursor-pointer font-semibold">¿Cómo llegué a estas?</summary>
+          <ol className="mt-3 space-y-1 list-decimal pl-5 marker:text-primary">
+            {funnel.map(line => <li key={line}>{line}</li>)}
+          </ol>
+          <p className="mt-3 text-on-surface-variant">De las que quedaron, te muestro las que mejor encajan con lo que me contaste.</p>
+        </details>}
 
       <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
         <Button type="button" variant="outline" className="gap-2" onClick={onEdit}><Pencil className="w-4 h-4" /> Cambiar mis respuestas</Button>

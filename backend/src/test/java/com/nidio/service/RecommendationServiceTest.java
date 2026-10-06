@@ -118,6 +118,10 @@ class RecommendationServiceTest {
 
         assertEquals(1L, response.items().get(0).property().id().longValue());
         assertEquals(2, response.items().size());
+        // El resumen de filtros viaja en la respuesta: 2 publicadas y 2 que llegan hasta el final.
+        assertEquals("CATALOG", response.funnel().get(0).code());
+        assertEquals(2, response.funnel().get(0).remaining());
+        assertEquals(2, response.funnel().get(response.funnel().size() - 1).remaining());
     }
 
     @Test

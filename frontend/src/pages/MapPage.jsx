@@ -744,14 +744,14 @@ export default function MapPage() {
             puede scrollear hasta el Footer con el cursor encima del mapa
             (la rueda queda capturada por el zoom) — el zoom con botones
             +/-, doble click o pellizco (touch) sigue funcionando igual. */}
-        <MapContainer center={CABA_CENTER} zoom={12} scrollWheelZoom={true} className="w-full h-full absolute inset-0">
+        <MapContainer center={CABA_CENTER} zoom={12} scrollWheelZoom={true} className="map-with-search w-full h-full absolute inset-0">
           {/* Mapa base de CARTO (necesita VITE_CARTO_API_KEY; ver lib/mapTiles.js). Se prefiere
               al tile server crudo de OSM porque éste aplica rate-limiting a apps que no calzan
               su política de uso (causaba el mapa "gris", sin tiles, en desarrollo); sin clave,
               mapTiles.js cae a OSM. */}
           <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
           {/* El control de zoom nativo de MapContainer se baja con CSS
-              (ver .leaflet-top.leaflet-left en index.css) para no quedar
+              (ver .map-with-search en index.css) para no quedar
               tapado por la barra de búsqueda. No se reemplaza por un
               <ZoomControl> manual: en dev, con StrictMode, terminaba
               montándose dos veces. */}

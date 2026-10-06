@@ -242,10 +242,34 @@ export function buildRequest(answers, blueRate) {
   return body;
 }
 
+const FUNNEL_TEXT = {
+  CATALOG: n => `${n} ${n === 1 ? "propiedad publicada" : "propiedades publicadas"}`,
+  TYPE: n => `${n} del tipo que elegiste`,
+  BUDGET: n => `${n} dentro de tu presupuesto`,
+  ROOMS: n => `${n} con los ambientes que necesitás`,
+  PRICE: n => `${n} sin las que están por encima del precio que estima Nidio`,
+  DEALBREAKER: n => `${n} después de dejar de lado las zonas que descartarías`,
+};
+
 /**
- * Pasos que se muestran mientras se espera la respuesta. Cada uno corresponde a algo que el motor
- * realmente evalúa para ESTE pedido (no hay pasos de relleno); lo que sí es solo ritmo visual es el
- * momento en que cada uno se tilda: no refleja el avance real del cálculo.
+ * Cómo se llegó al resultado, con los números reales que devuelve el backend (`funnel`): cuántas propiedades
+ * quedaban después de cada filtro. Se omiten los pasos que no sacaron a ninguna (excepto el primero).
+ */
+export function funnelSummary(funnel) {
+  if (!Array.isArray(funnel)) return [];
+  const lines = [];
+  let previous = null;
+  funnel.forEach((step, i) => {
+    const text = FUNNEL_TEXT[step.code]?.(step.remaining);
+    if (text && (i === 0 || step.remaining !== previous)) lines.push(text);
+    previous = step.remaining;
+  });
+  return lines;
+}
+
+/**
+ * Lista de lo que el motor mira para ESTE pedido (no hay pasos de relleno). Se muestra mientras se espera
+ * la respuesta, como lista fija, sin tildes ni barra de avance (no hay avance real que mostrar).
  */
 export function searchingSteps(answers) {
   const labels = Object.fromEntries(PROXIMITY_CATEGORIES.map(c => [c.key, c.label.toLowerCase()]));
@@ -257,6 +281,6 @@ export function searchingSteps(answers) {
   steps.push("Mirando la seguridad y el ruido de cada barrio");
   steps.push("Comparando cada precio con la estimación de Nidio");
   if (answers.work?.lat != null) steps.push("Calculando la distancia a tu trabajo o estudio");
-  steps.push("Armando tu top 3 con el porqué de cada una");
+  steps.push("Armando tu top 3 y explicando por qué encaja cada una");
   return steps;
 }

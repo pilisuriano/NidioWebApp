@@ -21,6 +21,10 @@ const PRICES = [400000, 500000, 600000, 700000, 800000, 900000, 1000000, 1200000
 const RESULT = {
   broadened: true,
   message: 'Ampliamos un poco la búsqueda: había pocas propiedades.',
+  funnel: [
+    { code: 'CATALOG', remaining: 10 }, { code: 'TYPE', remaining: 10 }, { code: 'BUDGET', remaining: 5 },
+    { code: 'ROOMS', remaining: 4 }, { code: 'PRICE', remaining: 3 }, { code: 'DEALBREAKER', remaining: 3 },
+  ],
   items: [{
     property: { id: 7, title: 'Depto luminoso', propertyType: 'APARTMENT', operationType: 'RENT', neighborhoodName: 'Palermo', price: 900000, surfaceM2: 45, rooms: 2, bathrooms: 1, imageUrl: null },
     matchScore: 81, priceStatus: 'IN_RANGE', reasons: ['x'], tradeoff: null,
@@ -102,6 +106,11 @@ describe('Recomendador', () => {
     expect(screen.getByText(/te la recomendamos porque/i)).toBeInTheDocument();
     expect(screen.getByText('Precio dentro de lo que estima Nidio')).toBeInTheDocument();
     expect(screen.queryByText('81')).not.toBeInTheDocument(); // el puntaje no se muestra
+    // Cómo se llegó al resultado, con los números reales del backend
+    expect(screen.getByText('¿Cómo llegué a estas?')).toBeInTheDocument();
+    expect(screen.getByText('10 propiedades publicadas')).toBeInTheDocument();
+    expect(screen.getByText('5 dentro de tu presupuesto')).toBeInTheDocument();
+    expect(screen.queryByText(/del tipo que elegiste/)).not.toBeInTheDocument(); // ese filtro no sacó ninguna
     // Toda la tarjeta abre la propiedad en una pestaña nueva, y el corazón de favoritos está en la tarjeta.
     const card = screen.getByRole('link', { name: /depto luminoso/i });
     expect(card).toHaveAttribute('href', '/propiedades/7');

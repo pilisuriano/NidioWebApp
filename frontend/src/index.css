@@ -205,6 +205,9 @@ body {
    con el botón "Ver listado de propiedades" agregado debajo del buscador
    (MapPage.jsx), la barra creció ~50px y el control de zoom quedaba tapado
    por ese botón. */
-.leaflet-top.leaflet-left {
+/* Solo en el mapa de MapPage (clase map-with-search): antes era global y
+   también empujaba el zoom 206px hacia abajo en los mapas chicos (detalle de
+   propiedad, 256px de alto), donde el "-" quedaba cortado por el borde. */
+.map-with-search .leaflet-top.leaflet-left {
   top: 206px;
 }
