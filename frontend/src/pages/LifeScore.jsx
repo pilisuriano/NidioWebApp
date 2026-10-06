@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { NidioLoadingMark } from "@/components/ui/NidioLoadingMark";
-import { MapPin, SlidersHorizontal, Bus, ShoppingBag, TreePine, Cross, Utensils, Wine, GraduationCap, Calculator, AlertCircle, Heart, Star, Plus, Trash2, Info } from "lucide-react";
+import { MapPin, SlidersHorizontal, Bus, ShoppingBag, TreePine, Cross, Utensils, Wine, GraduationCap, Calculator, AlertCircle, Heart, Star, Plus, Trash2, Info, Eye, EyeOff } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 
 const CATEGORIES = [
@@ -76,10 +76,26 @@ const CUSTOM_PLACE_PIN_ICON = L.divIcon({
   iconAnchor: [14, 14]
 });
 
+// Color del puntaje total, en línea con el nivel que ya muestra scoreLabel
+// (rojo = bajo, azul = neutral, verdes = óptimo y excelente). El nivel también
+// se escribe en texto ("NIVEL: ..."), así que el color nunca es la única señal.
+// Cortes relativos a la ciudad, no absolutos: salen de la distribución del
+// puntaje (pesos iguales) en 6.000 parcelas al azar de CABA -- mediana 36,
+// p25 28, p75 56, p90 76 (ver nidio-life-score-por-barrio.md). Con cortes
+// absolutos (80/60/40) la parcela típica de CABA quedaba en rojo.
+const SCORE_CUTS = { excelente: 76, optimo: 56, neutral: 28 };
+
+function scoreColor(score) {
+  if (score >= SCORE_CUTS.excelente) return "#15803d";
+  if (score >= SCORE_CUTS.optimo) return "#65a30d";
+  if (score >= SCORE_CUTS.neutral) return "#2563eb";
+  return "#dc2626";
+}
+
 function scoreLabel(score) {
-  if (score >= 80) return "EXCELENTE";
-  if (score >= 60) return "ÓPTIMO";
-  if (score >= 40) return "NEUTRAL";
+  if (score >= SCORE_CUTS.excelente) return "EXCELENTE";
+  if (score >= SCORE_CUTS.optimo) return "ÓPTIMO";
+  if (score >= SCORE_CUTS.neutral) return "NEUTRAL";
   return "BAJO";
 }
 
@@ -204,6 +220,10 @@ export default function LifeScore() {
   const newPlaceDebounceRef = useRef(null);
 
   const [result, setResult] = useState(null);
+  // Categorías de POIs apagadas en el mapa (botones de la leyenda): en zonas
+  // densas hay cientos de puntos y abruma, así que cada categoría se puede
+  // ocultar. No afecta el puntaje, solo lo que se dibuja.
+  const [hiddenCategories, setHiddenCategories] = useState(new Set());
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -425,6 +445,17 @@ export default function LifeScore() {
     }
   }
 
+  function toggleCategoryVisibility(key) {
+    setHiddenCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const allCategoriesHidden = hiddenCategories.size === CATEGORIES.length;
+
   const score = result?.totalScore ?? null;
   const circumference = 282.7;
   const selectedPlaceCount = customPlaces.filter(p => !deselectedPlaceIds.has(p.id)).length;
@@ -444,17 +475,17 @@ export default function LifeScore() {
       <div className="flex items-center gap-4 flex-wrap">
         <h1 className="text-3xl font-bold text-on-surface">Life Score</h1>
         <Badge variant="secondary" className="px-3 py-1 text-[10px] tracking-widest uppercase">
-          DATOS REALES (OPENSTREETMAP)
+          DATOS ABIERTOS (BA DATA)
         </Badge>
-        {/* Crédito del dataset de paradas de colectivo -- antes iba en un
-            renglón aparte debajo del mapa, movido acá junto con la otra
-            fuente de datos reales a pedido de Pili (15/08/2026). Licencia
-            CC-BY 2.5 AR: el texto completo de la atribución queda en el
-            title (tooltip), para no alargar el badge visualmente. */}
+        {/* Atribución de los datasets de BA Data que usa el Life Score (todos con
+            licencia CC-BY 2.5 AR). Desde octubre de 2026 el cálculo no usa
+            OpenStreetMap: la lista completa de fuentes queda en el title
+            (tooltip) y en ml-service/data/README.md. El mapa de fondo sigue
+            mostrando la atribución de OSM en el TileLayer. */}
         <Badge
           variant="secondary"
           className="px-3 py-1 text-[10px] tracking-widest uppercase"
-          title="Datos de paradas de colectivo: Gobierno de la Ciudad de Buenos Aires (CC-BY 2.5 AR) — data.buenosaires.gob.ar"
+          title="Datos abiertos del Gobierno de la Ciudad de Buenos Aires (CC BY 2.5 AR), procesados por Nidio: paradas de colectivo, estaciones de subte y ferrocarril, hospitales, CeSAC, centros de salud privados, farmacias, establecimientos educativos, oferta gastronómica, mercados, ferias y espacios verdes — data.buenosaires.gob.ar"
         >
           GOBIERNO DE BUENOS AIRES (DATA.BUENOSAIRES.GOB.AR)
         </Badge>
@@ -757,7 +788,7 @@ export default function LifeScore() {
                   <Marker position={[result.location.lat, result.location.lon]} icon={PROPERTY_PIN_ICON}>
                     <Popup>{address}</Popup>
                   </Marker>
-                  {result.categories.flatMap(cat => cat.pois.map((poi, i) => (
+                  {result.categories.filter(cat => !hiddenCategories.has(cat.category)).flatMap(cat => cat.pois.map((poi, i) => (
                     <CircleMarker
                       key={`${cat.category}-${i}`} center={[poi.lat, poi.lon]} radius={6}
                       pathOptions={{ color: CATEGORY_COLOR[cat.category], fillColor: CATEGORY_COLOR[cat.category], fillOpacity: 0.7, weight: 1 }}
@@ -789,12 +820,33 @@ export default function LifeScore() {
                   MapPage.jsx/Explorar) -- solo tiene sentido una vez que hay
                   un resultado calculado, que es cuando aparecen los POIs. */}
               {result && <div className="absolute bottom-6 right-3 z-[1000] bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-2.5 rounded-lg shadow-sm space-y-1 text-[10px] font-bold text-on-surface max-h-[85%] overflow-y-auto">
-                  {CATEGORIES.map(c => (
-                    <div key={c.key} className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: CATEGORY_COLOR[c.key] }}></span>
-                      {c.label}
-                    </div>
-                  ))}
+                  {CATEGORIES.map(c => {
+                    const hidden = hiddenCategories.has(c.key);
+                    const count = result.categories.find(cat => cat.category === c.key)?.poiCount ?? 0;
+                    return (
+                      <button
+                        key={c.key} type="button" onClick={() => toggleCategoryVisibility(c.key)}
+                        aria-pressed={!hidden}
+                        title={hidden ? `Mostrar ${c.label} en el mapa` : `Ocultar ${c.label} en el mapa`}
+                        className={`flex w-full items-center gap-1.5 text-left rounded px-1 py-0.5 hover:bg-surface-container transition-opacity ${hidden ? "opacity-50" : ""}`}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0 border"
+                          style={{ background: hidden ? "transparent" : CATEGORY_COLOR[c.key], borderColor: CATEGORY_COLOR[c.key] }}
+                        ></span>
+                        <span className={`flex-1 ${hidden ? "line-through" : ""}`}>{c.label}</span>
+                        <span className="font-mono font-normal text-on-surface-variant">{count}</span>
+                        {hidden ? <EyeOff className="w-3 h-3 shrink-0" /> : <Eye className="w-3 h-3 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setHiddenCategories(allCategoriesHidden ? new Set() : new Set(CATEGORIES.map(c => c.key)))}
+                    className="w-full pt-1 mt-0.5 border-t border-outline-variant text-center font-bold text-primary hover:underline"
+                  >
+                    {allCategoriesHidden ? "Mostrar todas" : "Ocultar todas"}
+                  </button>
                 </div>}
               {!result && (
                 <div className="w-full h-full min-h-[420px] bg-[#e5e9f0] flex items-center justify-center">
@@ -825,15 +877,15 @@ export default function LifeScore() {
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="45" fill="none" stroke="#cfdaf2" strokeWidth="8" />
                   <circle
-                    cx="50" cy="50" r="45" fill="none" stroke="#00647c" strokeWidth="8"
+                    cx="50" cy="50" r="45" fill="none" stroke={score != null ? scoreColor(score) : "#00647c"} strokeWidth="8"
                     strokeDasharray={circumference}
                     strokeDashoffset={circumference - circumference * ((score ?? 0) / 100)}
                     strokeLinecap="round"
-                    style={{ transition: "stroke-dashoffset 0.6s ease" }}
+                    style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.6s ease" }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-primary tracking-tighter">
+                  <span className="text-3xl font-bold tracking-tighter" style={{ color: score != null ? scoreColor(score) : "#00647c" }}>
                     {score != null ? Math.round(score) : "—"}
                   </span>
                   <span className="text-[10px] font-mono text-on-surface-variant mt-0.5">pts / 100</span>
@@ -842,7 +894,7 @@ export default function LifeScore() {
 
               {score != null ? (
                 <>
-                  <Badge variant="outline" className="text-primary border-primary/30 mb-2 font-bold tracking-widest px-4 py-1.5 z-10">
+                  <Badge variant="outline" className="mb-2 font-bold tracking-widest px-4 py-1.5 z-10" style={{ color: scoreColor(score), borderColor: `${scoreColor(score)}55` }}>
                     NIVEL: {scoreLabel(score)}
                   </Badge>
                   <p className="text-sm font-mono text-on-surface-variant max-w-[250px] z-10">

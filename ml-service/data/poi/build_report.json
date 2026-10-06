@@ -1,0 +1,73 @@
+{
+  "generado": "2026-10-06",
+  "reglas": {
+    "TRANSPORT": "Paradas de colectivo (data/paradas-de-colectivo.csv, se carga aparte) + estaciones de subte (una por estación, uniendo líneas a menos de 100 m) + estaciones de ferrocarril.",
+    "HEALTH": "Hospitales + CeSAC + centros de salud privados + farmacias.",
+    "EDUCATION": "Establecimientos educativos (un punto por edificio: varios niveles en la misma dirección cuentan una vez).",
+    "GASTRONOMY": "Relevamiento de Usos del Suelo 2022-2024: restaurantes, cafés, confiterías, sandwicherías, pizzerías y parrillas (locales activos).",
+    "NIGHTLIFE": "Relevamiento de Usos del Suelo 2022-2024: bares, cervecerías y discotecas (locales activos).",
+    "COMMERCE": "Relevamiento de Usos del Suelo 2022-2024: supermercados, minimercados, almacenes, verdulerías, carnicerías, panaderías, fiambrerías, granjas, pescaderías, dietéticas, mercados y shoppings, kioscos y maxikioscos (locales activos) + ferias y mercados de BA Data.",
+    "GREEN_SPACE": "Espacios verdes públicos, sin canteros centrales ni complejos habitacionales, y con al menos --min-green-area m²."
+  },
+  "fuentes": {
+    "hospitales": 36,
+    "cesac": 50,
+    "salud_privados": 65,
+    "farmacias": 1240,
+    "educativos": "2767 registros -> 1801 edificios (misma dirección, a menos de 15 m, cuenta una vez; se unieron 966)",
+    "subte": "90 registros (una por línea) -> 84 estaciones (se unieron combinaciones a menos de 100 m)",
+    "ferrocarril": 301,
+    "rus_2022_2024": "87615 locales activos (uni y multicomercial) -> 23082 de las actividades usadas -> 22940 tras quitar duplicados (misma calle, altura y actividad)",
+    "mercados": 6,
+    "ferias": 30,
+    "espacios_verdes": "2176 registros -> 1420 sin canteros centrales ni complejos -> 1068 con área >= 200 m²"
+  },
+  "descartados": [
+    "BA Data: Estaciones de ferrocarril: 145 sin coordenadas válidas o fuera del recuadro de CABA y alrededores"
+  ],
+  "rus_por_actividad": {
+    "kiosco": 2938,
+    "restaurante": 2628,
+    "verduleria": 2401,
+    "cafe": 1693,
+    "panaderia": 1687,
+    "minimercado": 1514,
+    "supermercado": 1280,
+    "carniceria": 1215,
+    "dietetica": 1139,
+    "maxikiosco": 1037,
+    "pizzeria": 985,
+    "almacen": 899,
+    "fiambreria_y_queseria": 897,
+    "bar": 879,
+    "granja": 487,
+    "confiteria": 380,
+    "parrilla": 331,
+    "cerveceria": 242,
+    "pescaderia": 138,
+    "sandwicheria": 88,
+    "discoteca": 26,
+    "mercado": 22,
+    "shopping": 19,
+    "hipermercado": 15
+  },
+  "validacion_rus_vs_farmacias": {
+    "farmacias_rus": 1114,
+    "distancia_mediana_a_farmacia_oficial_m": 24.8,
+    "p75_m": 36.1,
+    "menos_de_100_m": 0.903
+  },
+  "pois_por_categoria": {
+    "COMMERCE": 15724,
+    "GASTRONOMY": 6105,
+    "EDUCATION": 1801,
+    "HEALTH": 1391,
+    "NIGHTLIFE": 1147,
+    "TRANSPORT": 240,
+    "GREEN_SPACE": 1068
+  },
+  "nombres_mal_codificados": {
+    "reparados": 0,
+    "reemplazados_por_nombre_generico": 0
+  }
+}

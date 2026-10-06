@@ -29,29 +29,13 @@ public class MlServiceClient {
     public MlServiceClient(@Value("${app.ml-service.base-url}") String baseUrl) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(2));
-        // 150s (antes 100s, antes 30s, antes 8s -- Ronda 16, 18/08/2026):
-        // /life-score consulta Overpass/OSM de verdad (ver
-        // ml-service/src/geo/life_score.py), y ese lado tiene: (a) su propio
-        // timeout por intento en 45s (ox.settings.requests_timeout,
-        // confirmado insuficiente en 25s con un caso real de Pili -- una
-        // consulta fría en zona densa tardó y falló), y (b) reintenta contra
-        // un segundo endpoint (mirror) si el primero falla
-        // (_OVERPASS_ENDPOINTS). Peor caso teórico del lado Python: ~90s
-        // (dos intentos de 45s), sin contar el resto del procesamiento
-        // (parseo de OSMnx, cálculo de "Mis lugares", serialización). 100s
-        // resultó insuficiente en la práctica: Pili confirmó un caso real
-        // (18/08/2026) con los dos endpoints de Overpass lentos ese día --
-        // no caídos, solo lentos -- donde este cliente cortaba la conexión
-        // ANTES de que ml-service terminara de responder, lo que produce
-        // exactamente el error "Error while extracting response ... content
-        // type [application/octet-stream]" (Spring intentando parsear una
-        // conexión cortada a mitad de camino como si fuera la respuesta).
-        // 150s le da margen real por encima del peor caso de 90s del lado
-        // Python. Sigue siendo un peor caso, no lo típico -- la mayoría de
-        // las consultas (sobre todo con caché tibio) responden en pocos
-        // segundos. /predict (XGBoost) sigue siendo rápido, así que
-        // compartir este timeout más generoso no le cuesta nada.
-        requestFactory.setReadTimeout(Duration.ofSeconds(150));
+        // 30s. Con la versión anterior de /life-score (Overpass/OSM en vivo) este
+        // timeout llegó a 150s para tolerar consultas lentas a un servicio externo.
+        // Desde octubre de 2026 el Life Score se calcula con datasets locales dentro
+        // de ml-service (ver ml-service/data/README.md) y responde en milisegundos,
+        // así que ya no hay una espera externa que cubrir: 30s alcanza para el
+        // arranque en frío de ml-service y para /predict (XGBoost).
+        requestFactory.setReadTimeout(Duration.ofSeconds(30));
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
@@ -123,18 +107,12 @@ public class MlServiceClient {
             }
             return response;
         } catch (ResourceAccessException e) {
-            // Timeout real de red (conexión o lectura) contra ml-service --
-            // el caso ya documentado de "ambos endpoints de Overpass lentos
-            // ese día" (ver el comentario del readTimeout más arriba):
-            // ml-service sigue esperando su propio timeout (hasta ~90s) y
-            // este cliente corta antes de que llegue a responder. Mensaje
-            // separado del genérico de abajo porque acá SÍ sabemos la causa
-            // real (timeout, no una respuesta rota) y podemos explicarla en
-            // términos que un usuario final entienda, en vez de exponer el
-            // texto técnico crudo de la excepción.
+            // Timeout real de red (conexión o lectura) contra ml-service. El
+            // Life Score ya no depende de ningún servicio externo, así que el
+            // motivo probable es que ml-service esté reiniciando o caído.
             throw new MlServiceException(
-                    "El cálculo del Life Score está tardando más de lo esperado porque depende de un "
-                            + "servicio externo (OpenStreetMap). Probá de nuevo en unos segundos.");
+                    "El servicio de cálculo del Life Score no respondió a tiempo. "
+                            + "Probá de nuevo en unos segundos.");
         } catch (RestClientException e) {
             // Incluye UnknownContentTypeException ("Error while extracting
             // response ... content type [application/octet-stream]"): pasa

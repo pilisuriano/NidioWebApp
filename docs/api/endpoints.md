@@ -216,7 +216,7 @@ Responde siempre `200` con el mismo mensaje exista o no el email, para no filtra
   "explanation": "Tu puntaje de 78 se apoya principalmente en Transporte y Comercios. Vida nocturna es lo que más lo baja: hay pocos lugares de ese tipo cerca, aunque le diste bastante peso. También se tuvieron en cuenta tus 3 lugares personales, a un promedio de 650 m — son datos privados y cifrados, solo vos podés verlos."
 }
 ```
-`502 Bad Gateway` si `ml-service`/OSMnx no responde a tiempo.
+`502 Bad Gateway` si `ml-service` no responde a tiempo.
 
 **Decisión — "Mis lugares" vs. las 7 categorías fijas:** se calculan con la misma matemática de distancia (Haversine) pero con fórmulas de score distintas a propósito. Las 7 categorías son un índice de *densidad/cobertura* (cuántos POIs hay respecto de lo esperado en una zona bien servida — ver `ml-service/src/geo/life_score.py`) y se mantienen como el índice objetivo/comparable entre propiedades, con un radio de búsqueda fijo (no configurable). "Mis lugares" es una capa personalizada de un único punto por lugar, con *decaimiento por distancia* (100 hasta ~400m, decae a 0 al llegar al radio que el usuario elige, 1-3km, default 2km) — por eso el radio configurable se limita a esta capa y no a las categorías fijas, que perderían comparabilidad si cada usuario las calculara con un radio distinto.
 
@@ -294,7 +294,7 @@ Responde siempre `200` con el mismo mensaje exista o no el email, para no filtra
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | POST | `/predict` | Recibe superficie, barrio, ambientes, tipo de propiedad, tipo de operación. Devuelve `{ min, max }` del rango de precio estimado. MAE objetivo < 15% (NFR). |
-| POST | `/life-score` | Recibe lat/lon + pesos por categoría. Consulta OpenStreetMap vía OSMnx, devuelve score total + POIs por categoría. Debe resolver en menos de 5 segundos (NFR). |
+| POST | `/life-score` | Recibe lat/lon + pesos por categoría. Calcula con datasets abiertos de BA Data cargados en `ml-service` (sin llamadas externas), devuelve score total + POIs por categoría. Debe resolver en menos de 5 segundos (NFR). |
 | GET | `/health` | Healthcheck para el proveedor de deploy (Render). |
 
 <details>

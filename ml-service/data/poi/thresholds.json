@@ -1,0 +1,89 @@
+{
+  "radius_m": 800,
+  "method": "percentil 0.9 de la cantidad de POIs dentro de 800 m",
+  "sample": "3000 paradas de colectivo al azar (semilla 42) de 6962",
+  "generated": "2026-10-06",
+  "full_coverage": {
+    "TRANSPORT": 170,
+    "COMMERCE": 409,
+    "GREEN_SPACE": 24,
+    "HEALTH": 45,
+    "GASTRONOMY": 198,
+    "NIGHTLIFE": 29,
+    "EDUCATION": 38
+  },
+  "distribution": {
+    "TRANSPORT": {
+      "min": 1,
+      "p25": 60.0,
+      "median": 83.0,
+      "p75": 118.0,
+      "p90": 170.0,
+      "max": 237,
+      "share_zero": 0.0
+    },
+    "COMMERCE": {
+      "min": 0,
+      "p25": 114.0,
+      "median": 178.0,
+      "p75": 298.25,
+      "p90": 409.0999999999999,
+      "max": 551,
+      "share_zero": 0.014
+    },
+    "GREEN_SPACE": {
+      "min": 0,
+      "p25": 6.0,
+      "median": 10.0,
+      "p75": 15.25,
+      "p90": 24.0,
+      "max": 47,
+      "share_zero": 0.004
+    },
+    "HEALTH": {
+      "min": 0,
+      "p25": 9.0,
+      "median": 15.0,
+      "p75": 27.0,
+      "p90": 45.0,
+      "max": 82,
+      "share_zero": 0.013
+    },
+    "GASTRONOMY": {
+      "min": 0,
+      "p25": 29.0,
+      "median": 59.0,
+      "p75": 117.0,
+      "p90": 198.0,
+      "max": 355,
+      "share_zero": 0.01
+    },
+    "NIGHTLIFE": {
+      "min": 0,
+      "p25": 4.0,
+      "median": 11.0,
+      "p75": 19.0,
+      "p90": 29.0,
+      "max": 182,
+      "share_zero": 0.074
+    },
+    "EDUCATION": {
+      "min": 0,
+      "p25": 14.0,
+      "median": 21.0,
+      "p75": 30.0,
+      "p90": 38.0,
+      "max": 66,
+      "share_zero": 0.01
+    }
+  },
+  "dataset_sizes": {
+    "TRANSPORT": 7202,
+    "COMMERCE": 15724,
+    "HEALTH": 1391,
+    "GASTRONOMY": 6105,
+    "NIGHTLIFE": 1147,
+    "EDUCATION": 1801,
+    "GREEN_SPACE": 1068
+  }
+}

@@ -1,8 +1,9 @@
 """Punto de entrada de la API FastAPI del servicio de ML.
 
 /predict usa el modelo XGBoost real (ver src/models/valuation.py). /life-score usa
-POIs reales de OpenStreetMap vía OSMnx/Overpass (ver src/geo/life_score.py) -- ya
-no hay ningun dato sintetico/inventado en ninguno de los dos endpoints.
+datasets abiertos de BA Data que viajan en el repo (ver src/geo/life_score.py y
+data/README.md), sin llamadas de red -- ya no hay ningun dato sintetico/inventado en
+ninguno de los dos endpoints.
 """
 
 from fastapi import FastAPI, HTTPException
