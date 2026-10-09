@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
-import { Calculator, CheckCircle2, AlertCircle, AlertTriangle, Info, ArrowLeft } from "lucide-react";
+import { Calculator, CheckCircle2, AlertCircle, AlertTriangle, Info, ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { useUsage, isQuotaExceeded } from "@/lib/usage";
 import { QuotaNotice } from "@/components/ui/QuotaNotice";
 import { formatNumber } from "@/lib/format";
+import { parseExplanation, markMissing } from "@/lib/explanation";
 import { useBlueRate } from "@/lib/blueRate";
 import { cn } from "@/lib/utils";
 const PROPERTY_TYPES = [{
@@ -191,7 +192,9 @@ export default function Valuacion() {
         // Cotización usada en ESTE cálculo puntual, para que el equivalente en
         // ARS que se muestra abajo no cambie solo si blueRate se actualiza
         // mientras el usuario sigue mirando un resultado ya calculado.
-        blueRateUsed: operationType === "RENT" ? blueRate : null
+        blueRateUsed: operationType === "RENT" ? blueRate : null,
+        // Datos opcionales que quedaron vacíos (ver markMissing en lib/explanation.js).
+        missing: { totalSurface: !totalSurfaceM2, bathrooms: !bathrooms, expenses: !expensesUsd, condition: !propertyCondition }
       });
     } catch (err) {
       // Sin usos gratis este mes (429): el cartel de QuotaNotice ya lo explica
@@ -209,7 +212,12 @@ export default function Valuacion() {
   // bitácora 6.41 adendum) -- el equivalente en ARS de más abajo es puramente
   // decorativo, nunca reemplaza al valor real en USD.
   const currency = "USD" + (lastRequest?.operationType === "RENT" ? "/mes" : "");
-  const estimatedMid = result ? (result.estimatedMin + result.estimatedMax) / 2 : 0;
+  // Explicación del modelo separada en partes (ver lib/explanation.js). El
+  // "valor estimado sugerido" es la predicción central del modelo (la misma que
+  // menciona la explicación); el rango NO es simétrico alrededor de ella, así
+  // que el punto medio del rango solo se usa si la explicación no la trae.
+  const explanation = result ? parseExplanation(result.explanationText) : null;
+  const estimatedMid = result ? (explanation?.centralPrediction ?? (result.estimatedMin + result.estimatedMax) / 2) : 0;
   const priceM2 = result && lastRequest && lastRequest.surfaceM2 > 0 ? estimatedMid / lastRequest.surfaceM2 : null;
   const showArs = lastRequest?.operationType === "RENT" && !!lastRequest?.blueRateUsed;
   const toArs = usd => usd * (lastRequest?.blueRateUsed ?? 0);
@@ -389,20 +397,33 @@ export default function Valuacion() {
                     <ResultBadge result={result.result} />
                   </div>
 
-                  <div className="text-center mb-6">
-                    <p className="text-xs font-bold text-outline uppercase tracking-widest mb-2">VALOR ESTIMADO SUGERIDO</p>
-                    {showArs ? <>
-                        <div className="flex items-start justify-center gap-2">
-                          <span className="text-xl font-bold text-on-surface-variant mt-2">ARS</span>
-                          <span className="text-6xl font-bold text-on-surface tracking-tighter">{formatNumber(toArs(estimatedMid))}</span>
-                        </div>
-                        <p className="text-sm text-on-surface-variant mt-2">
+                  {/* El rango es el resultado principal (el modelo da un rango, no un
+                      valor exacto), por eso va grande; el valor medio sugerido va
+                      más chico, como referencia. */}
+                  <div className="text-center mb-12 space-y-3">
+                    <div>
+                      <p className="text-xs font-bold text-outline uppercase tracking-widest mb-2">RANGO ESTIMADO</p>
+                      <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
+                        <span className="text-lg sm:text-xl font-bold text-on-surface-variant">{showArs ? "ARS" : currency}</span>
+                        <span className="text-3xl sm:text-5xl font-bold text-primary tracking-tighter">
+                          {formatNumber(showArs ? toArs(result.estimatedMin) : result.estimatedMin)}
+                          <span className="text-on-surface-variant font-normal mx-1 sm:mx-2">–</span>
+                          {formatNumber(showArs ? toArs(result.estimatedMax) : result.estimatedMax)}
+                        </span>
+                      </div>
+                      {showArs && <p className="text-xs text-on-surface-variant mt-1">
+                          ≈ {currency} {formatNumber(result.estimatedMin)} – {formatNumber(result.estimatedMax)}
+                        </p>}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-outline uppercase tracking-widest mb-1">Valor estimado sugerido</p>
+                      <p className="text-xl sm:text-2xl font-bold text-on-surface">
+                        {showArs ? `ARS ${formatNumber(toArs(estimatedMid))}` : `${currency} ${formatNumber(estimatedMid)}`}
+                      </p>
+                      {showArs && <p className="text-[10px] text-on-surface-variant">
                           ≈ {currency} {formatNumber(estimatedMid)} (cotización dólar blue del momento del cálculo: ${formatNumber(lastRequest.blueRateUsed)})
-                        </p>
-                      </> : <div className="flex items-start justify-center gap-2">
-                        <span className="text-xl font-bold text-on-surface-variant mt-2">{currency}</span>
-                        <span className="text-6xl font-bold text-on-surface tracking-tighter">{formatNumber(estimatedMid)}</span>
-                      </div>}
+                        </p>}
+                    </div>
                   </div>
 
                   {/* Barra de rango */}
@@ -439,23 +460,23 @@ export default function Valuacion() {
                   </div>
 
                   {/* Stats */}
-                  <div className="grid grid-cols-3 gap-3 mb-6">
-                    <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
+                    <div className="border border-outline-variant rounded-lg p-2.5 sm:p-4 bg-surface-container-low/50 space-y-2 min-w-0">
                       <p className="text-xs text-on-surface-variant">Precio x m² (est.)</p>
-                      <p className="text-lg font-bold text-on-surface">
+                      <p className="text-sm sm:text-lg font-bold text-on-surface break-words">
                         {priceM2 != null ? formatNumber(priceM2) : "—"}
                       </p>
                       <p className="text-[10px] font-mono text-on-surface-variant">{currency}/m²</p>
                     </div>
-                    <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
+                    <div className="border border-outline-variant rounded-lg p-2.5 sm:p-4 bg-surface-container-low/50 space-y-2 min-w-0">
                       <p className="text-xs text-on-surface-variant">Mínimo estimado</p>
-                      <p className="text-lg font-bold text-on-surface">{showArs ? formatNumber(toArs(result.estimatedMin)) : formatNumber(result.estimatedMin)}</p>
+                      <p className="text-sm sm:text-lg font-bold text-on-surface break-words">{showArs ? formatNumber(toArs(result.estimatedMin)) : formatNumber(result.estimatedMin)}</p>
                       <p className="text-[10px] font-mono text-on-surface-variant">{showArs ? "ARS" : currency}</p>
                       {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ {currency} {formatNumber(result.estimatedMin)}</p>}
                     </div>
-                    <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 space-y-2">
+                    <div className="border border-outline-variant rounded-lg p-2.5 sm:p-4 bg-surface-container-low/50 space-y-2 min-w-0">
                       <p className="text-xs text-on-surface-variant">Máximo estimado</p>
-                      <p className="text-lg font-bold text-on-surface">{showArs ? formatNumber(toArs(result.estimatedMax)) : formatNumber(result.estimatedMax)}</p>
+                      <p className="text-sm sm:text-lg font-bold text-on-surface break-words">{showArs ? formatNumber(toArs(result.estimatedMax)) : formatNumber(result.estimatedMax)}</p>
                       <p className="text-[10px] font-mono text-on-surface-variant">{showArs ? "ARS" : currency}</p>
                       {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ {currency} {formatNumber(result.estimatedMax)}</p>}
                     </div>
@@ -466,12 +487,30 @@ export default function Valuacion() {
                       MlServiceClient.PredictResponse) -- puede venir null si el
                       backend no llegó a calcularla, así que no se muestra nada en
                       ese caso, en vez de un bloque vacío. */}
-                  {result.explanationText && <div className="border border-outline-variant rounded-lg p-4 bg-surface-container-low/50 flex items-start gap-2.5">
-                      <Info className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
-                      <div>
-                        <p className="text-xs font-bold text-outline uppercase tracking-widest mb-1">¿Por qué este rango?</p>
-                        <p className="text-sm text-on-surface-variant">{result.explanationText}</p>
-                      </div>
+                  {result.explanationText && <div className="border border-outline-variant rounded-lg p-4 sm:p-5 bg-surface-container-low/50 space-y-4">
+                      <p className="text-xs font-bold text-outline uppercase tracking-widest flex items-center gap-2">
+                        <Info className="w-4 h-4 text-primary" /> ¿Por qué este rango?
+                      </p>
+                      {explanation.mainFactor && <p className="text-sm text-on-surface-variant">
+                          Lo que más pesa en esta estimación es <strong className="text-on-surface">{markMissing(explanation.mainFactor, lastRequest?.missing)}</strong>, que {explanation.mainFactorUp ? "sube" : "baja"} el precio.
+                        </p>}
+                      {(explanation.up.length > 0 || explanation.down.length > 0) && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {explanation.up.length > 0 && <div className="space-y-2">
+                              <p className="text-xs font-bold text-tertiary flex items-center gap-1.5"><TrendingUp className="w-4 h-4" /> Suben el precio</p>
+                              <ul className="flex flex-wrap gap-1.5">
+                                {explanation.up.map(f => <li key={f} className="text-xs px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary font-semibold">{markMissing(f, lastRequest?.missing)}</li>)}
+                              </ul>
+                            </div>}
+                          {explanation.down.length > 0 && <div className="space-y-2">
+                              <p className="text-xs font-bold text-alert-price flex items-center gap-1.5"><TrendingDown className="w-4 h-4" /> Bajan el precio</p>
+                              <ul className="flex flex-wrap gap-1.5">
+                                {explanation.down.map(f => <li key={f} className="text-xs px-2.5 py-1 rounded-full bg-alert-price/10 text-alert-price font-semibold">{markMissing(f, lastRequest?.missing)}</li>)}
+                              </ul>
+                            </div>}
+                        </div>}
+                      {[...explanation.priceNotes, ...explanation.other].length > 0 && <p className="text-xs text-on-surface-variant">
+                          {[...explanation.priceNotes, ...explanation.other].join(" ")}
+                        </p>}
                     </div>}
                 </>}
             </CardContent>

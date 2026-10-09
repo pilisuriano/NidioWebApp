@@ -39,6 +39,9 @@ export default function Register() {
   const [mobilePhone, setMobilePhone] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState(null);
+  // El backend responde 409 si el email ya tiene cuenta: en ese caso, además
+  // del error, se ofrece recuperar la contraseña o iniciar sesión.
+  const [emailTaken, setEmailTaken] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // Se activa recién en el primer intento de submit: antes de eso no tiene
   // sentido marcar nada en rojo (el formulario recién se está completando).
@@ -84,6 +87,7 @@ export default function Register() {
       return;
     }
     setError(null);
+    setEmailTaken(false);
     setSubmitting(true);
     try {
       const payload = mode === "professional"
@@ -93,6 +97,7 @@ export default function Register() {
       setRegistered(true);
     } catch (err) {
       setError(apiErrorMessage(err, "No se pudo crear la cuenta"));
+      setEmailTaken(err?.response?.status === 409);
     } finally {
       setSubmitting(false);
     }
@@ -162,7 +167,14 @@ export default function Register() {
       <form className="space-y-5" onSubmit={handleSubmit} noValidate>
         {error && <div className="bg-error-container text-on-error-container text-sm rounded-lg p-3 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>{error}</span>
+            <div className="space-y-1">
+              <span>{error}</span>
+              {emailTaken && <p className="text-xs">
+                  ¿Es tuyo? <Link to="/auth/recuperar" state={{ email }} className="font-bold underline">Olvidé mi contraseña</Link>
+                  {" · "}
+                  <Link to="/auth/login" className="font-bold underline">Iniciar sesión</Link>
+                </p>}
+            </div>
           </div>}
 
         {mode === "professional" && <div className="space-y-1.5">
