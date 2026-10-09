@@ -15,6 +15,34 @@ export const ORIENTATION_OPTIONS = ["Frente", "Contrafrente", "Interno", "Latera
 // no tiene columnas por amenity), se buscan como palabras dentro de la
 // descripción/título, igual que el buscador de texto libre.
 export const AMENITY_OPTIONS = ["Cochera", "Pileta", "Balcón", "Terraza", "Parrilla", "Aire acondicionado", "Permite mascotas", "Seguridad 24hs", "Gimnasio", "Baulera"];
+// Chip especial "Sin amenities": muestra solo las propiedades que no tienen
+// ninguna de las características de arriba. Viaja en la misma lista que el
+// resto de los tags (y en el query string, ver buildFilterQueryString), pero
+// es excluyente con ellos: elegirlo apaga los demás y viceversa (ver
+// toggleAmenityTag).
+export const NO_AMENITIES = "Sin amenities";
+// Campos estructurados que se cargan al publicar (ver AMENITY_SWITCHES en
+// Publicar.jsx) y que cuentan como amenity para "Sin amenities". Luminoso,
+// apto crédito y amoblado no son amenities, por eso no están.
+const AMENITY_FIELDS = ["hasPool", "hasGarage", "buildingAmenities", "security24h"];
+
+/** Prende/apaga un tag de "Características" (sin distinguir mayúsculas) y
+ * mantiene "Sin amenities" excluyente con el resto. */
+export function toggleAmenityTag(list, tag) {
+  const same = t => t.toLowerCase() === tag.toLowerCase();
+  if (list.some(same)) return list.filter(t => !same(t));
+  if (tag === NO_AMENITIES) return [NO_AMENITIES];
+  return [...list.filter(t => t !== NO_AMENITIES), tag];
+}
+
+/** true si la propiedad no tiene ningún amenity: ni los campos cargados al
+ * publicar ni ninguna de las palabras de AMENITY_OPTIONS en el título o la
+ * descripción. */
+export function hasNoAmenities(property) {
+  if (AMENITY_FIELDS.some(field => property[field])) return false;
+  const haystack = [property.title, property.description].filter(Boolean).join(" ").toLowerCase();
+  return !AMENITY_OPTIONS.some(tag => haystack.includes(tag.toLowerCase()));
+}
 // El catálogo llega ordenado por id descendente (ver PropertyService.listProperties
 // en el backend), que ya equivale a "más recientes primero" — por eso esa es
 // la opción por default y no reordena nada.
@@ -42,6 +70,7 @@ export function matchesSearch(property, searchWords) {
  * descripción de la propiedad. */
 export function matchesAmenities(property, amenities) {
   if (!amenities || amenities.length === 0) return true;
+  if (amenities.includes(NO_AMENITIES)) return hasNoAmenities(property);
   const haystack = [property.title, property.description].filter(Boolean).join(" ").toLowerCase();
   return amenities.every(tag => haystack.includes(tag.trim().toLowerCase()));
 }

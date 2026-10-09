@@ -17,8 +17,7 @@ import { FavoriteButton } from "@/components/property/FavoriteButton";
 import { NidioLoadingMark } from "@/components/ui/NidioLoadingMark";
 import {
   filterProperties, countActiveFilters, buildFilterQueryString, fetchAllProperties,
-  ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS
-} from "@/lib/propertyFilters";
+  ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, NO_AMENITIES, toggleAmenityTag } from "@/lib/propertyFilters";
 import { cn } from "@/lib/utils";
 import { BASE_TILES } from "@/lib/mapTiles";
 
@@ -530,23 +529,21 @@ export default function MapPage() {
   // case-insensitive para no duplicar "Cochera" con "cochera" si se escribe
   // a mano el mismo tag que ya está en AMENITY_OPTIONS).
   function toggleAmenity(tag) {
-    setAmenityFilter(list => list.some(t => t.toLowerCase() === tag.toLowerCase())
-      ? list.filter(t => t.toLowerCase() !== tag.toLowerCase())
-      : [...list, tag]);
+    setAmenityFilter(list => toggleAmenityTag(list, tag));
   }
   function addCustomAmenity(e) {
     e.preventDefault();
     const tag = amenityInput.trim();
     if (!tag) return;
     if (!amenityFilter.some(t => t.toLowerCase() === tag.toLowerCase())) {
-      setAmenityFilter(list => [...list, tag]);
+      setAmenityFilter(list => [...list.filter(t => t !== NO_AMENITIES), tag]);
     }
     setAmenityInput("");
   }
   // Tags sueltos que la persona escribió a mano y no están entre los chips
   // predefinidos — esos sí necesitan su propio chip removible, los
   // predefinidos ya muestran su estado prendido/apagado en el botón.
-  const customAmenities = amenityFilter.filter(t => !AMENITY_OPTIONS.some(o => o.toLowerCase() === t.toLowerCase()));
+  const customAmenities = amenityFilter.filter(t => t !== NO_AMENITIES && !AMENITY_OPTIONS.some(o => o.toLowerCase() === t.toLowerCase()));
 
   // Antes ruido y seguridad tenían el relleno de color forzado (colorVisible
   // hardcodeado en true), ignorando el switch — al cambiar de pestaña el
@@ -680,6 +677,11 @@ export default function MapPage() {
                 {AMENITY_OPTIONS.map(tag => <button key={tag} type="button" onClick={() => toggleAmenity(tag)} className={cn("text-sm px-3 py-1.5 rounded-md border transition-colors", amenityFilter.some(t => t.toLowerCase() === tag.toLowerCase()) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
                     {tag}
                   </button>)}
+                {/* "Sin amenities": excluyente con los demás chips (ver
+                    toggleAmenityTag en lib/propertyFilters.js). */}
+                <button type="button" onClick={() => toggleAmenity(NO_AMENITIES)} className={cn("text-sm px-3 py-1.5 rounded-md border border-dashed transition-colors", amenityFilter.includes(NO_AMENITIES) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
+                  {NO_AMENITIES}
+                </button>
               </div>
               <form onSubmit={addCustomAmenity} className="flex gap-2">
                 <Input type="text" placeholder="Ej.: pileta, balcón, permite mascotas…" value={amenityInput} onChange={e => setAmenityInput(e.target.value)} />

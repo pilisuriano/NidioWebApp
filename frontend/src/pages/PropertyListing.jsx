@@ -10,8 +10,7 @@ import { formatPrice, formatNumber, OPERATION_TYPE_LABEL } from "@/lib/format";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
 import {
   filterProperties, countActiveFilters, fetchAllProperties, parseFilterQueryString, sortProperties, buildFilterQueryString,
-  ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, SORT_OPTIONS
-} from "@/lib/propertyFilters";
+  ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, SORT_OPTIONS, NO_AMENITIES, toggleAmenityTag } from "@/lib/propertyFilters";
 import { cn } from "@/lib/utils";
 
 const PROPERTY_TYPE_OPTIONS = [["", "Todos los tipos"], ["APARTMENT", "Departamento"], ["HOUSE", "Casa"], ["PH", "PH"]];
@@ -83,20 +82,18 @@ export default function PropertyListing() {
     setAmenityInput("");
   }
   function toggleAmenity(tag) {
-    setAmenityFilter(list => list.some(t => t.toLowerCase() === tag.toLowerCase())
-      ? list.filter(t => t.toLowerCase() !== tag.toLowerCase())
-      : [...list, tag]);
+    setAmenityFilter(list => toggleAmenityTag(list, tag));
   }
   function addCustomAmenity(e) {
     e.preventDefault();
     const tag = amenityInput.trim();
     if (!tag) return;
     if (!amenityFilter.some(t => t.toLowerCase() === tag.toLowerCase())) {
-      setAmenityFilter(list => [...list, tag]);
+      setAmenityFilter(list => [...list.filter(t => t !== NO_AMENITIES), tag]);
     }
     setAmenityInput("");
   }
-  const customAmenities = amenityFilter.filter(t => !AMENITY_OPTIONS.some(o => o.toLowerCase() === t.toLowerCase()));
+  const customAmenities = amenityFilter.filter(t => t !== NO_AMENITIES && !AMENITY_OPTIONS.some(o => o.toLowerCase() === t.toLowerCase()));
 
   return <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 lg:mt-8">
@@ -199,6 +196,11 @@ export default function PropertyListing() {
                   {AMENITY_OPTIONS.map(tag => <button key={tag} type="button" onClick={() => toggleAmenity(tag)} className={cn("text-sm px-3 py-1.5 rounded-md border transition-colors", amenityFilter.some(t => t.toLowerCase() === tag.toLowerCase()) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
                       {tag}
                     </button>)}
+                {/* "Sin amenities": excluyente con los demás chips (ver
+                    toggleAmenityTag en lib/propertyFilters.js). */}
+                <button type="button" onClick={() => toggleAmenity(NO_AMENITIES)} className={cn("text-sm px-3 py-1.5 rounded-md border border-dashed transition-colors", amenityFilter.includes(NO_AMENITIES) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
+                  {NO_AMENITIES}
+                </button>
                 </div>
                 <form onSubmit={addCustomAmenity} className="flex gap-2">
                   <Input type="text" placeholder="Ej.: pileta, balcón, permite mascotas…" value={amenityInput} onChange={e => setAmenityInput(e.target.value)} />
