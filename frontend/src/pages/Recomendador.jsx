@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { api, apiErrorMessage } from "@/lib/api";
+import { useUsage, isQuotaExceeded } from "@/lib/usage";
+import { QuotaNotice } from "@/components/ui/QuotaNotice";
 import { useBlueRate } from "@/lib/blueRate";
 import { cn } from "@/lib/utils";
 import {
@@ -116,6 +118,7 @@ function AddressPicker({ value, onChange }) {
 }
 
 export default function Recomendador() {
+  const { status: usage, blocked: quotaBlocked, refresh: refreshUsage } = useUsage("recommendation");
   const { blueRate } = useBlueRate();
   const [phase, setPhase] = useState("intro"); // intro | questions | searching | results
   const [stepIndex, setStepIndex] = useState(0);
@@ -176,8 +179,16 @@ export default function Recomendador() {
       if (runRef.current !== runId) return;
       setResult(res.data);
       setPhase("results");
+      refreshUsage();
     } catch (error) {
       if (runRef.current !== runId) return;
+      // Sin recomendaciones gratis este mes (429): se vuelve a la pantalla de
+      // inicio, donde QuotaNotice muestra el bloqueo y la invitación al plan pago.
+      if (isQuotaExceeded(error)) {
+        refreshUsage();
+        setPhase("intro");
+        return;
+      }
       toast.error(apiErrorMessage(error, "No pudimos armar tus recomendaciones. Probá de nuevo en un momento."));
       setPhase("questions");
     }
@@ -225,7 +236,10 @@ export default function Recomendador() {
           <p className="text-xs text-on-surface-variant leading-relaxed">
             No guardamos tus respuestas: se usan para armar esta recomendación y se descartan. Es una guía orientativa basada en datos públicos; no reemplaza visitar la propiedad.
           </p>
-          <Button type="button" size="lg" className="gap-2" onClick={() => { setStepIndex(0); setPhase("questions"); }}>
+          {/* Cuota gratuita mensual: si ya no quedan, se bloquea antes de
+              empezar para no hacer responder las 8 preguntas en vano. */}
+          <QuotaNotice feature="recommendation" status={usage} />
+          <Button type="button" size="lg" className="gap-2" disabled={quotaBlocked} onClick={() => { setStepIndex(0); setPhase("questions"); }}>
             Empezar <ArrowRight className="w-4 h-4" />
           </Button>
         </div>

@@ -3,6 +3,8 @@ package com.nidio.controller;
 import com.nidio.dto.ValuationCreateRequest;
 import com.nidio.dto.ValuationResponse;
 import com.nidio.dto.ValuationSummaryResponse;
+import com.nidio.model.QuotaFeature;
+import com.nidio.service.UsageQuotaService;
 import com.nidio.service.ValuationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,11 +26,17 @@ import java.util.List;
 public class ValuationController {
 
     private final ValuationService valuationService;
+    private final UsageQuotaService usageQuotaService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ValuationResponse create(@Valid @RequestBody ValuationCreateRequest request, Authentication authentication) {
-        return valuationService.createValuation(request, authentication.getName());
+        // Cuota gratuita mensual: se chequea antes de llamar al ml-service y el
+        // uso se registra solo si la tasación salió bien (ver UsageQuotaService).
+        usageQuotaService.checkAvailable(authentication.getName(), QuotaFeature.VALUATION);
+        ValuationResponse response = valuationService.createValuation(request, authentication.getName());
+        usageQuotaService.register(authentication.getName(), QuotaFeature.VALUATION);
+        return response;
     }
 
     @GetMapping("/{id}")

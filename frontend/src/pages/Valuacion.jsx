@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { Calculator, CheckCircle2, AlertCircle, AlertTriangle, Info, ArrowLeft } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
+import { useUsage, isQuotaExceeded } from "@/lib/usage";
+import { QuotaNotice } from "@/components/ui/QuotaNotice";
 import { formatNumber } from "@/lib/format";
 import { useBlueRate } from "@/lib/blueRate";
 import { cn } from "@/lib/utils";
@@ -93,6 +95,7 @@ function ResultBadge({
   return null;
 }
 export default function Valuacion() {
+  const { status: usage, blocked: quotaBlocked, refresh: refreshUsage } = useUsage("valuation");
   const [searchParams] = useSearchParams();
   // Llegando desde "Publicar" (link "¿No sabés qué precio poner?"): se
   // precarga con lo que ya había cargado en el aviso, y se muestra un link
@@ -174,6 +177,7 @@ export default function Valuacion() {
         ...amenities
       });
       setResult(res.data);
+      refreshUsage();
       setLastRequest({
         operationType,
         // Precio tal cual lo tipeó el usuario (ARS para alquiler, USD para venta) --
@@ -190,6 +194,12 @@ export default function Valuacion() {
         blueRateUsed: operationType === "RENT" ? blueRate : null
       });
     } catch (err) {
+      // Sin usos gratis este mes (429): el cartel de QuotaNotice ya lo explica
+      // con la invitación al plan pago, no hace falta repetirlo como error.
+      if (isQuotaExceeded(err)) {
+        refreshUsage();
+        return;
+      }
       setError(apiErrorMessage(err, "No se pudo calcular la valuación"));
     } finally {
       setSubmitting(false);
@@ -348,7 +358,9 @@ export default function Valuacion() {
                     <span>{error}</span>
                   </div>}
 
-                <Button type="submit" disabled={submitting || !neighborhoodId} className="w-full h-12 text-base gap-2 disabled:opacity-60">
+                {/* Cuota gratuita mensual (3 por mes, 6 para cuentas profesionales). */}
+                <QuotaNotice feature="valuation" status={usage} />
+                <Button type="submit" disabled={submitting || !neighborhoodId || quotaBlocked} className="w-full h-12 text-base gap-2 disabled:opacity-60">
                   <Calculator className="w-5 h-5" />
                   {submitting ? "Calculando…" : "Calcular valuación"}
                 </Button>

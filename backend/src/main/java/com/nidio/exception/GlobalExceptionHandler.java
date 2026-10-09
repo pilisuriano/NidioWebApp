@@ -107,6 +107,13 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
+    // 429 (Too Many Requests): se terminaron los usos gratis del mes. El
+    // frontend usa este status para mostrar la invitación al plan pago.
+    @ExceptionHandler(QuotaExceededException.class)
+    public ResponseEntity<ErrorResponse> handleQuotaExceeded(QuotaExceededException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(MlServiceException.class)
     public ResponseEntity<ErrorResponse> handleMlServiceException(MlServiceException ex, HttpServletRequest request) {
         return errorResponse(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);

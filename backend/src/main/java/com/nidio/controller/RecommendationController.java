@@ -4,9 +4,12 @@ import com.nidio.dto.BudgetRangeDto;
 import com.nidio.dto.RecommendationRequest;
 import com.nidio.dto.RecommendationResponse;
 import com.nidio.model.OperationType;
+import com.nidio.model.QuotaFeature;
 import com.nidio.service.RecommendationService;
+import com.nidio.service.UsageQuotaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,8 +22,8 @@ import java.util.List;
 
 /**
  * "Recomendador con Nidi". Requiere sesión (cae en anyRequest().authenticated() de SecurityConfig).
- * No guarda las respuestas del usuario. La cuota gratuita mensual del modelo de negocio todavía
- * no está implementada en el backend, por lo que no se controla acá.
+ * No guarda las respuestas del usuario. Cada recomendación descuenta un uso de la cuota
+ * gratuita mensual del modelo de negocio (ver UsageQuotaService).
  */
 @RestController
 @RequestMapping("/api/recommendations")
@@ -28,10 +31,14 @@ import java.util.List;
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
+    private final UsageQuotaService usageQuotaService;
 
     @PostMapping
-    public RecommendationResponse recommend(@Valid @RequestBody RecommendationRequest request) {
-        return recommendationService.recommend(request);
+    public RecommendationResponse recommend(@Valid @RequestBody RecommendationRequest request, Authentication authentication) {
+        usageQuotaService.checkAvailable(authentication.getName(), QuotaFeature.RECOMMENDATION);
+        RecommendationResponse response = recommendationService.recommend(request);
+        usageQuotaService.register(authentication.getName(), QuotaFeature.RECOMMENDATION);
+        return response;
     }
 
     @GetMapping("/budget-prices")
