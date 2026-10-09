@@ -372,6 +372,13 @@ export default function PropertyDetail() {
                     ? "Expensas: no se pudo obtener la cotización del dólar para mostrarlas"
                     : "Expensas: consultando cotización…"}
               </p>}
+            {/* Departamento sin expensas cargadas: se avisa con una etiqueta en
+                vez de no mostrar nada, para que no parezca que no tiene. Solo
+                deptos: en casas/PH muchas veces directamente no hay expensas. */}
+            {property.expensesUsd == null && property.propertyType === "APARTMENT" && <div className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant">
+                <Wallet className="w-4 h-4" />
+                <span>Expensas:</span> <Badge variant="outline" className="text-xs">No especificado</Badge>
+              </div>}
           </div>
 
           {/* Tasación de Nidio: pegada debajo del precio de publicación, a
