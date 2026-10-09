@@ -30,7 +30,7 @@ export default function Recover() {
       setSubmitting(false);
     }
   }
-  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 shadow-sm">
+  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-6 sm:p-8 shadow-sm">
       <div className="space-y-2 mb-8">
         <h1 className="text-3xl font-bold text-on-surface tracking-tight">Recuperar Acceso</h1>
         <p className="text-sm text-on-surface-variant">Introduce tu correo para recibir un enlace seguro de restablecimiento.</p>

@@ -226,7 +226,7 @@ export default function PropertyDetail() {
   }
 
   if (error) {
-    return <div className="p-8 max-w-2xl mx-auto text-center space-y-3">
+    return <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto text-center space-y-3">
         <p className="text-on-surface-variant">{error}</p>
         <Link to="/mapa" className="text-primary font-semibold hover:underline">Volver a explorar</Link>
       </div>;
@@ -271,7 +271,7 @@ export default function PropertyDetail() {
   const lifeScoreValue = property.lifeScore ?? null;
   const contactFieldErrors = contactAttempted ? validateContact() : {};
 
-  return <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
+  return <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <button type="button" onClick={() => canGoBack ? navigate(-1) : navigate("/propiedades")} className="flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors">
         <ArrowLeft className="w-4 h-4" /> {canGoBack ? "Volver" : "Ver más propiedades"}
       </button>
@@ -281,13 +281,15 @@ export default function PropertyDetail() {
           abre un visor a pantalla completa. */}
       <div className="relative">
         {images.length === 0
-          ? <div className="h-96 rounded-xl bg-surface-dim flex items-center justify-center text-on-surface-variant text-sm font-mono">Sin fotos</div>
+          ? <div className="h-64 sm:h-96 rounded-xl bg-surface-dim flex items-center justify-center text-on-surface-variant text-sm font-mono">Sin fotos</div>
           : images.length === 1
-          ? <button type="button" onClick={() => openLightbox(0)} className="block w-full h-[420px] rounded-xl overflow-hidden bg-surface-dim">
+          ? <button type="button" onClick={() => openLightbox(0)} className="block w-full h-64 sm:h-[420px] rounded-xl overflow-hidden bg-surface-dim">
               <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
             </button>
-          : <div className="grid grid-cols-4 grid-rows-2 gap-1.5 h-[420px] rounded-xl overflow-hidden">
-              <button type="button" onClick={() => openLightbox(0)} className="col-span-2 row-span-2 relative bg-surface-dim">
+          // En celular se ve solo la foto grande (con el contador de fotos;
+          // al tocarla se abre el visor con todas). El mosaico aparece desde sm.
+          : <div className="grid grid-cols-1 sm:grid-cols-4 sm:grid-rows-2 gap-1.5 h-64 sm:h-[420px] rounded-xl overflow-hidden">
+              <button type="button" onClick={() => openLightbox(0)} className="sm:col-span-2 sm:row-span-2 relative bg-surface-dim">
                 <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
                 <span className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/60 text-white text-xs font-bold px-2.5 py-1 rounded-full">
                   <Camera className="w-3.5 h-3.5" /> {images.length}
@@ -305,7 +307,7 @@ export default function PropertyDetail() {
                   : gridImages.length === 3 && i === 2
                   ? "col-span-2"
                   : "";
-                return <button key={url + i} type="button" onClick={() => openLightbox(i + 1)} className={cn("relative bg-surface-dim", spanClass)}>
+                return <button key={url + i} type="button" onClick={() => openLightbox(i + 1)} className={cn("relative bg-surface-dim hidden sm:block", spanClass)}>
                     <img src={url} alt="" className="w-full h-full object-cover" />
                     {showOverlay && <span className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-sm font-bold gap-1.5">
                         <Camera className="w-4 h-4" /> Ver todas las fotos
@@ -316,7 +318,7 @@ export default function PropertyDetail() {
         <Badge className="absolute top-4 right-4" variant="good">{OPERATION_TYPE_LABEL[property.operationType]}</Badge>
       </div>
 
-      {lightboxOpen && <div className="fixed inset-0 z-[2000] bg-black/90 flex flex-col items-center justify-center p-6" onClick={() => setLightboxOpen(false)}>
+      {lightboxOpen && <div className="fixed inset-0 z-[2000] bg-black/90 flex flex-col items-center justify-center p-3 sm:p-6" onClick={() => setLightboxOpen(false)}>
           <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Cerrar" className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white">
             <X className="w-5 h-5" />
           </button>
@@ -588,11 +590,13 @@ export default function PropertyDetail() {
 
                         <label className="flex items-start gap-2 text-xs text-on-surface-variant cursor-pointer">
                           <input type="checkbox" required checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} className="mt-0.5 accent-primary" />
-                          Acepto los <Link to="/terminos" target="_blank" className="text-primary font-semibold hover:underline">Términos y Condiciones de Uso</Link>.
+                          {/* El texto va en un <span>: dentro del <label> flex, cada
+                              pedazo de texto y el link quedaban como columnas sueltas. */}
+                          <span>Acepto los <Link to="/terminos" target="_blank" className="text-primary font-semibold hover:underline">Términos y Condiciones de Uso</Link>.</span>
                         </label>
                         <label className="flex items-start gap-2 text-xs text-on-surface-variant cursor-pointer">
                           <input type="checkbox" required checked={privacyAccepted} onChange={e => setPrivacyAccepted(e.target.checked)} className="mt-0.5 accent-primary" />
-                          Acepto la <Link to="/privacidad" target="_blank" className="text-primary font-semibold hover:underline">Política de Privacidad</Link>.
+                          <span>Acepto la <Link to="/privacidad" target="_blank" className="text-primary font-semibold hover:underline">Política de Privacidad</Link>.</span>
                         </label>
 
                         <Button type="submit" className="w-full gap-2" disabled={sending || !termsAccepted || !privacyAccepted}>
@@ -609,7 +613,7 @@ export default function PropertyDetail() {
               <CardContent className="p-5 space-y-3">
                 <p className="text-sm font-bold text-on-surface">Publicado por {PUBLISHER_TYPE_LABEL[property.publisherType] ?? "Dueño directo"}</p>
                 <div className="flex items-start justify-between gap-3 border-t border-outline-variant pt-3">
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 min-w-0">
                     <p className="text-sm font-semibold text-on-surface flex items-center gap-1.5">
                       {/* Ya dice "Publicado por Inmobiliaria" arriba, así que acá
                           no hace falta repetir la palabra "Inmobiliaria" antes
@@ -623,7 +627,7 @@ export default function PropertyDetail() {
                         <Phone className="w-3.5 h-3.5" /> {property.createdByPhone}
                       </a>}
                     {property.createdByEmail && <a href={`mailto:${property.createdByEmail}`} className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-primary transition-colors">
-                        <Mail className="w-3.5 h-3.5" /> {property.createdByEmail}
+                        <Mail className="w-3.5 h-3.5 shrink-0" /> <span className="break-all">{property.createdByEmail}</span>
                       </a>}
                   </div>
                   {/* Logo (o ícono genérico) al costado derecho del bloque de

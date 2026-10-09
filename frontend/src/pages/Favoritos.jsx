@@ -30,7 +30,7 @@ export default function Favoritos() {
 
   const favorites = sortProperties(properties.filter(p => isFavorite(p.id)), sort);
 
-  return <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
+  return <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-outline-variant pb-6">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-primary flex items-center gap-2">

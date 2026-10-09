@@ -46,7 +46,7 @@ export default function Login() {
       setResendState("sent");
     }
   }
-  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 md:p-12 shadow-sm">
+  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-6 sm:p-8 md:p-12 shadow-sm">
       <div className="flex flex-col items-center mb-10">
         <img src="/logo.svg" alt="nidio" className="h-12 w-auto mb-2" />
         <p className="text-xs font-semibold text-outline uppercase tracking-widest">Inmuebles en CABA</p>

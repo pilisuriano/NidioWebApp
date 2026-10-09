@@ -124,7 +124,7 @@ export default function MisPublicaciones() {
     { label: "Precio prom. alquiler", value: stats.avgPriceRent != null ? formatPrice(stats.avgPriceRent, "RENT") : "—" }
   ];
 
-  return <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
+  return <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="border-b border-outline-variant pb-6 space-y-1">
         <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
           <ClipboardList className="w-6 h-6" /> Mis publicaciones

@@ -108,6 +108,13 @@ body {
 .price-dot--selected {
   background: #e0af00;
 }
+/* Celular con el mapa alejado: solo el punto, sin el pill de precio (ver
+   COMPACT_PINS_* en MapPage.jsx). Más grande que el punto normal para que
+   sea fácil de tocar con el dedo. */
+.price-dot--compact {
+  width: 14px;
+  height: 14px;
+}
 .price-pill {
   position: absolute;
   top: 0;
@@ -210,4 +217,12 @@ body {
    propiedad, 256px de alto), donde el "-" quedaba cortado por el borde. */
 .map-with-search .leaflet-top.leaflet-left {
   top: 206px;
+}
+/* Celular/tablet (< 1024px, breakpoint "lg"): el buscador ocupa todo el
+   ancho arriba y mide menos de alto (ver MapPage.jsx), así que el zoom
+   alcanza con bajarlo menos. */
+@media (max-width: 1023.98px) {
+  .map-with-search .leaflet-top.leaflet-left {
+    top: 120px;
+  }
 }

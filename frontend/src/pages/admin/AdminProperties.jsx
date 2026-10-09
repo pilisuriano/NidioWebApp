@@ -304,7 +304,7 @@ export default function AdminProperties() {
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
-        <form onSubmit={handleSearch} className="max-w-sm flex-1 min-w-[240px]">
+        <form onSubmit={handleSearch} className="w-full sm:max-w-sm sm:flex-1 sm:min-w-[240px]">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-5 w-5 text-outline" />
             <Input type="text" placeholder="Buscar por título, dirección o barrio" className="pl-10" value={query} onChange={e => setQuery(e.target.value)} />
@@ -334,8 +334,10 @@ export default function AdminProperties() {
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
+        {/* overflow-x-auto: en celular/tablet la tabla no entra a lo ancho y
+            se scrollea de costado dentro de la card, sin romper la página. */}
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-outline-variant text-left text-xs uppercase tracking-widest text-outline">
                 <th className="p-4 font-semibold">Propiedad</th>

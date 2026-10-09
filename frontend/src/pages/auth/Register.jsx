@@ -99,7 +99,7 @@ export default function Register() {
   }
 
   if (registered) {
-    return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 shadow-sm animate-in fade-in zoom-in duration-300">
+    return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-6 sm:p-8 shadow-sm animate-in fade-in zoom-in duration-300">
         <div className="bg-good-value/10 text-good-value p-4 rounded-lg flex gap-3">
           <MailCheck className="w-5 h-5 mt-0.5 shrink-0" />
           <div className="space-y-1">
@@ -118,7 +118,7 @@ export default function Register() {
       </div>;
   }
 
-  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 shadow-sm">
+  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-6 sm:p-8 shadow-sm">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-on-surface mb-4">Crear cuenta</h2>
 

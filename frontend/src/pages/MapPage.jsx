@@ -237,8 +237,25 @@ function valuationPillClass(status) {
 // directo en el JSX de MapPage) para poder usar useMap y centrar el mapa en
 // la propiedad tocada — así el listado de abajo, que se filtra por el
 // recuadro visible, se actualiza mostrando las propiedades cercanas a esa.
+// En celular (< 640px) con el mapa alejado (zoom < 13) los pills de precio
+// se encimaban y tapaban todo el mapa: ahí se muestra solo el punto de
+// color (un poco más grande para que se pueda tocar). Desde zoom 13 (un paso de zoom desde la vista inicial), o
+// en la propiedad seleccionada, vuelve el pill con el precio. En tablet y
+// compu no cambia nada.
+const COMPACT_PINS_MAX_WIDTH = 640;
+const COMPACT_PINS_MAX_ZOOM = 13;
 function PropertyMarkersLayer({ properties, locations, selectedId, onSelect, blueRate }) {
-  const map = useMap();
+  const map = useMapEvents({
+    zoomend: () => setZoom(map.getZoom())
+  });
+  const [zoom, setZoom] = useState(() => map.getZoom());
+  const [isSmallScreen, setIsSmallScreen] = useState(() => window.innerWidth < COMPACT_PINS_MAX_WIDTH);
+  useEffect(() => {
+    const onResize = () => setIsSmallScreen(window.innerWidth < COMPACT_PINS_MAX_WIDTH);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const compactPins = isSmallScreen && zoom < COMPACT_PINS_MAX_ZOOM;
   return properties.map(p => {
     const loc = locations[p.id];
     if (!loc) return null;
@@ -259,7 +276,13 @@ function PropertyMarkersLayer({ properties, locations, selectedId, onSelect, blu
     // El estado "seleccionado" (dorado) pisa a cualquiera de los tres.
     const status = valuationStatus(p, blueRate);
     const statusClass = valuationPillClass(status);
-    const icon = L.divIcon({
+    const isSelected = p.id === selectedId;
+    const icon = compactPins && !isSelected ? L.divIcon({
+      className: "price-pill-icon",
+      html: `<div class="price-dot price-dot--compact${statusClass ? statusClass.replace("price-pill", "price-dot") : ""}"></div>`,
+      iconSize: null,
+      iconAnchor: [0, 0]
+    }) : L.divIcon({
       className: "price-pill-icon",
       html: `<div class="price-pill${statusClass}${p.id === selectedId ? " price-pill--selected" : ""}">${formatPriceShort(p.price, p.operationType)}</div><div class="price-dot${statusClass}${p.id === selectedId ? " price-dot--selected" : ""}"></div>`,
       iconSize: null,
@@ -276,6 +299,8 @@ export default function MapPage() {
   // Interruptor general: muestra/oculta la superposición de color de la capa
   // activa (barrios), sin tocar el mapa base ni los pines de propiedades.
   const [showColorLayer, setShowColorLayer] = useState(false);
+  // Solo celular: leyenda de colores de los pines desplegada o no.
+  const [legendOpen, setLegendOpen] = useState(false);
   // Para colorear los pines según tasación (ver valuationStatus): un
   // alquiler tiene el precio en ARS, y hay que convertirlo a USD para
   // compararlo contra el rango tasado.
@@ -549,20 +574,25 @@ export default function MapPage() {
           Antigüedad/Tipo de anunciante cortados). También más ancha
           (max-w-2xl en vez de max-w-xl) para que entren más controles sin
           amontonarse. */}
-      <div className="absolute top-6 left-6 z-[1200] w-full max-w-2xl">
+      {/* Responsive: en celular/tablet ocupa todo el ancho (con margen de 12px
+          a cada lado); desde lg vuelve a la caja de max-w-2xl arriba a la
+          izquierda. Entre lg y xl (compu chica con el menú abierto) se le deja
+          lugar a la derecha a los chips de Publicar/perfil y a los controles
+          de capas, que si no quedaban tapados por el buscador. */}
+      <div className="absolute top-3 left-3 right-3 lg:top-6 lg:left-6 lg:right-[18.5rem] xl:right-auto xl:w-full z-[1200] max-w-2xl">
         <div className="bg-surface-container-lowest rounded-t-xl shadow-lg border border-outline-variant border-b-0 px-4 pt-3 flex gap-6">
           {[["RENT", "Alquilar"], ["SALE", "Comprar"]].map(([op, label]) => <button key={op} onClick={() => setOperationType(op)} className={cn("pb-3 text-sm font-bold border-b-2 transition-colors", operationType === op ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface")}>
               {label}
             </button>)}
         </div>
-        <div className="bg-surface-container-lowest rounded-b-xl rounded-tr-xl shadow-lg border border-outline-variant p-2 flex gap-2">
+        <div className="bg-surface-container-lowest rounded-b-xl rounded-tr-xl shadow-lg border border-outline-variant p-2 flex gap-2 min-w-0">
           <div className="relative">
-            <select value={propertyType} onChange={e => setPropertyType(e.target.value)} className="h-10 pl-3 pr-8 rounded-md border border-outline-variant bg-transparent text-sm font-bold text-on-surface appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            <select value={propertyType} onChange={e => setPropertyType(e.target.value)} aria-label="Tipo de propiedad" className="h-10 max-w-[7.5rem] sm:max-w-none pl-3 pr-8 rounded-md border border-outline-variant bg-transparent text-sm font-bold text-on-surface appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
               {PROPERTY_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
             <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-outline pointer-events-none" />
           </div>
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-2.5 w-5 h-5 text-outline" />
             <Input type="text" placeholder="Barrio, dirección, ambientes, pileta, cochera..." className="pl-10 pr-9" value={search} onChange={e => setSearch(e.target.value)} />
             {search && <button type="button" onClick={() => setSearch("")} aria-label="Borrar búsqueda" className="absolute right-2.5 top-2.5 text-outline hover:text-on-surface">
@@ -571,11 +601,13 @@ export default function MapPage() {
           </div>
           {/* La búsqueda ya es instantánea (filtra a medida que se escribe);
               el botón queda como confirmación visual, no dispara nada extra. */}
-          <Button className="gap-2">
+          {/* En celular se oculta (no dispara nada extra, ver arriba) para
+              dejarle lugar al campo de texto. */}
+          <Button className="gap-2 hidden sm:inline-flex lg:hidden xl:inline-flex">
             <Search className="w-4 h-4" /> Buscar
           </Button>
-          <Button type="button" variant="outline" className="gap-2 relative shrink-0" onClick={() => setFiltersOpen(v => !v)}>
-            <SlidersHorizontal className="w-4 h-4" /> Más filtros
+          <Button type="button" variant="outline" aria-label="Más filtros" className="gap-2 relative shrink-0 px-3 sm:px-4" onClick={() => setFiltersOpen(v => !v)}>
+            <SlidersHorizontal className="w-4 h-4" /> <span className="hidden sm:inline">Más filtros</span>
             {activeFilterCount > 0 && <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-alert-price text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>}
           </Button>
         </div>
@@ -585,7 +617,7 @@ export default function MapPage() {
             lo que ya está cargado (ver filterProperties en
             lib/propertyFilters.js). Grilla de 2 columnas (antes 1 sola) para
             que el panel crezca menos en alto ahora que es más ancho. */}
-        {filtersOpen && <div className="mt-2 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-5 grid grid-cols-2 gap-5 w-[600px] max-h-[70vh] overflow-y-auto">
+        {filtersOpen && <div className="mt-2 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-5 w-full xl:w-[600px] max-h-[60vh] lg:max-h-[70vh] overflow-y-auto">
             <div className="space-y-2">
               <p className="text-xs font-bold text-outline uppercase tracking-widest">Ambientes</p>
               <div className="flex gap-2">
@@ -642,7 +674,7 @@ export default function MapPage() {
             {/* Características/amenities: chips rápidos (incluye Cochera) +
                 input libre para agregar cualquier otra palabra clave, estilo
                 "Ej.: pileta, balcón, permite mascotas..." de Zonaprop. */}
-            <div className="space-y-2 col-span-2">
+            <div className="space-y-2 sm:col-span-2">
               <p className="text-xs font-bold text-outline uppercase tracking-widest">Características</p>
               <div className="flex flex-wrap gap-2">
                 {AMENITY_OPTIONS.map(tag => <button key={tag} type="button" onClick={() => toggleAmenity(tag)} className={cn("text-sm px-3 py-1.5 rounded-md border transition-colors", amenityFilter.some(t => t.toLowerCase() === tag.toLowerCase()) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
@@ -663,7 +695,7 @@ export default function MapPage() {
                 </div>}
             </div>
 
-            <div className="col-span-2 flex justify-between items-center pt-2 border-t border-outline-variant">
+            <div className="sm:col-span-2 flex justify-between items-center pt-2 border-t border-outline-variant">
               <button type="button" onClick={() => {
                 setMinRooms(0);
                 setMinBathrooms(0);
@@ -686,13 +718,15 @@ export default function MapPage() {
           vive arriba a la derecha del todo (MainLayout, z-[1300]) en TODAS
           las páginas, incluida esta -- este selector se corre más abajo
           para no quedar tapado por el chip en vez de al revés. */}
-      <div className="absolute top-24 right-6 z-[1000] flex flex-col items-end gap-2">
+      {/* En celular/tablet arranca debajo del buscador (que ahí ocupa todo
+          el ancho) y con márgenes más chicos. */}
+      <div className="absolute top-[128px] right-3 lg:top-24 lg:right-6 z-[1000] flex flex-col items-end gap-2">
         {/* Acceso directo al listado en grilla (mismos filtros ya aplicados:
             operación, tipo, texto y "Más filtros"). Antes vivía debajo de la
             barra de búsqueda a ancho completo -- tapaba demasiado mapa; se
             movió acá como botón chico, junto al resto de controles flotantes. */}
-        <Link to={`/propiedades?${listingQueryString}`} className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-4 py-2.5 flex items-center gap-2 text-sm font-bold text-primary hover:bg-surface-dim transition-colors">
-          <List className="w-4 h-4" /> Ver listado de propiedades
+        <Link to={`/propiedades?${listingQueryString}`} className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-3 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2 text-sm font-bold text-primary hover:bg-surface-dim transition-colors">
+          <List className="w-4 h-4" /> <span className="sm:hidden">Ver listado</span><span className="hidden sm:inline">Ver listado de propiedades</span>
         </Link>
 
         {/* Precios m² / Ruido / Seguridad: solo tienen sentido con el mapa
@@ -717,7 +751,18 @@ export default function MapPage() {
             los pines, o sea con el mapa de calor apagado -- con el mapa de
             calor prendido no hay pines, solo el relleno de color de los
             barrios (que ya tiene su propia Leyenda abajo a la izquierda). */}
-        {!showColorLayer && <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-3 space-y-1.5 text-xs font-bold text-on-surface">
+        {/* En celular (< sm), con una propiedad seleccionada se oculta: la
+            ficha ocupa todo el ancho de abajo y la tapaba. En tablet y compu
+            hay lugar para las dos. */}
+        {/* En celular la leyenda arranca plegada (un botón chico con los 3
+            colores) para no tapar el mapa; al tocarlo se despliega. */}
+        {!showColorLayer && !legendOpen && <button type="button" onClick={() => setLegendOpen(true)} aria-label="Ver qué significan los colores" className={cn("sm:hidden bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-3 py-2 flex items-center gap-1.5 text-xs font-bold text-on-surface", selectedProperty && "hidden")}>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-tertiary)" }}></span>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-primary)" }}></span>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-alert-price)" }}></span>
+            Colores
+          </button>}
+        {!showColorLayer && <div onClick={() => setLegendOpen(false)} className={cn("bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-3 space-y-1.5 text-xs font-bold text-on-surface", selectedProperty && "hidden sm:block", !legendOpen && "hidden sm:block")}>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ background: "var(--color-tertiary)" }}></span>
             En rango
@@ -836,9 +881,9 @@ export default function MapPage() {
 
         {/* Card de la propiedad seleccionada (al tocar un pin), estilo
             ficha flotante: foto, precio, dirección — no un popup chico. */}
-        {selectedProperty && <div className="absolute bottom-52 right-6 z-[1100] w-[360px] bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant overflow-hidden">
+        {selectedProperty && <div className="absolute bottom-3 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-4 lg:bottom-52 sm:w-[360px] max-h-[calc(100%-1.5rem)] overflow-y-auto z-[1100] bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant overflow-hidden">
           <div className="relative">
-            {selectedProperty.imageUrl ? <img src={selectedProperty.imageUrl} alt={selectedProperty.title} className="w-full h-44 object-cover bg-surface-dim" /> : <div className="w-full h-44 bg-surface-dim" />}
+            {selectedProperty.imageUrl ? <img src={selectedProperty.imageUrl} alt={selectedProperty.title} className="w-full h-32 sm:h-44 object-cover bg-surface-dim" /> : <div className="w-full h-32 sm:h-44 bg-surface-dim" />}
             <button type="button" onClick={() => setSelectedId(null)} aria-label="Cerrar" className="absolute top-2 right-2 w-8 h-8 rounded-full bg-surface-container-lowest/90 backdrop-blur flex items-center justify-center shadow-sm hover:bg-surface-container-lowest">
               <X className="w-4 h-4 text-on-surface" />
             </button>
@@ -887,7 +932,7 @@ export default function MapPage() {
             panel de abajo todavía no se abrió. Titila con un punto tipo
             notificación (animate-ping) para llamar la atención sin taparse
             texto a sí mismo con la animación. */}
-        {searchedNeighborhoodName && !showNearbyPanel && <button type="button" onClick={() => setShowNearbyPanel(true)} className="absolute right-6 top-1/2 -translate-y-1/2 z-[1050] flex items-center gap-2 bg-primary text-on-primary rounded-full shadow-xl pl-4 pr-5 py-3 font-bold text-sm hover:opacity-90 transition-all">
+        {searchedNeighborhoodName && !showNearbyPanel && <button type="button" onClick={() => setShowNearbyPanel(true)} className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-[1050] flex items-center gap-2 bg-primary text-on-primary rounded-full shadow-xl pl-4 pr-5 py-3 font-bold text-sm hover:opacity-90 transition-all">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-on-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-on-primary"></span>
@@ -897,7 +942,7 @@ export default function MapPage() {
           </button>}
 
         {/* Leyenda */}
-        {colorVisible && <div className="absolute bottom-40 left-6 z-[1000] bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-3 rounded-lg shadow-sm space-y-2 text-xs font-bold text-on-surface">
+        {colorVisible && <div className="absolute bottom-4 left-3 sm:bottom-40 sm:left-6 z-[1000] bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-3 rounded-lg shadow-sm space-y-2 text-xs font-bold text-on-surface">
           {layer === "price" && <>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{
@@ -940,8 +985,8 @@ export default function MapPage() {
           la vista en el mapa (recuadro visible), así que se actualiza solo
           al mover o hacer zoom, y al tocar un pin (que recentra el mapa
           ahí). */}
-      {showNearbyPanel && <div className="absolute bottom-0 w-full bg-surface-container-lowest border-t border-outline-variant shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl p-6 z-[1000] animate-in slide-in-from-bottom duration-300">
-        <button type="button" onClick={() => setShowNearbyPanel(false)} aria-label="Cerrar panel de propiedades" className="absolute top-4 right-6 w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-dim hover:text-on-surface transition-colors">
+      {showNearbyPanel && <div className="absolute bottom-0 w-full bg-surface-container-lowest border-t border-outline-variant shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl p-4 sm:p-6 z-[1000] animate-in slide-in-from-bottom duration-300">
+        <button type="button" onClick={() => setShowNearbyPanel(false)} aria-label="Cerrar panel de propiedades" className="absolute top-3 right-4 sm:top-4 sm:right-6 w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-dim hover:text-on-surface transition-colors">
           <X className="w-4 h-4" />
         </button>
         {/* Handle para agrandar/achicar el panel: antes era una línea
@@ -970,14 +1015,14 @@ export default function MapPage() {
         {/* Agrandado (handle tocado): grilla que crece hacia arriba con
             varias filas visibles a la vez, en vez de una sola tira que
             scrollea de costado. */}
-        <div className={cn("gap-6 pb-2", nearbyPanelExpanded ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 overflow-y-auto max-h-[55vh] pr-1" : "flex overflow-x-auto hide-scrollbar")}>
+        <div className={cn("gap-4 sm:gap-6 pb-2", nearbyPanelExpanded ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 overflow-y-auto max-h-[55vh] pr-1" : "flex overflow-x-auto hide-scrollbar")}>
           {nearbyProperties.length === 0 && <p className="text-sm text-on-surface-variant font-mono py-4">
               No hay propiedades en esta zona.
             </p>}
-          {nearbyProperties.slice(0, 12).map(p => <Card key={p.id} onClick={() => setSelectedId(p.id)} className={cn("relative overflow-hidden cursor-pointer", nearbyPanelExpanded ? "w-full" : "min-w-[320px] flex-shrink-0", p.id === selectedId ? "border-primary border-2" : "border-outline-variant")}>
+          {nearbyProperties.slice(0, 12).map(p => <Card key={p.id} onClick={() => setSelectedId(p.id)} className={cn("relative overflow-hidden cursor-pointer", nearbyPanelExpanded ? "w-full" : "min-w-[270px] sm:min-w-[320px] flex-shrink-0", p.id === selectedId ? "border-primary border-2" : "border-outline-variant")}>
               <div className="p-4 flex gap-4">
                 {p.imageUrl && <img src={p.imageUrl} className="w-20 h-20 rounded-lg object-cover bg-surface-dim" alt={p.title} />}
-                <div className="flex-1 space-y-2">
+                <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex justify-between items-start gap-2">
                     <h4 className="font-bold text-sm text-on-surface line-clamp-1">{p.title}</h4>
                     <div className="flex items-center gap-1.5 shrink-0">

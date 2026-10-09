@@ -14,7 +14,7 @@ export function AuthLayout() {
          <div className="w-full h-full bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
       </div>
 
-      <header className="bg-surface-container-lowest flex justify-between items-center w-full px-8 h-16 border-b border-outline-variant relative z-10">
+      <header className="bg-surface-container-lowest flex justify-between items-center w-full px-4 sm:px-8 h-16 border-b border-outline-variant relative z-10">
         <Link to="/"><img src="/logo.svg" alt="nidio" className="h-7 w-auto" /></Link>
         {showAuthLinks && <div className="flex items-center gap-4">
           <Link to="/auth/login" className="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">Login</Link>

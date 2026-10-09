@@ -206,8 +206,8 @@ export default function Recomendador() {
     setPhase("questions");
   }
 
-  const shell = children => <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <div className="space-y-1 mt-8">
+  const shell = children => <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
+      <div className="space-y-1 lg:mt-8">
         <h1 className="text-2xl font-bold text-on-surface">Recomendador con Nidi</h1>
         <p className="text-sm text-on-surface-variant font-mono">Respondé unas preguntas y te recomiendo 3 propiedades y te explico por qué encaja cada una.</p>
       </div>
@@ -215,7 +215,7 @@ export default function Recomendador() {
     </div>;
 
   if (phase === "intro") {
-    return shell(<Card><CardContent className="p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
+    return shell(<Card><CardContent className="p-4 sm:p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
         <Nidi mode="idle" width={190} />
         <div className="space-y-4 flex-1">
           <h2 className="text-xl font-bold text-on-surface">¡Hola! Soy Nidi</h2>
@@ -233,7 +233,7 @@ export default function Recomendador() {
   }
 
   if (phase === "searching") {
-    return shell(<Card><CardContent className="p-6 md:p-8"><SearchingScreen steps={searchSteps} /></CardContent></Card>);
+    return shell(<Card><CardContent className="p-4 sm:p-6 md:p-8"><SearchingScreen steps={searchSteps} /></CardContent></Card>);
   }
 
   if (phase === "results" && result) {
@@ -325,7 +325,7 @@ export default function Recomendador() {
       </div>;
   }
 
-  return shell(<Card><CardContent className="p-6 md:p-8 space-y-6">
+  return shell(<Card><CardContent className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs font-mono text-on-surface-variant">
           <span>{progressLabel}</span>

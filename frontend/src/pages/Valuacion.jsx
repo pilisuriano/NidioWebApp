@@ -210,7 +210,7 @@ export default function Valuacion() {
     const t = (lastRequest.declaredPrice - result.estimatedMin) / span;
     declaredPct = Math.max(2, Math.min(98, 25 + t * 50));
   }
-  return <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+  return <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       {fromPublicar && <Link to="/publicar" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
           <ArrowLeft className="w-4 h-4" /> Volver a publicar
         </Link>}
@@ -238,7 +238,7 @@ export default function Valuacion() {
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-outline uppercase tracking-widest">TIPO DE PROPIEDAD</label>
                   <div className="flex gap-2">
-                    {PROPERTY_TYPES.map(t => <button key={t.value} type="button" onClick={() => setPropertyType(t.value)} className={cn("flex-1 text-sm py-2 rounded-md transition-all", propertyType === t.value ? "border-2 border-primary bg-primary/5 text-primary font-bold" : "border border-outline-variant hover:border-outline text-on-surface-variant font-medium")}>
+                    {PROPERTY_TYPES.map(t => <button key={t.value} type="button" onClick={() => setPropertyType(t.value)} className={cn("flex-1 min-w-0 px-1 text-xs sm:text-sm py-2 rounded-md transition-all", propertyType === t.value ? "border-2 border-primary bg-primary/5 text-primary font-bold" : "border border-outline-variant hover:border-outline text-on-surface-variant font-medium")}>
                         {t.label}
                       </button>)}
                   </div>

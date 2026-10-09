@@ -14,7 +14,7 @@ export function Footer() {
   const isProfessional = user?.accountType === "PROFESSIONAL";
   const siteLinks = SITE_LINKS.filter(item => !item.hideForProfessional || !isProfessional);
   return <footer className="bg-inverse-surface text-inverse-on-surface mt-16 border-l border-inverse-on-surface/15">
-      <div className="max-w-7xl mx-auto px-8 py-14 grid grid-cols-1 md:grid-cols-3 gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
         <div className="space-y-4">
           <img src="/logo.svg" alt="nidio" className="h-7 w-auto brightness-0 invert" />
           <p className="text-sm text-inverse-on-surface/70 max-w-xs">
@@ -57,7 +57,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-inverse-on-surface/10">
-        <div className="max-w-7xl mx-auto px-8 py-5 text-xs text-inverse-on-surface/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 text-xs text-inverse-on-surface/60">
           © {new Date().getFullYear()} Nidio. Todos los derechos reservados.
         </div>
       </div>

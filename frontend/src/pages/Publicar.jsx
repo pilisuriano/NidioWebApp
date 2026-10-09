@@ -305,9 +305,9 @@ export default function Publicar() {
   if (created) {
     return <>
       <PublishingOverlay phase={publishPhase} />
-      <div className="p-8 max-w-2xl mx-auto animate-in fade-in duration-500">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto animate-in fade-in duration-500">
         <Card>
-          <CardContent className="p-10 text-center space-y-6">
+          <CardContent className="p-6 sm:p-10 text-center space-y-6">
             <div className="w-16 h-16 rounded-full bg-good-value/10 text-good-value flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -335,7 +335,7 @@ export default function Publicar() {
 
   return <>
     <PublishingOverlay phase={publishPhase} />
-    <div className="p-8 max-w-4xl mx-auto space-y-2 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-2 animate-in fade-in duration-500">
       <div className="text-center space-y-1 mb-6">
         <h1 className="text-2xl font-bold text-on-surface">Publicá tu propiedad</h1>
         <p className="text-sm text-on-surface-variant">Cargala en pocos pasos y sumala al catálogo de Nidio.</p>
@@ -344,7 +344,7 @@ export default function Publicar() {
       <Stepper step={step} />
 
       <Card>
-        <CardContent className="p-8 space-y-6">
+        <CardContent className="p-4 sm:p-6 lg:p-8 space-y-6">
           {error && <div className="bg-error-container text-on-error-container text-sm rounded-lg p-3 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{error}</span>
@@ -370,7 +370,7 @@ export default function Publicar() {
               <div className="space-y-3">
                 <label className="text-xs font-bold text-outline uppercase tracking-widest">Tipo de propiedad</label>
                 <div className="flex gap-2 max-w-md">
-                  {PROPERTY_TYPES.map(t => <button key={t.value} type="button" onClick={() => update("propertyType", t.value)} className={cn("flex-1 text-sm py-2 rounded-md transition-all", form.propertyType === t.value ? "border-2 border-primary bg-primary/5 text-primary font-bold" : "border border-outline-variant hover:border-outline text-on-surface-variant font-medium")}>
+                  {PROPERTY_TYPES.map(t => <button key={t.value} type="button" onClick={() => update("propertyType", t.value)} className={cn("flex-1 min-w-0 px-1 text-xs sm:text-sm py-2 rounded-md transition-all", form.propertyType === t.value ? "border-2 border-primary bg-primary/5 text-primary font-bold" : "border border-outline-variant hover:border-outline text-on-surface-variant font-medium")}>
                       {t.label}
                     </button>)}
                 </div>

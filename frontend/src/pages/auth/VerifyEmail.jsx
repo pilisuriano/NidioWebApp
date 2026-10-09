@@ -28,7 +28,7 @@ export default function VerifyEmail() {
     });
   }, [token]);
 
-  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 shadow-sm text-center space-y-6">
+  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-6 sm:p-8 shadow-sm text-center space-y-6">
       {status === "loading" && <div className="space-y-3 py-6">
           <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin" />
           <p className="text-sm text-on-surface-variant">Verificando tu email…</p>

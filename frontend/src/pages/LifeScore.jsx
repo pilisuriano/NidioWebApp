@@ -471,7 +471,7 @@ export default function LifeScore() {
     : [];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center gap-4 flex-wrap">
         <h1 className="text-3xl font-bold text-on-surface">Life Score</h1>
         <Badge variant="secondary" className="px-3 py-1 text-[10px] tracking-widest uppercase">
@@ -503,7 +503,7 @@ export default function LifeScore() {
             <select
               value={selectedFavoriteId}
               onChange={e => selectFavorite(e.target.value)}
-              className="flex-1 h-9 rounded-md border-none bg-transparent text-sm text-on-surface outline-none"
+              className="flex-1 min-w-0 w-full h-9 rounded-md border-none bg-transparent text-sm text-on-surface outline-none"
             >
               <option value="">Usar una propiedad favorita…</option>
               {favorites.filter(f => f.location).map(f => (

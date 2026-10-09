@@ -30,14 +30,14 @@ const SECTIONS = [{
 }];
 
 export default function Terminos() {
-  return <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+  return <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="border-b border-outline-variant pb-6">
         <h1 className="text-3xl font-bold text-on-surface mb-2">Términos y condiciones</h1>
         <p className="text-sm font-mono text-on-surface-variant">Última actualización: agosto de 2026.</p>
       </div>
 
       <Card>
-        <CardContent className="p-8 space-y-8">
+        <CardContent className="p-5 sm:p-8 space-y-8">
           {SECTIONS.map(section => <div key={section.title} className="space-y-2">
               <h2 className="text-lg font-bold text-primary">{section.title}</h2>
               <p className="text-sm text-on-surface-variant leading-relaxed">{section.body}</p>

@@ -66,7 +66,7 @@ export default function Dashboard() {
       <div className="relative h-[420px] w-full overflow-hidden">
         <img src={HERO_IMAGE_URL} alt="" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
-        <div className="relative h-full max-w-7xl mx-auto px-8 flex flex-col justify-center gap-6">
+        <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center gap-6">
           <h1 className="text-5xl font-black text-white leading-[1.05] drop-shadow-sm">
             Menos búsqueda,
             <br />
@@ -83,7 +83,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       <div className="space-y-1">
         <h2 className="text-2xl font-bold text-on-surface">{user ? `¡Hola, ${user.name?.split(" ")[0]}!` : "Bienvenido a Nidio"}</h2>
       </div>

@@ -42,7 +42,7 @@ export default function ResetPassword() {
   }
 
   if (!token) {
-    return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 shadow-sm text-center space-y-6">
+    return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-6 sm:p-8 shadow-sm text-center space-y-6">
         <div className="space-y-3 py-6">
           <XCircle className="w-10 h-10 mx-auto text-error" />
           <p className="text-sm font-semibold text-on-surface">Falta el token de recuperación en el link.</p>
@@ -56,7 +56,7 @@ export default function ResetPassword() {
   }
 
   if (done) {
-    return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 shadow-sm text-center space-y-6">
+    return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-6 sm:p-8 shadow-sm text-center space-y-6">
         <div className="space-y-3 py-6">
           <CheckCircle2 className="w-10 h-10 mx-auto text-good-value" />
           <p className="text-sm font-semibold text-on-surface">Contraseña actualizada correctamente.</p>
@@ -68,7 +68,7 @@ export default function ResetPassword() {
       </div>;
   }
 
-  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-8 shadow-sm">
+  return <div className="bg-surface-container-lowest border border-outline-variant rounded-xl w-full max-w-[440px] p-6 sm:p-8 shadow-sm">
       <div className="space-y-2 mb-8">
         <h1 className="text-3xl font-bold text-on-surface tracking-tight">Nueva contraseña</h1>
         <p className="text-sm text-on-surface-variant">Elegí una contraseña nueva para tu cuenta.</p>

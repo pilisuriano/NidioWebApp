@@ -50,7 +50,7 @@ export default function Perfil() {
       setSaving(false);
     }
   }
-  return <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+  return <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div className="border-b border-outline-variant pb-6 mb-8">
         <h1 className="text-3xl font-bold text-on-surface mb-2">Mi Perfil</h1>
@@ -63,7 +63,7 @@ export default function Perfil() {
         {/* Left: Account Details */}
         <div className="lg:col-span-2">
           <Card className="h-full">
-            <CardContent className="p-8">
+            <CardContent className="p-5 sm:p-8">
               <form onSubmit={handleSave} className="space-y-10">
                 {error && <div className="bg-error-container text-on-error-container text-sm rounded-lg p-3 flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -145,7 +145,7 @@ export default function Perfil() {
         {/* Right: Security */}
         <div>
           <Card className="h-full bg-surface-container-low border-outline-variant">
-            <CardContent className="p-8 flex flex-col h-full">
+            <CardContent className="p-5 sm:p-8 flex flex-col h-full">
               <h2 className="text-lg font-bold text-on-surface mb-6">Seguridad</h2>
 
               <div className="space-y-4 flex-1">
