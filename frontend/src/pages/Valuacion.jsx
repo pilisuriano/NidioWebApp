@@ -95,6 +95,16 @@ function ResultBadge({
   }
   return null;
 }
+// Aviso para PH y casas (ver devolución del 50%): se muestra al elegir el
+// tipo en el formulario y también junto al resultado.
+const LOW_PRECISION_TEXT = "La estimación para PH y casas es menos precisa, ya que el modelo cuenta con menos datos de estos tipos de propiedad.";
+function LowPrecisionNotice() {
+  return <p className="flex items-start gap-2 rounded-md border border-secondary/30 bg-secondary/5 p-2.5 text-xs text-on-surface-variant" role="note">
+      <Info className="w-4 h-4 shrink-0 mt-0.5 text-secondary" />
+      <span>{LOW_PRECISION_TEXT}</span>
+    </p>;
+}
+
 export default function Valuacion() {
   const { status: usage, blocked: quotaBlocked, refresh: refreshUsage } = useUsage("valuation");
   const [searchParams] = useSearchParams();
@@ -193,6 +203,7 @@ export default function Valuacion() {
         // ARS que se muestra abajo no cambie solo si blueRate se actualiza
         // mientras el usuario sigue mirando un resultado ya calculado.
         blueRateUsed: operationType === "RENT" ? blueRate : null,
+        propertyType,
         // Datos opcionales que quedaron vacíos (ver markMissing en lib/explanation.js).
         missing: { totalSurface: !totalSurfaceM2, bathrooms: !bathrooms, expenses: !expensesUsd, condition: !propertyCondition }
       });
@@ -260,6 +271,10 @@ export default function Valuacion() {
                         {t.label}
                       </button>)}
                   </div>
+                  {/* Devolución del 50%: el modelo se entrenó con muchos menos
+                      avisos de PH y casas que de departamentos, así que el
+                      rango es menos preciso para esos tipos. */}
+                  {propertyType !== "APARTMENT" && <LowPrecisionNotice />}
                 </div>
 
                 {/* Barrio */}
@@ -425,6 +440,8 @@ export default function Valuacion() {
                         </p>}
                     </div>
                   </div>
+
+                  {lastRequest && lastRequest.propertyType !== "APARTMENT" && <div className="mb-8 -mt-6"><LowPrecisionNotice /></div>}
 
                   {/* Barra de rango */}
                   <div className="mb-6 px-4">
