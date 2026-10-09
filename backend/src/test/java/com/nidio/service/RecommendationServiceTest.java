@@ -60,7 +60,7 @@ class RecommendationServiceTest {
         when(propertyService.toSummary(any(Property.class))).thenAnswer(invocation -> {
             Property p = invocation.getArgument(0);
             return new PropertySummaryResponse(p.getId(), null, null, null, null, null, null, null, null,
-                    null, null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, true);
         });
     }
 

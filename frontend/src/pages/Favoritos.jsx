@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Heart, MapPin, Building2, Ruler } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { formatPrice, formatNumber, OPERATION_TYPE_LABEL } from "@/lib/format";
 import { useFavorites } from "@/lib/favorites";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
@@ -54,28 +55,46 @@ export default function Favoritos() {
         </div>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {favorites.map(p => <Card key={p.id} className="overflow-hidden hover:shadow-md transition-shadow h-full flex flex-col">
-            <Link to={`/propiedades/${p.id}`}>
+        {favorites.map(p => {
+          // Una publicación guardada puede haber sido desactivada después (por
+          // su dueño o por un admin): se marca "Inactiva" y no se linkea al
+          // detalle, porque el detalle de una inactiva ya no está disponible.
+          // Se puede seguir sacando de favoritos con el corazón.
+          const inactive = p.active === false;
+          const Wrapper = inactive ? "div" : Link;
+          const wrapperProps = inactive ? {} : { to: `/propiedades/${p.id}` };
+          return <Card key={p.id} className={cn("overflow-hidden transition-shadow h-full flex flex-col", inactive ? "opacity-80" : "hover:shadow-md")}>
+            <Wrapper {...wrapperProps}>
               <div className="h-44 bg-surface-dim relative">
-                {p.imageUrl && <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover" />}
-                <Badge className="absolute top-3 right-3" variant="good">{OPERATION_TYPE_LABEL[p.operationType]}</Badge>
+                {p.imageUrl && <img src={p.imageUrl} alt={p.title} className={cn("w-full h-full object-cover", inactive && "grayscale")} />}
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
+                  {typeof p.active === "boolean" && <Badge
+                      variant={p.active ? "default" : "alert"}
+                      className={cn("bg-surface-container-lowest/90 backdrop-blur border shadow-sm", p.active ? "border-primary/20" : "border-alert-price/20")}
+                    >
+                      {p.active ? "Activa" : "Inactiva"}
+                    </Badge>}
+                  <Badge variant="good" className="bg-surface-container-lowest/90 backdrop-blur border border-good-value/20 shadow-sm">{OPERATION_TYPE_LABEL[p.operationType]}</Badge>
+                </div>
                 <FavoriteButton propertyId={p.id} className="absolute top-3 left-3" />
               </div>
-            </Link>
+            </Wrapper>
             <CardContent className="p-4 space-y-2 flex-1 flex flex-col">
-              <Link to={`/propiedades/${p.id}`} className="space-y-2 flex-1 flex flex-col">
+              <Wrapper {...wrapperProps} className="space-y-2 flex-1 flex flex-col">
                 <h3 className="font-bold text-on-surface line-clamp-2">{p.title}</h3>
                 <p className="text-xs text-on-surface-variant flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> {p.neighborhoodName}
                 </p>
                 <span className="font-bold text-primary text-lg">{formatPrice(p.price, p.operationType)}</span>
+                {inactive && <p className="text-xs font-semibold text-alert-price">Esta publicación ya no está disponible.</p>}
                 <div className="flex flex-wrap gap-3 text-xs font-mono text-on-surface-variant border-t border-outline-variant pt-2 mt-auto">
                   <span className="flex items-center gap-1"><Building2 className="w-3 h-3" /> {p.rooms} amb.</span>
                   <span className="flex items-center gap-1"><Ruler className="w-3 h-3" /> {formatNumber(p.surfaceM2)} m²</span>
                 </div>
-              </Link>
+              </Wrapper>
             </CardContent>
-          </Card>)}
+          </Card>;
+        })}
       </div>
     </div>;
 }

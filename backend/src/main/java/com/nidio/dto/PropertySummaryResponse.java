@@ -32,6 +32,11 @@ public record PropertySummaryResponse(
         // individual; se agrega acá para que el dropdown "usar un favorito"
         // de Life Score (LifeScore.jsx) pueda calcular directo sin volver a
         // geocodificar la dirección.
-        LocationDto location
+        LocationDto location,
+        // Si la publicación está activa. El catálogo público solo trae activas,
+        // pero "Mis favoritos" puede incluir una que el dueño o un admin
+        // desactivó después de que el usuario la guardó: el frontend la muestra
+        // con la etiqueta "Inactiva" (ver Favoritos.jsx).
+        boolean active
 ) {
 }

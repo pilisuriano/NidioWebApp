@@ -684,6 +684,7 @@ public class PropertyService {
                 property.getPublisherType(),
                 property.getImageUrls().isEmpty() ? null : property.getImageUrls().get(0),
                 valuation,
-                location);
+                location,
+                property.isActive());
     }
 }
