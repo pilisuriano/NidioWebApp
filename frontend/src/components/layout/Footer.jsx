@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Facebook, Instagram, Youtube, Twitter, Mail } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
-const SITE_LINKS = [{ label: "Inicio", to: "/" }, { label: "Explorar propiedades", to: "/mapa" }, { label: "Tasación", to: "/tasacion" }, { label: "Mis publicaciones", to: "/mis-publicaciones" }, { label: "Life Score", to: "/life-score", hideForProfessional: true }, { label: "Mis favoritos", to: "/favoritos", hideForProfessional: true }];
+const SITE_LINKS = [{ label: "Inicio", to: "/" }, { label: "Explorar propiedades", to: "/mapa" }, { label: "Tasación", to: "/tasacion" }, { label: "Mis publicaciones", to: "/mis-publicaciones" }, { label: "Life Score", to: "/life-score" }, { label: "Planes", to: "/planes" }, { label: "Mis favoritos", to: "/favoritos", hideForProfessional: true }];
 
 const SOCIAL_LINKS = [{ icon: Facebook, label: "Facebook" }, { icon: Instagram, label: "Instagram" }, { icon: Youtube, label: "YouTube" }, { icon: Twitter, label: "X" }];
 

@@ -205,3 +205,30 @@ export async function fetchAllProperties(api, baseParams) {
   }
   return allContent;
 }
+
+/**
+ * Pone las propiedades destacadas (Set de ids) en la 1.ª posición y luego una cada `every`
+ * resultados, respetando el orden elegido dentro de cada grupo. Si hay más destacadas que
+ * lugares, el resto sigue después. Las destacadas compran visibilidad: no se filtran de más
+ * ni se altera su valuación.
+ */
+export function interleaveFeatured(list, featuredIds, every = 5) {
+  if (!featuredIds || featuredIds.size === 0) return list;
+  const featured = list.filter(p => featuredIds.has(p.id));
+  if (featured.length === 0) return list;
+  const rest = list.filter(p => !featuredIds.has(p.id));
+  const result = [];
+  let f = 0;
+  let r = 0;
+  while (f < featured.length || r < rest.length) {
+    const featuredSlot = result.length % every === 0;
+    if (featuredSlot && f < featured.length) {
+      result.push(featured[f++]);
+    } else if (r < rest.length) {
+      result.push(rest[r++]);
+    } else {
+      result.push(featured[f++]);
+    }
+  }
+  return result;
+}

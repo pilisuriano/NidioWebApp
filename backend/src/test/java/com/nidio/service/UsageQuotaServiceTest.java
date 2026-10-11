@@ -6,6 +6,8 @@ import com.nidio.model.AccountType;
 import com.nidio.model.FeatureUsage;
 import com.nidio.model.QuotaFeature;
 import com.nidio.model.Role;
+import com.nidio.model.Subscription;
+import com.nidio.model.SubscriptionKind;
 import com.nidio.model.User;
 import com.nidio.repository.FeatureUsageRepository;
 import com.nidio.repository.UserRepository;
@@ -33,6 +35,7 @@ import static org.mockito.Mockito.when;
 /**
  * Cuota gratuita mensual: 3 usos por mes para cuentas particulares, 6 para
  * profesionales, sin límite para admins, y el mes se cuenta con hora de Argentina.
+ * Con un pase o plan vigente se usan sus 30 usos (más los packs) en lugar de la cuota gratis.
  */
 class UsageQuotaServiceTest {
 
@@ -43,13 +46,16 @@ class UsageQuotaServiceTest {
 
     private FeatureUsageRepository featureUsageRepository;
     private UserRepository userRepository;
+    private EntitlementService entitlementService;
     private UsageQuotaService service;
 
     @BeforeEach
     void setUp() {
         featureUsageRepository = Mockito.mock(FeatureUsageRepository.class);
         userRepository = Mockito.mock(UserRepository.class);
-        service = new UsageQuotaService(featureUsageRepository, userRepository, 3, 6, Clock.fixed(NOW, UsageQuotaService.ZONE));
+        entitlementService = Mockito.mock(EntitlementService.class);
+        service = new UsageQuotaService(featureUsageRepository, userRepository, entitlementService, 3, 6,
+                Clock.fixed(NOW, UsageQuotaService.ZONE));
     }
 
     private User user(long id, AccountType accountType, Role role) {
@@ -146,5 +152,77 @@ class UsageQuotaServiceTest {
         assertEquals(QuotaFeature.RECOMMENDATION, captor.getValue().getFeature());
         assertEquals(NOW, captor.getValue().getUsedAt());
         assertEquals(user, captor.getValue().getUser());
+    }
+
+    // 10 de octubre de 2026: el pase empezó hace 5 días y dura 30.
+    private static final Instant PASS_START = ZonedDateTime.of(2026, 10, 10, 9, 0, 0, 0, UsageQuotaService.ZONE).toInstant();
+    private static final Instant PASS_END = ZonedDateTime.of(2026, 11, 9, 9, 0, 0, 0, UsageQuotaService.ZONE).toInstant();
+
+    private void withPass(User user, SubscriptionKind kind) {
+        Subscription pass = Subscription.builder().id(1L).userId(user.getId()).kind(kind)
+                .startsAt(PASS_START).expiresAt(PASS_END).build();
+        when(entitlementService.activeAnalysisEntitlement(user.getId(), NOW)).thenReturn(Optional.of(pass));
+    }
+
+    @Test
+    void conPaseTiene30UsosQueReemplazanLaCuotaGratisYSeCuentanDesdeElInicioDelPase() {
+        User user = user(8, AccountType.PERSONAL, Role.USER);
+        withPass(user, SubscriptionKind.ANALYSIS_PASS);
+        when(featureUsageRepository.countByUserIdAndFeatureAndUsedAtGreaterThanEqual(8L, QuotaFeature.LIFE_SCORE, PASS_START))
+                .thenReturn(5L);
+
+        UsageStatusDto status = service.status(user, QuotaFeature.LIFE_SCORE);
+
+        assertEquals(30, status.limit());
+        assertEquals(5, status.used());
+        assertEquals(25, status.remaining());
+        assertEquals("PASS", status.source());
+        assertEquals(PASS_END, status.resetsAt());
+        assertEquals(PASS_START, status.periodStart());
+    }
+
+    @Test
+    void losPacksVigentesAmplianElLimiteDelPase() {
+        User user = user(9, AccountType.PERSONAL, Role.USER);
+        withPass(user, SubscriptionKind.ANALYSIS_PASS);
+        when(entitlementService.extraUses(9L, QuotaFeature.VALUATION, NOW)).thenReturn(10);
+        when(featureUsageRepository.countByUserIdAndFeatureAndUsedAtGreaterThanEqual(9L, QuotaFeature.VALUATION, PASS_START))
+                .thenReturn(30L);
+
+        UsageStatusDto status = service.status(user, QuotaFeature.VALUATION);
+
+        assertEquals(40, status.limit());
+        assertEquals(10, status.remaining());
+        assertEquals(10, status.extraUses());
+        assertDoesNotThrow(() -> service.checkAvailable(user.getEmail(), QuotaFeature.VALUATION));
+    }
+
+    @Test
+    void conPlanProfesionalAlTerminarLos30SeBloqueaYOfreceElPack() {
+        User user = user(10, AccountType.PROFESSIONAL, Role.USER);
+        withPass(user, SubscriptionKind.PRO_INMOBILIARIA);
+        when(featureUsageRepository.countByUserIdAndFeatureAndUsedAtGreaterThanEqual(10L, QuotaFeature.VALUATION, PASS_START))
+                .thenReturn(30L);
+
+        UsageStatusDto status = service.status(user, QuotaFeature.VALUATION);
+        QuotaExceededException ex = assertThrows(QuotaExceededException.class,
+                () -> service.checkAvailable(user.getEmail(), QuotaFeature.VALUATION));
+
+        assertEquals("PLAN", status.source());
+        assertTrue(ex.getMessage().contains("30 tasaciones"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("9/11"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("pack adicional"), ex.getMessage());
+    }
+
+    @Test
+    void lifeScoreTambienTieneCuotaGratisDe3ParaParticulares() {
+        User user = user(11, AccountType.PERSONAL, Role.USER);
+        usedThisMonth(11, QuotaFeature.LIFE_SCORE, 3);
+
+        QuotaExceededException ex = assertThrows(QuotaExceededException.class,
+                () -> service.checkAvailable(user.getEmail(), QuotaFeature.LIFE_SCORE));
+
+        assertEquals("FREE", service.status(user, QuotaFeature.LIFE_SCORE).source());
+        assertTrue(ex.getMessage().contains("3 cálculos de Life Score"), ex.getMessage());
     }
 }

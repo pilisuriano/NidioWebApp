@@ -250,6 +250,9 @@ export default function Valuacion() {
         </p>
       </div>
 
+      {/* Cuota mensual (3 gratis por mes, 6 para cuentas profesionales), arriba de todo para que se note. */}
+      <QuotaNotice feature="valuation" status={usage} />
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Form */}
         <div className="lg:col-span-5">
@@ -381,8 +384,6 @@ export default function Valuacion() {
                     <span>{error}</span>
                   </div>}
 
-                {/* Cuota gratuita mensual (3 por mes, 6 para cuentas profesionales). */}
-                <QuotaNotice feature="valuation" status={usage} />
                 <Button type="submit" disabled={submitting || !neighborhoodId || quotaBlocked} className="w-full h-12 text-base gap-2 disabled:opacity-60">
                   <Calculator className="w-5 h-5" />
                   {submitting ? "Calculando…" : "Calcular valuación"}

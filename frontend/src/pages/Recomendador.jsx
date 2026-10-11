@@ -222,6 +222,9 @@ export default function Recomendador() {
         <h1 className="text-2xl font-bold text-on-surface">Recomendador con Nidi</h1>
         <p className="text-sm text-on-surface-variant font-mono">Respondé unas preguntas y te recomiendo 3 propiedades y te explico por qué encaja cada una.</p>
       </div>
+      {/* Cuota mensual, arriba de todo: si ya no quedan, se bloquea antes de empezar para no
+          hacer responder las 8 preguntas en vano. */}
+      {phase === "intro" && <QuotaNotice feature="recommendation" status={usage} />}
       {children}
     </div>;
 
@@ -236,9 +239,6 @@ export default function Recomendador() {
           <p className="text-xs text-on-surface-variant leading-relaxed">
             No guardamos tus respuestas: se usan para armar esta recomendación y se descartan. Es una guía orientativa basada en datos públicos; no reemplaza visitar la propiedad.
           </p>
-          {/* Cuota gratuita mensual: si ya no quedan, se bloquea antes de
-              empezar para no hacer responder las 8 preguntas en vano. */}
-          <QuotaNotice feature="recommendation" status={usage} />
           <Button type="button" size="lg" className="gap-2" disabled={quotaBlocked} onClick={() => { setStepIndex(0); setPhase("questions"); }}>
             Empezar <ArrowRight className="w-4 h-4" />
           </Button>

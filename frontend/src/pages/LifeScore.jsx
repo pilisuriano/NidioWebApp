@@ -13,6 +13,8 @@ import { NidioLoadingMark } from "@/components/ui/NidioLoadingMark";
 import { MapPin, SlidersHorizontal, Bus, ShoppingBag, TreePine, Cross, Utensils, Wine, GraduationCap, Calculator, AlertCircle, Heart, Star, Plus, Trash2, Info, Eye, EyeOff } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { BASE_TILES } from "@/lib/mapTiles";
+import { useUsage, isQuotaExceeded } from "@/lib/usage";
+import { QuotaNotice } from "@/components/ui/QuotaNotice";
 import { EnvironmentLegend, EnvironmentNote, EnvironmentOverlays, LayerToggles, useEnvironmentLayers } from "@/components/map/EnvironmentLayers";
 
 const CATEGORIES = [
@@ -231,6 +233,8 @@ export default function LifeScore() {
   // visualización, no entran en el puntaje.
   const env = useEnvironmentLayers();
   const [submitting, setSubmitting] = useState(false);
+  // Cuota de Life Score (gratis del mes, pase o plan): el backend corta con 429 si no quedan usos.
+  const { status: usage, blocked: quotaBlocked, refresh: refreshUsage } = useUsage("lifeScore");
 
   useEffect(() => {
     api.get("/api/favorites").then(res => setFavorites(res.data)).catch(() => {});
@@ -366,7 +370,13 @@ export default function LifeScore() {
         customPlaceIds: customPlaces.length > 0 ? selectedPlaceIds : null
       });
       setResult(res.data);
+      refreshUsage();
     } catch (err) {
+      // Sin usos (429): el cartel de QuotaNotice ya lo explica, no hace falta repetirlo como error.
+      if (isQuotaExceeded(err)) {
+        refreshUsage();
+        return;
+      }
       setError(apiErrorMessage(err, "No se pudo calcular el Life Score"));
     } finally {
       setSubmitting(false);
@@ -500,6 +510,9 @@ export default function LifeScore() {
         y a tus propios lugares personales, ponderados según tus prioridades.
       </p>
 
+      {/* Cuota mensual (3 gratis por mes), arriba de todo para que se note. */}
+      <QuotaNotice feature="lifeScore" status={usage} />
+
       {/* Dirección */}
       <div className="space-y-3">
         {favorites.length > 0 && (
@@ -556,7 +569,7 @@ export default function LifeScore() {
                 </div>
               )}
             </div>
-            <Button type="submit" disabled={submitting} className="h-11 px-6 gap-2 disabled:opacity-60">
+            <Button type="submit" disabled={submitting || quotaBlocked} className="h-11 px-6 gap-2 disabled:opacity-60">
               <Calculator className="w-4 h-4" /> {submitting ? "CALCULANDO…" : "CALCULAR"}
             </Button>
           </form>
@@ -770,7 +783,7 @@ export default function LifeScore() {
               )}
             </div>
 
-            <Button onClick={() => handleSubmit()} disabled={submitting} className="w-full h-11 mt-4 text-base gap-2 disabled:opacity-60">
+            <Button onClick={() => handleSubmit()} disabled={submitting || quotaBlocked} className="w-full h-11 mt-4 text-base gap-2 disabled:opacity-60">
               <Calculator className="w-5 h-5" />
               {submitting ? "Calculando…" : "Calcular Life Score"}
             </Button>

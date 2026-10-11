@@ -114,6 +114,16 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(PaymentRequiredException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequired(PaymentRequiredException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.PAYMENT_REQUIRED, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(BillingConflictException.class)
+    public ResponseEntity<ErrorResponse> handleBillingConflict(BillingConflictException ex, HttpServletRequest request) {
+        return errorResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(MlServiceException.class)
     public ResponseEntity<ErrorResponse> handleMlServiceException(MlServiceException ex, HttpServletRequest request) {
         return errorResponse(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);

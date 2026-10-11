@@ -62,7 +62,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/properties/**",
                                 "/api/neighborhoods/**",
-                                "/api/heatmaps/**"
+                                "/api/heatmaps/**",
+                                "/api/billing/catalog",
+                                "/api/featured",
+                                "/api/featured/ids"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()

@@ -6,11 +6,14 @@ import "@/lib/leaflet-setup";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, MapPin, Building2, Calculator, HeartPulse, CheckCircle2, AlertTriangle, Info, Camera, ChevronLeft, ChevronRight, ChevronDown, Ruler, DoorOpen, Bath, CalendarClock, Compass, Building, User as UserIcon, Mail, Phone, BadgeCheck, X, Wallet, Waves, Car, Sparkles, ShieldCheck, Sun, CreditCard, Sofa } from "lucide-react";
+import { ArrowLeft, MapPin, Building2, Calculator, HeartPulse, CheckCircle2, Camera, ChevronLeft, ChevronRight, ChevronDown, Ruler, DoorOpen, Bath, CalendarClock, Compass, Building, User as UserIcon, Mail, Phone, BadgeCheck, X, Wallet, Waves, Car, Sparkles, ShieldCheck, Sun, CreditCard, Sofa } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatPrice, formatNumber, PROPERTY_TYPE_LABEL, OPERATION_TYPE_LABEL, PUBLISHER_TYPE_LABEL } from "@/lib/format";
 import { useBlueRate } from "@/lib/blueRate";
+import { ValuationBadge } from "@/components/ui/ValuationBadge";
+import { FeaturedBadge } from "@/components/property/PropertyBadges";
+import { useFeaturedIds } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 import { toast } from "react-toastify";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
@@ -53,27 +56,6 @@ const LOCATION_PIN_ICON = L.divIcon({
   iconAnchor: [11, 11]
 });
 
-// Mismo criterio y estilos que el ResultBadge de las tasaciones, para que la
-// clasificación se vea igual en toda la app.
-function ValuationBadge({ result }) {
-  if (result === "FAIR") {
-    return <Badge variant="good" className="bg-good-value/5 gap-1 border border-good-value/20">
-        <CheckCircle2 className="w-3 h-3" /> EN RANGO
-      </Badge>;
-  }
-  if (result === "OVERVALUED") {
-    return <Badge variant="alert" className="gap-1">
-        <AlertTriangle className="w-3 h-3" /> SOBREVALUADA
-      </Badge>;
-  }
-  if (result === "UNDERVALUED") {
-    return <Badge variant="secondary" className="bg-secondary/10 text-secondary gap-1 border border-secondary/20">
-        <Info className="w-3 h-3" /> SUBVALUADA
-      </Badge>;
-  }
-  return null;
-}
-
 export default function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -86,6 +68,7 @@ export default function PropertyDetail() {
   // publicadores como si fueran un comprador/inquilino más — perfil más
   // profesional, sin la función de contacto.
   const isProfessional = user?.accountType === "PROFESSIONAL";
+  const featuredIds = useFeaturedIds();
   const [property, setProperty] = useState(null);
   const environment = usePropertyEnvironment(property ? [property.id] : []);
   // No tiene sentido mandarse un mail a una misma: si la propiedad la
@@ -282,6 +265,7 @@ export default function PropertyDetail() {
           las fotos" sobre la última si hay más. Al tocar cualquier foto se
           abre un visor a pantalla completa. */}
       <div className="relative">
+        {featuredIds.has(property.id) && <FeaturedBadge className="absolute top-3 left-3 z-10 pointer-events-none" />}
         {images.length === 0
           ? <div className="h-64 sm:h-96 rounded-xl bg-surface-dim flex items-center justify-center text-on-surface-variant text-sm font-mono">Sin fotos</div>
           : images.length === 1

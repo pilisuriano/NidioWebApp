@@ -5,14 +5,17 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "@/lib/leaflet-setup";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { Button } from "@/components/ui/Button";
-import { Search, MapPin, Building2, ChevronDown, SlidersHorizontal, List, X, Home, CheckCircle2, AlertTriangle, Info, Layers } from "lucide-react";
+import { Search, MapPin, Building2, ChevronDown, SlidersHorizontal, List, X, Home, Layers } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatPrice, formatPriceShort, formatNumber } from "@/lib/format";
 import { useBlueRate } from "@/lib/blueRate";
+import { valuationStatus } from "@/lib/valuation";
+import { ValuationBadge } from "@/components/ui/ValuationBadge";
+import { OperationBadge, FeaturedBadge } from "@/components/property/PropertyBadges";
+import { useFeaturedIds } from "@/lib/billing";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
 import { NidioLoadingMark } from "@/components/ui/NidioLoadingMark";
 import {
@@ -34,27 +37,6 @@ const CABA_CENTER = [-34.605, -58.43];
 // este padding reservamos esa zona: si el popup caería ahí, el mapa se
 // corre para dejarlo visible al lado.
 const POPUP_OPTIONS = { autoPanPaddingTopLeft: L.point(480, 170), autoPanPaddingBottomRight: L.point(20, 20) };
-// Mismo criterio y estilos que el ValuationBadge de PropertyDetail.jsx (y el
-// ResultBadge de Valuacion.jsx), para que la clasificación se vea igual en
-// toda la app -- acá para la ficha flotante de la propiedad tocada en el mapa.
-function ValuationBadge({ result }) {
-  if (result === "FAIR") {
-    return <Badge variant="good" className="bg-good-value/5 gap-1 border border-good-value/20">
-        <CheckCircle2 className="w-3 h-3" /> EN RANGO
-      </Badge>;
-  }
-  if (result === "OVERVALUED") {
-    return <Badge variant="alert" className="gap-1">
-        <AlertTriangle className="w-3 h-3" /> SOBREVALUADA
-      </Badge>;
-  }
-  if (result === "UNDERVALUED") {
-    return <Badge variant="secondary" className="bg-secondary/10 text-secondary gap-1 border border-secondary/20">
-        <Info className="w-3 h-3" /> SUBVALUADA
-      </Badge>;
-  }
-  return null;
-}
 // Percentil de "value" dentro de "sorted" (0 = el más bajo, 1 = el más
 // alto), contando empates como medio punto. Se usa en vez de interpolación
 // lineal min-max para el color de precio: si uno o dos barrios (ej. Puerto
@@ -204,19 +186,6 @@ function RecenterControl() {
   }, [map]);
   return null;
 }
-// Mismo criterio que PropertyDetail.jsx: property.valuation SIEMPRE viene en
-// USD (venta y alquiler por igual), así que para compararlo contra el precio
-// de un alquiler (en ARS) hay que convertir primero con el dólar blue. Sin
-// cotización todavía, o sin rango de tasación cacheado, no se arriesga
-// ningún color (null = "sin dato", el pin usa el celeste por defecto).
-function valuationStatus(property, blueRate) {
-  if (!property.valuation) return null;
-  const priceUsd = property.operationType === "RENT" ? (blueRate ? property.price / blueRate : null) : property.price;
-  if (priceUsd == null) return null;
-  if (priceUsd < property.valuation.min) return "UNDERVALUED";
-  if (priceUsd > property.valuation.max) return "OVERVALUED";
-  return "FAIR";
-}
 // Clase de color del pill/punto según la tasación: mismo criterio que
 // ValuationBadge (PropertyDetail.jsx/Valuacion.jsx) para que el color
 // signifique lo mismo en toda la app. Subvaluada se deja sin clase extra:
@@ -335,6 +304,7 @@ export default function MapPage() {
   // alquiler tiene el precio en ARS, y hay que convertirlo a USD para
   // compararlo contra el rango tasado.
   const { blueRate } = useBlueRate();
+  const featuredIds = useFeaturedIds();
   const [operationType, setOperationType] = useState("SALE");
   // Ambientes/condición son los ejes reales en los que IDECBA publica el
   // precio (no hay una serie única "precio/m² del barrio"), pero no se
@@ -933,14 +903,10 @@ export default function MapPage() {
             <button type="button" onClick={() => setSelectedId(null)} aria-label="Cerrar" className="absolute top-2 right-2 w-8 h-8 rounded-full bg-surface-container-lowest/90 backdrop-blur flex items-center justify-center shadow-sm hover:bg-surface-container-lowest">
               <X className="w-4 h-4 text-on-surface" />
             </button>
-            {/* Antes era bg-good-value/10 (10% opacidad, heredado del
-                variant="good"): sobre una foto se transparentaba y se hacía
-                ilegible según el fondo. Fondo sólido + blur (mismo criterio
-                que el botón de cerrar de al lado) para que se lea siempre,
-                sin importar la foto de atrás. */}
-            <Badge variant="good" className="absolute top-2 left-2 text-[10px] px-2 py-0.5 bg-surface-container-lowest/90 backdrop-blur border border-good-value/20 shadow-sm">
-              {selectedProperty.operationType === "SALE" ? "VENTA" : "ALQUILER"}
-            </Badge>
+            <div className="absolute top-2 left-2 flex flex-wrap items-center gap-1.5">
+              <OperationBadge operationType={selectedProperty.operationType} />
+              {featuredIds.has(selectedProperty.id) && <FeaturedBadge />}
+            </div>
             <FavoriteButton propertyId={selectedProperty.id} className="absolute bottom-2 right-2" />
           </div>
           <div className="p-4 space-y-1.5">
@@ -1078,9 +1044,8 @@ export default function MapPage() {
                   <div className="flex justify-between items-start gap-2">
                     <h4 className="font-bold text-sm text-on-surface line-clamp-1">{p.title}</h4>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge variant="good" className="text-[9px] px-1 py-0 h-4">
-                        {p.operationType === "SALE" ? "VENTA" : "ALQ."}
-                      </Badge>
+                      {featuredIds.has(p.id) && <FeaturedBadge compact />}
+                      <OperationBadge operationType={p.operationType} short className="px-1.5 py-0.5 text-[10px]" />
                       <FavoriteButton propertyId={p.id} className="w-6 h-6 bg-transparent shadow-none hover:bg-surface-dim" />
                     </div>
                   </div>

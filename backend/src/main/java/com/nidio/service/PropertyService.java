@@ -494,6 +494,36 @@ public class PropertyService {
                 security24h, bright, aptoCredito, furnished, null));
     }
 
+    /**
+     * Completa el rango de tasación de una publicación que no lo tiene (el modelo es el mismo de
+     * /predict, sin precio declarado). Devuelve false si ml-service no responde, para que el
+     * relleno de arranque corte y reintente más tarde.
+     */
+    @Transactional
+    public boolean backfillValuation(Long id) {
+        Property property = propertyRepository.findById(id).orElse(null);
+        if (property == null
+                || (property.getValuationRangeMin() != null && property.getValuationRangeMax() != null)) {
+            return true;
+        }
+        try {
+            MlServiceClient.PredictResponse prediction = predictValuation(
+                    property.getOperationType(), property.getPropertyType(), property.getNeighborhood(),
+                    property.getSurfaceM2(), property.getRooms(), property.getTotalSurfaceM2(),
+                    property.getBathrooms(), property.getPropertyCondition(), property.getExpensesUsd(),
+                    property.getHasPool(), property.getHasGarage(), property.getBuildingAmenities(),
+                    property.getSecurity24h(), property.getBright(), property.getAptoCredito(),
+                    property.getFurnished());
+            property.setValuationRangeMin(prediction.min());
+            property.setValuationRangeMax(prediction.max());
+            propertyRepository.save(property);
+            return true;
+        } catch (RuntimeException e) {
+            log.warn("No se pudo tasar la propiedad {}: {}", id, e.getMessage());
+            return false;
+        }
+    }
+
     @Transactional
     public void deleteProperty(Long id) {
         if (!propertyRepository.existsById(id)) {
@@ -531,12 +561,15 @@ public class PropertyService {
 
     @Transactional(readOnly = true)
     public PagedResponse<MyPropertyResponse> listMyProperties(
-            String ownerEmail, String query, Boolean active, String sortBy, String sortDir, int page, int size
+            String ownerEmail, String query, Boolean active, Boolean featured, String sortBy, String sortDir, int page, int size
     ) {
         String field = ADMIN_SORT_FIELDS.getOrDefault(sortBy, "createdAt");
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, field));
-        Page<Property> result = propertyRepository.findAllForOwner(ownerEmail, query, active, pageable);
+        // featured = true: solo las que tienen hoy un destacado en curso.
+        Page<Property> result = Boolean.TRUE.equals(featured)
+                ? propertyRepository.findFeaturedForOwner(ownerEmail, query, active, java.time.Instant.now(), pageable)
+                : propertyRepository.findAllForOwner(ownerEmail, query, active, pageable);
         return new PagedResponse<>(
                 result.getContent().stream().map(this::toMyPropertyResponse).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());

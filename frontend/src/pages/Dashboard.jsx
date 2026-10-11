@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { ArrowRight, Map, Calculator, HeartPulse, Heart, Building2, ExternalLink, MapPin, Search, Plus } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
 import { formatPrice, formatDate, formatNumber } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/lib/favorites";
+import { useBlueRate } from "@/lib/blueRate";
+import { valuationStatus } from "@/lib/valuation";
+import { ValuationBadge } from "@/components/ui/ValuationBadge";
+import { OperationBadge, FeaturedBadge } from "@/components/property/PropertyBadges";
+import { MarketCharts } from "@/components/home/MarketCharts";
 // Foto ilustrativa de banco abierto (Unsplash), igual criterio que las
 // fotos de propiedades del catálogo sintético — sin costo, sin API key.
 // Pareja recibiendo las llaves de su casa nueva (tags: real estate, moving,
@@ -24,30 +27,34 @@ export default function Dashboard() {
   } = useAuth();
   const isProfessional = user?.accountType === "PROFESSIONAL";
   const { favoriteCount } = useFavorites();
+  // Cotización para comparar alquileres (ARS) contra la tasación (USD).
+  const { blueRate } = useBlueRate();
   const navigate = useNavigate();
   const [heroSearch, setHeroSearch] = useState("");
-  const [chartData, setChartData] = useState([]);
   const [properties, setProperties] = useState([]);
+  // true si la lista son destacadas de verdad; si no hay ninguna activa se
+  // muestran las publicaciones más recientes (con otro título).
+  const [showingFeatured, setShowingFeatured] = useState(true);
   const [valuations, setValuations] = useState([]);
   const [lifeScores, setLifeScores] = useState([]);
+  // Público: las destacadas se ven también sin iniciar sesión.
+  useEffect(() => {
+    api.get("/api/featured").then(res => {
+      if (res.data.length > 0) {
+        setProperties(res.data);
+        setShowingFeatured(true);
+        return;
+      }
+      setShowingFeatured(false);
+      return api.get("/api/properties", {
+        params: {
+          size: 10
+        }
+      }).then(r => setProperties(r.data.content));
+    }).catch(() => setProperties([]));
+  }, []);
   useEffect(() => {
     if (!user) return;
-    api.get("/api/heatmaps/price", {
-      params: {
-        operationType: "SALE"
-      }
-    }).then(res => {
-      const rows = res.data.features.map(f => ({
-        name: f.properties.neighborhoodName,
-        precio: f.properties.avgPriceM2
-      })).sort((a, b) => b.precio - a.precio).slice(0, 8);
-      setChartData(rows);
-    }).catch(() => setChartData([]));
-    api.get("/api/properties", {
-      params: {
-        size: 10
-      }
-    }).then(res => setProperties(res.data.content)).catch(() => setProperties([]));
     api.get("/api/valuations").then(res => setValuations(res.data)).catch(() => {});
     // Las cuentas profesionales no usan Life Score (es para quien busca
     // comprar/alquilar, no para quien publica), así que ni se pide.
@@ -161,10 +168,10 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Recent properties (o promo de login, si no hay sesión) */}
-      {user ? <div className="space-y-4">
+      {/* Destacadas (públicas) y, si no hay sesión, el promo de login */}
+      {properties.length > 0 && <div className="space-y-4">
           <div className="flex justify-between items-end">
-            <h2 className="text-xl font-bold text-on-surface">Propiedades destacadas</h2>
+            <h2 className="text-xl font-bold text-on-surface">{showingFeatured ? "Propiedades destacadas" : "Propiedades recientes"}</h2>
             <Link to="/mapa" className="text-sm font-bold text-primary hover:underline flex items-center gap-1">
               Ver todo <ExternalLink className="w-4 h-4" />
             </Link>
@@ -175,9 +182,8 @@ export default function Dashboard() {
                 <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer h-full">
                   <div className="h-40 bg-surface-dim relative">
                     {p.imageUrl && <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover" />}
-                    <Badge className="absolute top-3 right-3" variant="good">
-                      {p.operationType === "SALE" ? "VENTA" : "ALQUILER"}
-                    </Badge>
+                    <OperationBadge operationType={p.operationType} className="absolute top-3 right-3" />
+                    {showingFeatured && <FeaturedBadge className="absolute top-3 left-3" />}
                   </div>
                   <CardContent className="p-4 space-y-4">
                     <div className="flex justify-between items-start">
@@ -195,11 +201,16 @@ export default function Dashboard() {
                       <span className="flex items-center gap-1"><Building2 className="w-3 h-3" /> {p.rooms} amb.</span>
                       <span className="ml-auto">{formatNumber(p.surfaceM2)} m²</span>
                     </div>
+                    {valuationStatus(p, blueRate) && <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                        <span>Tasación Nidio</span>
+                        <ValuationBadge result={valuationStatus(p, blueRate)} />
+                      </div>}
                   </CardContent>
                 </Card>
               </Link>)}
           </div>
-        </div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center py-6">
+        </div>}
+      {!user && <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center py-6">
           <div className="space-y-4">
             <h2 className="text-3xl font-bold text-on-surface leading-tight">Obtené un análisis para tu próxima propiedad</h2>
             <p className="text-on-surface-variant">Iniciá sesión para disfrutar de una experiencia completa.</p>
@@ -237,51 +248,16 @@ export default function Dashboard() {
           </div>
         </div>}
 
-      {/* Analytics & Stats */}
-      {user && <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1">
-              <CardTitle className="text-sm text-outline uppercase tracking-widest">Precio promedio por m²</CardTitle>
-              <CardDescription>Venta (USD/m²) — barrios más caros de CABA</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="h-64 mt-4">
-            {chartData.length > 0 ? <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{
-              top: 0,
-              right: 16,
-              // 55 (antes 16): la etiqueta del primer barrio ("Puerto
-              // Madero"), rotada -35°, se extendía más a la izquierda de lo
-              // que dejaba el margen viejo y el SVG se la recortaba.
-              left: 55,
-              bottom: 12
-            }}>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{
-                fontSize: 9,
-                fill: "#6e797e"
-              }} dy={10} interval={0} angle={-35} height={55} textAnchor="end" />
-                  <YAxis hide />
-                  <Tooltip cursor={{
-                fill: "#f0f3ff"
-              }} formatter={value => [`USD ${formatNumber(Number(value))}/m²`, "Precio"]} contentStyle={{
-                borderRadius: "8px",
-                border: "none",
-                boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
-              }} />
-                  <Bar dataKey="precio" fill="#00647c" radius={[2, 2, 0, 0]} barSize={28} />
-                </BarChart>
-              </ResponsiveContainer> : <div className="h-full flex items-center justify-center text-sm text-on-surface-variant font-mono">
-                Sin datos de precios
-              </div>}
-          </CardContent>
-        </Card>
+      {/* Mercado: público */}
+      <MarketCharts />
 
+      {/* Mi actividad: solo con sesión */}
+      {user && <div>
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-outline uppercase tracking-widest">Mi actividad</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                 <Calculator className="w-5 h-5" />
