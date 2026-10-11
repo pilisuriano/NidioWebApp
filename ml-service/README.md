@@ -10,7 +10,7 @@
 - `src/data/preprocessing.py` — limpieza, IQR, filtrado geográfico CABA
 - `src/features/` — feature engineering
 - `src/models/` — entrenamiento, valuación y artefactos serializados
-- `src/geo/life_score.py` — cálculo del Life Score con OSMnx
+- `src/geo/life_score.py` — cálculo del Life Score a partir de datasets de BA Data (ml-service/data/)
 - `src/api/` — API FastAPI
 
 ## Desarrollo

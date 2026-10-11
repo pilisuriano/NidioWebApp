@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { ArrowRight, Map, Calculator, HeartPulse, Heart, Building2, ExternalLink, MapPin, Search, Plus } from "lucide-react";
+import { ArrowRight, Map, Calculator, HeartPulse, Heart, Building2, ExternalLink, MapPin, Search, Plus, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatPrice, formatDate, formatNumber } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
@@ -232,7 +232,7 @@ export default function Dashboard() {
                 <div className="h-2 bg-surface-dim rounded-full w-2/3" />
               </div>
             </div>
-            {/* Badges flotantes: los 2 datos que Nidio suma sobre el aviso */}
+            {/* Badges flotantes: lo que Nidio suma sobre el aviso (valor, entorno y recomendación) */}
             <div className="absolute top-0 left-0 z-10 bg-surface-container-lowest rounded-full shadow-lg border border-outline-variant py-1.5 pl-1.5 pr-4 flex items-center gap-2 max-w-[240px]">
               <span className="w-9 h-9 rounded-full bg-good-value/10 text-good-value flex items-center justify-center flex-shrink-0">
                 <Calculator className="w-4 h-4" />
@@ -244,6 +244,12 @@ export default function Dashboard() {
                 <HeartPulse className="w-4 h-4" />
               </span>
               <span className="text-xs font-bold text-on-surface">Life Score</span>
+            </div>
+            <div className="absolute bottom-6 left-10 z-10 bg-surface-container-lowest rounded-full shadow-lg border border-outline-variant py-1.5 pl-1.5 pr-4 flex items-center gap-2 max-w-[240px]">
+              <span className="w-9 h-9 rounded-full bg-secondary/10 text-secondary flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-4 h-4" />
+              </span>
+              <span className="text-xs font-bold text-on-surface">Recomendación</span>
             </div>
           </div>
         </div>}
