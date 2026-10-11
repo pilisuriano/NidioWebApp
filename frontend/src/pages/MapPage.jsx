@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Switch } from "@/components/ui/Switch";
 import { Button } from "@/components/ui/Button";
-import { Search, MapPin, Building2, ChevronDown, SlidersHorizontal, List, X, Home, CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { Search, MapPin, Building2, ChevronDown, SlidersHorizontal, List, X, Home, CheckCircle2, AlertTriangle, Info, Layers } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatPrice, formatPriceShort, formatNumber } from "@/lib/format";
 import { useBlueRate } from "@/lib/blueRate";
@@ -20,6 +20,9 @@ import {
   ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, NO_AMENITIES, toggleAmenityTag } from "@/lib/propertyFilters";
 import { cn } from "@/lib/utils";
 import { BASE_TILES } from "@/lib/mapTiles";
+import { NoiseStreetsLayer, useNoiseCuts } from "@/components/map/NoiseStreetsLayer";
+import { OverlayLabels } from "@/components/map/OverlayLabels";
+import { MAP_LEVEL_COLORS, noiseLegend } from "@/lib/environment";
 
 const PROPERTY_TYPE_OPTIONS = [["", "Todos los tipos"], ["APARTMENT", "Departamento"], ["HOUSE", "Casa"], ["PH", "PH"]];
 
@@ -86,14 +89,6 @@ function priceColor(t) {
   const hue = 30 - 30 * s; // naranja -> rojo (no baja de hue 0: pasarse se ve bordó)
   const lightness = 52 - 16 * s;
   return `hsl(${hue}, 95%, ${lightness}%)`;
-}
-function noiseColor(value, min, max) {
-  // Amarillo (silencioso) a rojo (ruidoso) — la paleta original, más
-  // intensa (saturación al máximo, más rango de luminosidad).
-  const t = max > min ? (value - min) / (max - min) : 0.5;
-  const hue = 60 - 60 * t;
-  const lightness = 55 - 22 * t;
-  return `hsl(${hue}, 100%, ${lightness}%)`;
 }
 function securityColor(value, min, max) {
   // Rojo (peligroso) a verde (seguro), estilo semáforo.
@@ -293,13 +288,49 @@ function PropertyMarkersLayer({ properties, locations, selectedId, onSelect, blu
   });
 }
 
+// Grupo del panel "Capas del mapa": título corto + aclaración de qué pinta.
+function LayerGroup({ title, hint, children }) {
+  return <div className="space-y-1.5">
+      <div>
+        <p className="text-on-surface">{title}</p>
+        <p className="text-[10px] font-normal text-on-surface-variant">{hint}</p>
+      </div>
+      {children}
+    </div>;
+}
+
+// Selector de una opción entre pocas (botones pegados, la elegida resaltada).
+// options: [valor, texto, Icono?]
+function Segmented({ value, onChange, options }) {
+  return <div className="flex gap-0.5 rounded-lg bg-surface-dim p-0.5" role="group">
+      {options.map(([optionValue, label, Icon]) => <button
+          key={optionValue}
+          type="button"
+          aria-pressed={value === optionValue}
+          onClick={() => onChange(optionValue)}
+          className={cn("flex-1 inline-flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-1 py-1.5 text-[11px] transition-colors", value === optionValue ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface")}>
+          {Icon && <Icon className="w-3 h-3" aria-hidden="true" />} {label}
+        </button>)}
+    </div>;
+}
+
 export default function MapPage() {
   const [layer, setLayer] = useState("price");
   // Interruptor general: muestra/oculta la superposición de color de la capa
   // activa (barrios), sin tocar el mapa base ni los pines de propiedades.
   const [showColorLayer, setShowColorLayer] = useState(false);
+  // Capas que se combinan con el relleno de barrios (precios o seguridad): ruido por
+  // calle (de día o de noche, una a la vez) y los pines de propiedades. Cada una se
+  // prende y apaga sola, así se pueden solapar (ej. seguridad + ruido de noche + pines).
+  const [noisePeriod, setNoisePeriod] = useState(null);
+  const [showPins, setShowPins] = useState(true);
+  const noiseCuts = useNoiseCuts(Boolean(noisePeriod));
   // Solo celular: leyenda de colores de los pines desplegada o no.
   const [legendOpen, setLegendOpen] = useState(false);
+  // Panel "Capas del mapa" y referencias de color (leyenda): se pliegan para no tapar el mapa.
+  // El panel arranca abierto en pantallas grandes y cerrado en celular/tablet.
+  const [layersOpen, setLayersOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 1024);
+  const [referencesOpen, setReferencesOpen] = useState(true);
   // Para colorear los pines según tasación (ver valuationStatus): un
   // alquiler tiene el precio en ARS, y hay que convertirlo a USD para
   // compararlo contra el rango tasado.
@@ -449,10 +480,6 @@ export default function MapPage() {
   // de cada barrio depende de su posición relativa entre todos los demás,
   // no de una interpolación lineal entre el mínimo y el máximo absolutos.
   const sortedPrices = useMemo(() => (priceData?.features.map(f => f.properties.avgPriceM2) ?? []).slice().sort((a, b) => a - b), [priceData]);
-  const [minNoise, maxNoise] = useMemo(() => {
-    const values = noiseData?.features.map(f => f.properties.noiseLevel) ?? [];
-    return values.length ? [Math.min(...values), Math.max(...values)] : [45, 85];
-  }, [noiseData]);
   const [minSecurity, maxSecurity] = useMemo(() => {
     const values = securityData?.features.map(f => f.properties.securityIndex) ?? [];
     return values.length ? [Math.min(...values), Math.max(...values)] : [0, 100];
@@ -514,11 +541,6 @@ export default function MapPage() {
     // permanente sobre el polígono, para no saturar el mapa con un pill por
     // barrio.
     mapLayer.bindPopup(`<strong>${props.neighborhoodName}</strong><br/>` + `${formatNumber(props.avgPriceM2)} ${unit}`, POPUP_OPTIONS);
-  }
-  function onEachNoiseFeature(feature, mapLayer) {
-    const props = feature.properties;
-    const barrio = props.neighborhoodName ? `<strong>${props.neighborhoodName}</strong><br/>` : "";
-    mapLayer.bindPopup(`${barrio}Nivel de ruido: <strong>${props.noiseLevel} dB</strong>`, POPUP_OPTIONS);
   }
   function onEachSecurityFeature(feature, mapLayer) {
     const props = feature.properties;
@@ -679,7 +701,7 @@ export default function MapPage() {
                   </button>)}
                 {/* "Sin amenities": excluyente con los demás chips (ver
                     toggleAmenityTag en lib/propertyFilters.js). */}
-                <button type="button" onClick={() => toggleAmenity(NO_AMENITIES)} className={cn("text-sm px-3 py-1.5 rounded-md border border-dashed transition-colors", amenityFilter.includes(NO_AMENITIES) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
+                <button type="button" title="Sin pileta, parrilla, gimnasio, SUM ni seguridad 24hs. La cochera, el balcón o la terraza no cuentan como amenities." onClick={() => toggleAmenity(NO_AMENITIES)} className={cn("text-sm px-3 py-1.5 rounded-md border border-dashed transition-colors", amenityFilter.includes(NO_AMENITIES) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
                   {NO_AMENITIES}
                 </button>
               </div>
@@ -738,14 +760,38 @@ export default function MapPage() {
             que se ocultan hasta que se prenda. El switch sí queda siempre a
             la vista: es el único control que hace falta para volver a
             prenderlo. */}
-        {showColorLayer && <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-2 flex gap-1 text-xs font-bold">
-          {[["price", "Precios m²"], ["noise", "Ruido"], ["security", "Seguridad"]].map(([kind, label]) => <button key={kind} onClick={() => setLayer(kind)} className={cn("px-3 py-2 rounded-lg transition-colors", layer === kind ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-dim")}>
-              {label}
-            </button>)}
-        </div>}
-
-        <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-3 py-2 flex items-center gap-2">
-          <Switch checked={showColorLayer} onCheckedChange={setShowColorLayer} label="Mapa de calor" />
+        <div className="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant text-xs font-bold w-[240px] overflow-hidden">
+          <button type="button" onClick={() => setLayersOpen(o => !o)} aria-expanded={layersOpen} className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-on-surface hover:bg-surface-dim transition-colors">
+            <span className="inline-flex items-center gap-2 text-sm"><Layers className="w-4 h-4 text-primary" aria-hidden="true" /> Capas del mapa</span>
+            <span className="inline-flex items-center gap-1.5">
+              {!layersOpen && (showColorLayer || noisePeriod) && <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-on-primary">{Number(showColorLayer) + Number(Boolean(noisePeriod))}</span>}
+              <ChevronDown className={cn("w-4 h-4 transition-transform", layersOpen && "rotate-180")} aria-hidden="true" />
+            </span>
+          </button>
+          {layersOpen && <div className="border-t border-outline-variant p-3 space-y-3">
+              <LayerGroup title="Barrios" hint="Pinta cada barrio entero">
+                <Segmented
+                  value={showColorLayer ? layer : "none"}
+                  onChange={kind => {
+                    if (kind === "none") {
+                      setShowColorLayer(false);
+                    } else {
+                      setLayer(kind);
+                      setShowColorLayer(true);
+                    }
+                  }}
+                  options={[["none", "Ninguno"], ["price", "Precio m²"], ["security", "Seguridad"]]} />
+              </LayerGroup>
+              <LayerGroup title="Ruido" hint="Pinta cada calle (se suma a los barrios)">
+                <Segmented
+                  value={noisePeriod ?? "off"}
+                  onChange={period => setNoisePeriod(period === "off" ? null : period)}
+                  options={[["off", "Apagado"], ["day", "Diurno"], ["night", "Nocturno"]]} />
+              </LayerGroup>
+              <div className="border-t border-outline-variant pt-2.5">
+                <Switch checked={showPins} onCheckedChange={setShowPins} label="Pines de propiedades" />
+              </div>
+            </div>}
         </div>
 
         {/* Referencia de colores de los pines por tasación (ver
@@ -758,13 +804,13 @@ export default function MapPage() {
             hay lugar para las dos. */}
         {/* En celular la leyenda arranca plegada (un botón chico con los 3
             colores) para no tapar el mapa; al tocarlo se despliega. */}
-        {!showColorLayer && !legendOpen && <button type="button" onClick={() => setLegendOpen(true)} aria-label="Ver qué significan los colores" className={cn("sm:hidden bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-3 py-2 flex items-center gap-1.5 text-xs font-bold text-on-surface", selectedProperty && "hidden")}>
+        {showPins && !legendOpen && <button type="button" onClick={() => setLegendOpen(true)} aria-label="Ver qué significan los colores" className={cn("sm:hidden bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant px-3 py-2 flex items-center gap-1.5 text-xs font-bold text-on-surface", selectedProperty && "hidden")}>
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-tertiary)" }}></span>
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-primary)" }}></span>
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--color-alert-price)" }}></span>
             Colores
           </button>}
-        {!showColorLayer && <div onClick={() => setLegendOpen(false)} className={cn("bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-3 space-y-1.5 text-xs font-bold text-on-surface", selectedProperty && "hidden sm:block", !legendOpen && "hidden sm:block")}>
+        {showPins && <div onClick={() => setLegendOpen(false)} className={cn("bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant p-3 space-y-1.5 text-xs font-bold text-on-surface", selectedProperty && "hidden sm:block", !legendOpen && "hidden sm:block")}>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ background: "var(--color-tertiary)" }}></span>
             En rango
@@ -819,19 +865,17 @@ export default function MapPage() {
             fillOpacity: 0.55
           })} onEachFeature={onEachPriceFeature} />}
 
-          {colorVisible && layer === "noise" && noiseData && <GeoJSON key="noise-fill" data={noiseData} style={feature => ({
-            color: "#ffffff",
-            weight: 1,
-            fillColor: noiseColor((feature?.properties).noiseLevel, minNoise, maxNoise),
-            fillOpacity: 0.55
-          })} onEachFeature={onEachNoiseFeature} />}
-
           {colorVisible && layer === "security" && securityData && <GeoJSON key="security-fill" data={securityData} style={feature => ({
             color: "#ffffff",
             weight: 1,
             fillColor: securityColor((feature?.properties).securityIndex, minSecurity, maxSecurity),
             fillOpacity: 0.55
           })} onEachFeature={onEachSecurityFeature} />}
+
+          {/* Ruido por calle (Mapa de Ruido de BA Data), encima del relleno de barrios. */}
+          {noisePeriod && <NoiseStreetsLayer period={noisePeriod} cuts={noiseCuts?.[noisePeriod]} />}
+          {/* Nombres de calles y barrios por encima de los colores, para que sigan leyéndose. */}
+          <OverlayLabels enabled={Boolean(noisePeriod) || colorVisible} />
 
           {/* Borde del barrio buscado: capa propia, aparte, en vez de variar
               el color/grosor del borde por-feature dentro de los GeoJSON de
@@ -878,7 +922,7 @@ export default function MapPage() {
               cada propiedad individual, así que se ocultan para no duplicar
               información y no ensuciar la lectura. En Ruido/Seguridad nunca
               se muestran. */}
-          {!showColorLayer && <PropertyMarkersLayer properties={visibleProperties} locations={locations} selectedId={selectedId} onSelect={setSelectedId} blueRate={blueRate} />}
+          {showPins && <PropertyMarkersLayer properties={visibleProperties} locations={locations} selectedId={selectedId} onSelect={setSelectedId} blueRate={blueRate} />}
         </MapContainer>
 
         {/* Card de la propiedad seleccionada (al tocar un pin), estilo
@@ -944,8 +988,14 @@ export default function MapPage() {
           </button>}
 
         {/* Leyenda */}
-        {colorVisible && <div className="absolute bottom-4 left-3 sm:bottom-40 sm:left-6 z-[1000] bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-3 rounded-lg shadow-sm space-y-2 text-xs font-bold text-on-surface">
-          {layer === "price" && <>
+        {/* Leyenda: en compu se corre a la derecha del botón del menú (que vive a la
+            izquierda, a mitad de altura) y se puede plegar, así nunca lo tapa. */}
+        {(colorVisible || noisePeriod) && <div className="absolute bottom-4 left-3 sm:bottom-40 sm:left-16 lg:left-20 z-[1000] w-[235px] max-h-[40vh] overflow-y-auto bg-surface-container-lowest/95 backdrop-blur border border-outline-variant rounded-lg shadow-sm text-xs font-bold text-on-surface">
+          <button type="button" onClick={() => setReferencesOpen(o => !o)} aria-expanded={referencesOpen} className="flex w-full items-center justify-between px-3 py-2">
+            Referencias <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", !referencesOpen && "rotate-180")} aria-hidden="true" />
+          </button>
+          {referencesOpen && <div className="space-y-2 px-3 pb-3">
+          {colorVisible && layer === "price" && <>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{
               background: "hsl(50,95%,64%)"
@@ -962,22 +1012,22 @@ export default function MapPage() {
                 {operationType === "SALE" ? "USD/m²" : "ARS/mes (precio total)"}
               </div>
             </>}
-          {layer === "noise" && <>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{
-              background: "hsl(60,100%,55%)"
-            }}></span> Más silencioso ({formatNumber(minNoise)} dB)</div>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{
-              background: "hsl(0,100%,33%)"
-            }}></span> Más ruidoso ({formatNumber(maxNoise)} dB)</div>
-            </>}
-          {layer === "security" && <>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{
-              background: "hsl(140,80%,50%)"
-            }}></span> Más seguro ({formatNumber(maxSecurity)}/100)</div>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{
-              background: "hsl(0,80%,42%)"
-            }}></span> Más peligroso ({formatNumber(minSecurity)}/100)</div>
-            </>}
+          {colorVisible && layer === "security" && <div className="space-y-1">
+              <p>Seguridad del barrio</p>
+              <div className="h-2.5 rounded-full" style={{ background: "linear-gradient(to right, hsl(0,80%,42%), hsl(70,80%,46%), hsl(140,80%,50%))" }}></div>
+              <div className="flex justify-between text-[10px] font-normal text-on-surface-variant"><span>Menos seguro</span><span>Más seguro</span></div>
+              <div className="text-[10px] font-normal text-on-surface-variant">Comparado con el resto de CABA</div>
+            </div>}
+          {noisePeriod && <div className="space-y-1">
+              <p>Ruido {noisePeriod === "day" ? "diurno" : "nocturno"} por calle</p>
+              {noiseCuts && noiseLegend(noiseCuts[noisePeriod]).map(row => <div key={row.level} className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: MAP_LEVEL_COLORS[row.level] }}></span>
+                  <span className="flex-1">{row.label}</span>
+                  <span className="font-normal text-on-surface-variant whitespace-nowrap">{row.range}</span>
+                </div>)}
+              <div className="text-[10px] font-mono font-normal text-on-surface-variant">Compara cada calle con el resto de CABA. Fuente: Mapa de Ruido, BA Data (CC BY 2.5 AR)</div>
+            </div>}
+          </div>}
         </div>}
       </div>
 

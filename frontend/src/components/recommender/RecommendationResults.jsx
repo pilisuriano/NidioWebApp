@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { formatPrice, formatNumber, OPERATION_TYPE_LABEL, PROPERTY_TYPE_LABEL } from "@/lib/format";
 import { PRICE_STATUS_TEXT, formatDistance, funnelSummary } from "@/lib/recommender";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
+import { EnvironmentChips } from "@/components/property/EnvironmentChips";
+import { usePropertyEnvironment } from "@/lib/environment";
 import { Nidi } from "./Nidi";
 
 const PRICE_BADGE_VARIANT = { IN_RANGE: "good", BELOW: "good", ABOVE: "alert" };
@@ -15,6 +17,7 @@ export function RecommendationResults({ result, onEdit, onRestart }) {
   const items = result.items ?? [];
   const found = items.length > 0;
   const funnel = funnelSummary(result.funnel);
+  const environment = usePropertyEnvironment(items.map(item => item.property.id));
   return <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-center gap-5">
         <Nidi mode={found ? "happy" : "idle"} width={120} />
@@ -67,6 +70,7 @@ export function RecommendationResults({ result, onEdit, onRestart }) {
                     {p.surfaceM2 != null && <span className="flex items-center gap-1"><Ruler className="w-3 h-3" /> {formatNumber(p.surfaceM2)} m²</span>}
                     {p.bathrooms != null && <span className="flex items-center gap-1"><DoorOpen className="w-3 h-3" /> {p.bathrooms} baño{p.bathrooms > 1 ? "s" : ""}</span>}
                   </div>
+                  <EnvironmentChips environment={environment[p.id]} />
                   <span className="inline-flex items-center justify-center gap-2 h-10 rounded-md bg-primary text-on-primary text-sm font-bold">
                     Ver propiedad <ExternalLink className="w-4 h-4" />
                   </span>

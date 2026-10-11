@@ -1,8 +1,10 @@
 package com.nidio.controller;
 
+import com.nidio.dto.CreatePropertyRequest;
 import com.nidio.dto.MyPropertiesStatsResponse;
 import com.nidio.dto.MyPropertyResponse;
 import com.nidio.dto.PagedResponse;
+import com.nidio.dto.PropertyDetailResponse;
 import com.nidio.dto.UpdatePropertyActiveRequest;
 import com.nidio.service.PropertyService;
 import jakarta.validation.Valid;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -46,6 +49,21 @@ public class MyPropertiesController {
     @GetMapping("/stats")
     public MyPropertiesStatsResponse stats(Authentication authentication) {
         return propertyService.getMyPropertiesStats(authentication.getName());
+    }
+
+    // Datos de la propia publicación para precargar el formulario de edición.
+    @GetMapping("/{id}")
+    public PropertyDetailResponse get(@PathVariable Long id, Authentication authentication) {
+        return propertyService.getMyProperty(id, authentication.getName());
+    }
+
+    // El dueño edita su publicación (datos, precio, fotos). Si cambia algo que usa
+    // el modelo de tasación, el rango se recalcula; si ml-service no responde, falla (502).
+    @PutMapping("/{id}")
+    public PropertyDetailResponse update(
+            @PathVariable Long id, @Valid @RequestBody CreatePropertyRequest request, Authentication authentication
+    ) {
+        return propertyService.updateMyProperty(id, authentication.getName(), request);
     }
 
     @PatchMapping("/{id}/active")

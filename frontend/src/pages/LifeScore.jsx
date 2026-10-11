@@ -12,6 +12,8 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { NidioLoadingMark } from "@/components/ui/NidioLoadingMark";
 import { MapPin, SlidersHorizontal, Bus, ShoppingBag, TreePine, Cross, Utensils, Wine, GraduationCap, Calculator, AlertCircle, Heart, Star, Plus, Trash2, Info, Eye, EyeOff } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
+import { BASE_TILES } from "@/lib/mapTiles";
+import { EnvironmentLegend, EnvironmentNote, EnvironmentOverlays, LayerToggles, useEnvironmentLayers } from "@/components/map/EnvironmentLayers";
 
 const CATEGORIES = [
   { key: "TRANSPORT", label: "Transporte", icon: Bus },
@@ -225,6 +227,9 @@ export default function LifeScore() {
   // ocultar. No afecta el puntaje, solo lo que se dibuja.
   const [hiddenCategories, setHiddenCategories] = useState(new Set());
   const [error, setError] = useState(null);
+  // Capas de entorno del mapa (ruido diurno/nocturno y seguridad del barrio): solo
+  // visualización, no entran en el puntaje.
+  const env = useEnvironmentLayers();
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -779,10 +784,17 @@ export default function LifeScore() {
         <div className="lg:col-span-3 space-y-6">
           {/* Mapa */}
           <Card className="p-2 overflow-hidden bg-surface-container-lowest">
+            {/* Capas de entorno: ruido y seguridad se ven sobre el mapa, como en la ficha de
+                propiedad. Solo informan; el Life Score se calcula igual con o sin ellas. */}
+            {result && <div className="flex flex-wrap items-center gap-2 px-1 pb-2">
+                <span className="text-[10px] font-bold text-outline uppercase tracking-widest">Entorno del mapa</span>
+                <LayerToggles env={env} />
+              </div>}
             <div className="w-full h-full rounded-lg relative overflow-hidden min-h-[420px]">
               {result ? (
                 <MapContainer key={result.id} center={[result.location.lat, result.location.lon]} zoom={15} className="w-full h-full min-h-[420px]">
-                  <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
+                  <EnvironmentOverlays env={env} />
                   <FitBounds points={mapPoints} />
                   <RecenterToPropertyControl to={[result.location.lat, result.location.lon]} />
                   <Marker position={[result.location.lat, result.location.lon]} icon={PROPERTY_PIN_ICON}>
@@ -790,7 +802,7 @@ export default function LifeScore() {
                   </Marker>
                   {result.categories.filter(cat => !hiddenCategories.has(cat.category)).flatMap(cat => cat.pois.map((poi, i) => (
                     <CircleMarker
-                      key={`${cat.category}-${i}`} center={[poi.lat, poi.lon]} radius={6}
+                      key={`${cat.category}-${i}`} center={[poi.lat, poi.lon]} radius={6} pane="markerPane"
                       pathOptions={{ color: CATEGORY_COLOR[cat.category], fillColor: CATEGORY_COLOR[cat.category], fillOpacity: 0.7, weight: 1 }}
                     >
                       <Popup>
@@ -815,6 +827,8 @@ export default function LifeScore() {
                   ))}
                 </MapContainer>
               ) : null}
+              {/* Referencias de las capas de entorno: abajo a la izquierda (los POIs usan la derecha). */}
+              {result && <EnvironmentLegend env={env} className="bottom-6 left-3" />}
               {/* Referencia de colores de los circulitos de POIs por categoría
                   (mismo patrón que la leyenda de pines por tasación en
                   MapPage.jsx/Explorar) -- solo tiene sentido una vez que hay
@@ -861,6 +875,8 @@ export default function LifeScore() {
               )}
             </div>
           </Card>
+
+          {result && <EnvironmentNote env={env} />}
 
           {/* Puntaje total + explicación, debajo del mapa. La explicación se
               muestra siempre, con placeholder antes de calcular (mismo

@@ -45,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Slf4j
@@ -71,6 +72,9 @@ public class PropertyService {
     // Puntajes de Life Score por categoría para el recomendador (se calculan al
     // publicar y al cambiar la dirección; ver PropertyLifeScoreService).
     private final PropertyLifeScoreService propertyLifeScoreService;
+    // Ruido día/noche de la propiedad para las etiquetas (se calcula en los mismos
+    // momentos que el Life Score por categoría; ver PropertyNoiseService).
+    private final PropertyNoiseService propertyNoiseService;
 
     public PropertyService(
             PropertyRepository propertyRepository,
@@ -81,7 +85,8 @@ public class PropertyService {
             JavaMailSender mailSender,
             @Value("${app.mail.from}") String mailFrom,
             MlServiceClient mlServiceClient,
-            PropertyLifeScoreService propertyLifeScoreService
+            PropertyLifeScoreService propertyLifeScoreService,
+            PropertyNoiseService propertyNoiseService
     ) {
         this.propertyRepository = propertyRepository;
         this.neighborhoodRepository = neighborhoodRepository;
@@ -92,6 +97,7 @@ public class PropertyService {
         this.mailFrom = mailFrom;
         this.mlServiceClient = mlServiceClient;
         this.propertyLifeScoreService = propertyLifeScoreService;
+        this.propertyNoiseService = propertyNoiseService;
     }
 
     @Transactional(readOnly = true)
@@ -165,19 +171,12 @@ public class PropertyService {
                     "Elegí una dirección de la lista de sugerencias para poder publicar.");
         }
         Point addressPoint = GEOMETRY_FACTORY.createPoint(new Coordinate(request.getLon(), request.getLat()));
-        AddressCheckResponse check = checkPointInNeighborhood(addressPoint, neighborhood);
-        if (!check.valid()) {
-            String suggestion = check.actualNeighborhoodName() != null
-                    ? " Según la dirección ingresada, parecería estar en " + check.actualNeighborhoodName() + "."
-                    : " Probá con otra dirección o confirmá que sea correcta.";
-            throw new AddressValidationException(
-                    "La dirección ingresada no está dentro de " + neighborhood.getName() + "." + suggestion);
-        }
+        ensurePointInNeighborhood(addressPoint, neighborhood);
 
-        MlServiceClient.PredictResponse prediction = mlServiceClient.predict(new MlServiceClient.PredictRequest(
+        MlServiceClient.PredictResponse prediction = predictValuation(
                 request.getOperationType(),
                 request.getPropertyType(),
-                neighborhood.getName(),
+                neighborhood,
                 request.getSurfaceM2(),
                 request.getRooms(),
                 request.getTotalSurfaceM2(),
@@ -190,8 +189,7 @@ public class PropertyService {
                 request.getSecurity24h(),
                 request.getBright(),
                 request.getAptoCredito(),
-                request.getFurnished(),
-                null));
+                request.getFurnished());
 
         Property property = Property.builder()
                 .title(buildTitle(request.getPropertyType(), request.getOperationType(), neighborhood.getName()))
@@ -228,6 +226,7 @@ public class PropertyService {
         // Si ml-service no responde, la publicación sigue: la propiedad queda sin
         // puntajes por categoría y el relleno de arranque los calcula después.
         propertyLifeScoreService.computeAndStore(property);
+        propertyNoiseService.computeAndStore(property);
 
         return toDetail(property);
     }
@@ -307,6 +306,12 @@ public class PropertyService {
         }
     }
 
+    // Edición desde el panel admin. Igual que cuando edita el dueño (ver
+    // updateMyProperty), si cambia algo que usa el modelo de tasación el rango
+    // se recalcula en el momento y, si ml-service no responde, la edición falla
+    // entera (no queda un precio nuevo con un rango viejo). La dirección acá se
+    // sigue resolviendo con el geocoder interno: el panel no usa el autocomplete.
+    // Las características opcionales que el panel no manda (null) se conservan.
     @Transactional
     public AdminPropertyResponse updateProperty(Long id, CreatePropertyRequest request) {
         Property property = propertyRepository.findById(id)
@@ -316,33 +321,177 @@ public class PropertyService {
 
         // Solo re-geocodifica si la dirección cambió: evita mover el pin en
         // el mapa por una edición que no toca la ubicación.
-        boolean addressChanged = !property.getAddress().equals(request.getAddress());
-        if (addressChanged) {
+        Point newLocation = null;
+        if (!property.getAddress().equals(request.getAddress())) {
             LocationDto location = geocodingService.geocode(request.getAddress(), neighborhood);
-            property.setLocation(GEOMETRY_FACTORY.createPoint(new Coordinate(location.lon(), location.lat())));
+            newLocation = GEOMETRY_FACTORY.createPoint(new Coordinate(location.lon(), location.lat()));
         }
+        return toAdminResponse(applyEdit(property, neighborhood, request, newLocation, false));
+    }
 
-        property.setTitle(buildTitle(request.getPropertyType(), request.getOperationType(), neighborhood.getName()));
-        property.setPropertyType(request.getPropertyType());
-        property.setOperationType(request.getOperationType());
+    // --- Edición por el dueño -------------------------------------------------
+
+    /** Datos de la propia publicación para precargar el formulario de edición (también si está desactivada). */
+    @Transactional(readOnly = true)
+    public PropertyDetailResponse getMyProperty(Long id, String ownerEmail) {
+        return toDetail(getOwnedProperty(id, ownerEmail));
+    }
+
+    /**
+     * El dueño edita su publicación: datos, precio y fotos. La tasación de Nidio no se
+     * edita: si cambia algo que usa el modelo (operación, tipo, barrio, superficies,
+     * ambientes, baños, estado, expensas o amenities) el rango se recalcula acá mismo, y
+     * si ml-service no responde la edición falla entera y no se guarda nada. Cambiar solo
+     * el precio, la descripción, las fotos, la orientación, la antigüedad o el tipo de
+     * publicador no re-tasa.
+     *
+     * Si cambia la dirección, el frontend manda las coordenadas de la sugerencia elegida
+     * (igual que al publicar) y se valida que caigan dentro del barrio; si cambia solo el
+     * barrio, se valida que la ubicación guardada caiga dentro del barrio nuevo.
+     */
+    @Transactional
+    public PropertyDetailResponse updateMyProperty(Long id, String ownerEmail, CreatePropertyRequest request) {
+        Property property = getOwnedProperty(id, ownerEmail);
+        Neighborhood neighborhood = neighborhoodRepository.findById(request.getNeighborhoodId())
+                .orElseThrow(() -> new ResourceNotFoundException("No existe el barrio " + request.getNeighborhoodId()));
+
+        Point newLocation = null;
+        if (!property.getAddress().equals(request.getAddress())) {
+            if (request.getLat() == null || request.getLon() == null) {
+                throw new AddressValidationException(
+                        "Elegí una dirección de la lista de sugerencias para poder guardar el cambio.");
+            }
+            newLocation = GEOMETRY_FACTORY.createPoint(new Coordinate(request.getLon(), request.getLat()));
+            ensurePointInNeighborhood(newLocation, neighborhood);
+        } else if (!neighborhood.getId().equals(property.getNeighborhood().getId())) {
+            ensurePointInNeighborhood(property.getLocation(), neighborhood);
+        }
+        return toDetail(applyEdit(property, neighborhood, request, newLocation, true));
+    }
+
+    /**
+     * Aplica la edición y re-tasa si hace falta. La tasación se pide ANTES de tocar la
+     * propiedad: si ml-service falla, la excepción corta la transacción y no queda nada
+     * guardado.
+     *
+     * @param newLocation       null si la dirección no cambió
+     * @param replaceExtras     true: las características opcionales se reemplazan tal como vienen
+     *                          (null = el dueño las borró); false: las que vienen en null se conservan
+     *                          (el panel admin no las muestra)
+     */
+    private Property applyEdit(Property property, Neighborhood neighborhood, CreatePropertyRequest r,
+                               Point newLocation, boolean replaceExtras) {
+        String condition = extra(replaceExtras, r.getPropertyCondition(), property.getPropertyCondition());
+        BigDecimal expenses = extra(replaceExtras, r.getExpensesUsd(), property.getExpensesUsd());
+        Boolean pool = extra(replaceExtras, r.getHasPool(), property.getHasPool());
+        Boolean garage = extra(replaceExtras, r.getHasGarage(), property.getHasGarage());
+        Boolean amenities = extra(replaceExtras, r.getBuildingAmenities(), property.getBuildingAmenities());
+        Boolean security = extra(replaceExtras, r.getSecurity24h(), property.getSecurity24h());
+        Boolean bright = extra(replaceExtras, r.getBright(), property.getBright());
+        Boolean apto = extra(replaceExtras, r.getAptoCredito(), property.getAptoCredito());
+        Boolean furnished = extra(replaceExtras, r.getFurnished(), property.getFurnished());
+
+        boolean needsValuation = property.getValuationRangeMin() == null
+                || property.getValuationRangeMax() == null
+                || property.getOperationType() != r.getOperationType()
+                || property.getPropertyType() != r.getPropertyType()
+                || !neighborhood.getId().equals(property.getNeighborhood().getId())
+                || differs(property.getSurfaceM2(), r.getSurfaceM2())
+                || differs(property.getTotalSurfaceM2(), r.getTotalSurfaceM2())
+                || !Objects.equals(property.getRooms(), r.getRooms())
+                || !Objects.equals(property.getBathrooms(), r.getBathrooms())
+                || !Objects.equals(property.getPropertyCondition(), condition)
+                || differs(property.getExpensesUsd(), expenses)
+                || !Objects.equals(property.getHasPool(), pool)
+                || !Objects.equals(property.getHasGarage(), garage)
+                || !Objects.equals(property.getBuildingAmenities(), amenities)
+                || !Objects.equals(property.getSecurity24h(), security)
+                || !Objects.equals(property.getBright(), bright)
+                || !Objects.equals(property.getAptoCredito(), apto)
+                || !Objects.equals(property.getFurnished(), furnished);
+
+        MlServiceClient.PredictResponse prediction = needsValuation
+                ? predictValuation(r.getOperationType(), r.getPropertyType(), neighborhood, r.getSurfaceM2(),
+                        r.getRooms(), r.getTotalSurfaceM2(), r.getBathrooms(), condition, expenses, pool, garage,
+                        amenities, security, bright, apto, furnished)
+                : null;
+
+        property.setTitle(buildTitle(r.getPropertyType(), r.getOperationType(), neighborhood.getName()));
+        property.setPropertyType(r.getPropertyType());
+        property.setOperationType(r.getOperationType());
         property.setNeighborhood(neighborhood);
-        property.setAddress(request.getAddress());
-        property.setSurfaceM2(request.getSurfaceM2());
-        property.setTotalSurfaceM2(request.getTotalSurfaceM2());
-        property.setRooms(request.getRooms());
-        property.setBathrooms(request.getBathrooms());
-        property.setAgeYears(request.getAgeYears());
-        property.setOrientation(request.getOrientation());
-        property.setPrice(request.getPrice());
-        property.setImageUrls(request.getImageUrls() != null ? request.getImageUrls() : List.of());
-        property.setDescription(request.getDescription());
-        property.setPublisherType(request.getPublisherType());
+        property.setAddress(r.getAddress());
+        if (newLocation != null) {
+            property.setLocation(newLocation);
+        }
+        property.setSurfaceM2(r.getSurfaceM2());
+        property.setTotalSurfaceM2(r.getTotalSurfaceM2());
+        property.setRooms(r.getRooms());
+        property.setBathrooms(r.getBathrooms());
+        property.setAgeYears(r.getAgeYears());
+        property.setOrientation(r.getOrientation());
+        property.setPrice(r.getPrice());
+        property.setImageUrls(r.getImageUrls() != null ? r.getImageUrls() : List.of());
+        property.setDescription(r.getDescription());
+        property.setPublisherType(r.getPublisherType());
+        property.setPropertyCondition(condition);
+        property.setExpensesUsd(expenses);
+        property.setHasPool(pool);
+        property.setHasGarage(garage);
+        property.setBuildingAmenities(amenities);
+        property.setSecurity24h(security);
+        property.setBright(bright);
+        property.setAptoCredito(apto);
+        property.setFurnished(furnished);
+        if (prediction != null) {
+            property.setValuationRangeMin(prediction.min());
+            property.setValuationRangeMax(prediction.max());
+        }
 
         property = propertyRepository.save(property);
-        if (addressChanged) {
+        if (newLocation != null) {
+            // Cambió la ubicación: se recalculan los datos que dependen de ella. Si
+            // ml-service no responde acá no se corta la edición; el relleno de
+            // arranque los completa después.
             propertyLifeScoreService.computeAndStore(property);
+            propertyNoiseService.computeAndStore(property);
         }
-        return toAdminResponse(property);
+        return property;
+    }
+
+    private static <T> T extra(boolean replace, T requested, T current) {
+        return replace || requested != null ? requested : current;
+    }
+
+    private static boolean differs(BigDecimal a, BigDecimal b) {
+        if (a == null || b == null) {
+            return a != b;
+        }
+        return a.compareTo(b) != 0;
+    }
+
+    private void ensurePointInNeighborhood(Point point, Neighborhood neighborhood) {
+        AddressCheckResponse check = checkPointInNeighborhood(point, neighborhood);
+        if (!check.valid()) {
+            String suggestion = check.actualNeighborhoodName() != null
+                    ? " Según la dirección ingresada, parecería estar en " + check.actualNeighborhoodName() + "."
+                    : " Probá con otra dirección o confirmá que sea correcta.";
+            throw new AddressValidationException(
+                    "La dirección ingresada no está dentro de " + neighborhood.getName() + "." + suggestion);
+        }
+    }
+
+    // declaredPrice va en null a propósito (ver createProperty).
+    private MlServiceClient.PredictResponse predictValuation(
+            OperationType operationType, PropertyType propertyType, Neighborhood neighborhood,
+            BigDecimal surfaceM2, Integer rooms, BigDecimal totalSurfaceM2, Integer bathrooms,
+            String propertyCondition, BigDecimal expensesUsd, Boolean hasPool, Boolean hasGarage,
+            Boolean buildingAmenities, Boolean security24h, Boolean bright, Boolean aptoCredito,
+            Boolean furnished) {
+        return mlServiceClient.predict(new MlServiceClient.PredictRequest(
+                operationType, propertyType, neighborhood.getName(), surfaceM2, rooms, totalSurfaceM2,
+                bathrooms, propertyCondition, expensesUsd, hasPool, hasGarage, buildingAmenities,
+                security24h, bright, aptoCredito, furnished, null));
     }
 
     @Transactional

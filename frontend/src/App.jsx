@@ -67,7 +67,10 @@ export default function App() {
               <Route path="terminos" element={<Terminos />} />
               <Route path="privacidad" element={<Privacidad />} />
               <Route path="publicar" element={<RequireAuth>
-                    <Publicar />
+                    <Publicar key="nueva" />
+                  </RequireAuth>} />
+              <Route path="mis-publicaciones/:id/editar" element={<RequireAuth>
+                    <Publicar key="edicion" />
                   </RequireAuth>} />
             </Route>
 

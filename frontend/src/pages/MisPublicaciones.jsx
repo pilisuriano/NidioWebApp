@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { ClipboardList, Search, MapPin, Building2, Ruler, Heart, Eye, EyeOff, Trash2, ExternalLink, AlertTriangle } from "lucide-react";
+import { ClipboardList, Search, MapPin, Building2, Ruler, Heart, Eye, EyeOff, Trash2, ExternalLink, AlertTriangle, Pencil } from "lucide-react";
 import { toast } from "react-toastify";
 import { api, apiErrorMessage } from "@/lib/api";
 import { formatPrice, formatNumber, formatDate, PROPERTY_TYPE_LABEL, OPERATION_TYPE_LABEL } from "@/lib/format";
@@ -206,7 +206,10 @@ export default function MisPublicaciones() {
                 <Button variant="outline" className={cn("gap-1.5 text-xs text-error border-error/40 hover:bg-error-container", p.deactivatedByAdmin && "flex-1")} onClick={() => setDeleteTarget(p)}>
                   <Trash2 className="w-3.5 h-3.5" /> {p.deactivatedByAdmin && "Eliminar"}
                 </Button>
-                <Link to={`/propiedades/${p.id}`} className="p-2 rounded-md border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-colors">
+                <Link to={`/mis-publicaciones/${p.id}/editar`} aria-label="Editar publicación" title="Editar" className="p-2 rounded-md border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-colors">
+                  <Pencil className="w-3.5 h-3.5" />
+                </Link>
+                <Link to={`/propiedades/${p.id}`} aria-label="Ver publicación" title="Ver" className="p-2 rounded-md border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary transition-colors">
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
               </div>

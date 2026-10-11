@@ -8,6 +8,8 @@ import { Search, MapPin, Building2, DoorOpen, Ruler, SlidersHorizontal, ChevronL
 import { api } from "@/lib/api";
 import { formatPrice, formatNumber, OPERATION_TYPE_LABEL } from "@/lib/format";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
+import { EnvironmentChips } from "@/components/property/EnvironmentChips";
+import { usePropertyEnvironment } from "@/lib/environment";
 import {
   filterProperties, countActiveFilters, fetchAllProperties, parseFilterQueryString, sortProperties, buildFilterQueryString,
   ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, SORT_OPTIONS, NO_AMENITIES, toggleAmenityTag } from "@/lib/propertyFilters";
@@ -66,6 +68,8 @@ export default function PropertyListing() {
   const filtered = sortProperties(filterProperties(properties, { search, ...activeFilters }), sort);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  // Ruido (sol/luna) y seguridad de las 12 tarjetas visibles, en un solo pedido.
+  const environment = usePropertyEnvironment(pageItems.map(p => p.id));
   // Mismos filtros ya aplicados acá, para que el mapa quede igual como se
   // dejó (ver el link "Volver al mapa" en el header).
   const mapQueryString = buildFilterQueryString({ operationType, propertyType, search, ...activeFilters, sort });
@@ -250,6 +254,7 @@ export default function PropertyListing() {
                   <span className="flex items-center gap-1"><Ruler className="w-3 h-3" /> {formatNumber(p.surfaceM2)} m²</span>
                   {p.bathrooms != null && <span className="flex items-center gap-1"><DoorOpen className="w-3 h-3" /> {p.bathrooms} baño{p.bathrooms > 1 ? "s" : ""}</span>}
                 </div>
+                <EnvironmentChips environment={environment[p.id]} />
               </CardContent>
             </Card>
           </Link>)}

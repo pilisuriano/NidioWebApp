@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "@/lib/leaflet-setup";
@@ -15,8 +14,10 @@ import { useBlueRate } from "@/lib/blueRate";
 import { cn } from "@/lib/utils";
 import { toast } from "react-toastify";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
+import { EnvironmentMap } from "@/components/property/EnvironmentMap";
+import { EnvironmentChips } from "@/components/property/EnvironmentChips";
+import { usePropertyEnvironment } from "@/lib/environment";
 import { COUNTRY_CODES } from "@/lib/countries";
-import { BASE_TILES } from "@/lib/mapTiles";
 
 // Preguntas rápidas tipo Zonaprop ("Preguntas para la inmobiliaria"): en vez
 // de escribir desde cero, un click completa el mensaje.
@@ -86,6 +87,7 @@ export default function PropertyDetail() {
   // profesional, sin la función de contacto.
   const isProfessional = user?.accountType === "PROFESSIONAL";
   const [property, setProperty] = useState(null);
+  const environment = usePropertyEnvironment(property ? [property.id] : []);
   // No tiene sentido mandarse un mail a una misma: si la propiedad la
   // publicó el usuario logueado, se muestra un aviso en vez del formulario.
   const isOwner = Boolean(user?.email && property?.createdByEmail && user.email.toLowerCase() === property.createdByEmail.toLowerCase());
@@ -359,6 +361,7 @@ export default function PropertyDetail() {
               {property.ageYears != null && <span className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant"><CalendarClock className="w-4 h-4" /> {property.ageYears === 0 ? "A estrenar" : `${property.ageYears} años`}</span>}
               {property.orientation && <span className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant"><Compass className="w-4 h-4" /> {property.orientation}</span>}
             </div>
+            <EnvironmentChips environment={environment[property.id]} size="lg" />
             {/* Expensas: la API siempre manda expensesUsd en USD (misma unidad
                 que el modelo, ver Property.expensesUsd), pero en Argentina las
                 expensas se cotizan en pesos -- nunca se muestra el número USD
@@ -489,12 +492,7 @@ export default function PropertyDetail() {
 
           <div className="space-y-2">
             <h2 className="text-xs font-bold text-outline uppercase tracking-widest">Ubicación</h2>
-            <div className="h-64 rounded-xl overflow-hidden border border-outline-variant">
-              <MapContainer center={[property.location.lat, property.location.lon]} zoom={15} scrollWheelZoom={false} className="w-full h-full">
-                <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
-                <Marker position={[property.location.lat, property.location.lon]} icon={LOCATION_PIN_ICON} />
-              </MapContainer>
-            </div>
+            <EnvironmentMap lat={property.location.lat} lon={property.location.lon} neighborhoodName={property.neighborhood.name} pinIcon={LOCATION_PIN_ICON} />
           </div>
         </div>
 
