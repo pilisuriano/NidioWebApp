@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { FeaturedBadge } from "@/components/property/PropertyBadges";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -106,15 +107,23 @@ export default function MisPublicaciones() {
     refreshBilling();
   }
 
-  // Termina bien: ahora (startsAt null) o como reserva para esa fecha.
-  function featuredDone(propertyId, startsAt) {
+  // Con qué crédito se destacó sin pasar por la pasarela (lo informa el backend en "source").
+  const CREDIT_USED = {
+    WELCOME: "Usaste tu destacado gratis de bienvenida (sin costo).",
+    INCLUDED: "Usaste uno de los destacados incluidos en tu plan (sin costo).",
+    PACK: "Usaste un destacado de tu pack (sin costo)."
+  };
+
+  // Termina bien: ahora (startsAt null) o como reserva para esa fecha. source = crédito usado (si no fue pago).
+  function featuredDone(propertyId, startsAt, source) {
+    const credit = CREDIT_USED[source] ? ` ${CREDIT_USED[source]}` : "";
     if (startsAt) {
       refreshBilling();
-      toast.success(`Reservaste el destacado: tu publicación se destaca desde el ${formatDate(startsAt)}`);
+      toast.success(`Reservaste el destacado: tu publicación se destaca desde el ${formatDate(startsAt)}.${credit}`);
       return;
     }
     markFeatured(propertyId);
-    toast.success("Tu publicación quedó destacada por 7 días");
+    toast.success(`Tu publicación quedó destacada por 7 días.${credit}`);
   }
 
   async function handleFeature(property) {
@@ -135,8 +144,8 @@ export default function MisPublicaciones() {
 
   async function runFeature(property, startsAt, endsAt) {
     try {
-      await activateFeatured(property.id, startsAt);
-      featuredDone(property.id, startsAt);
+      const activated = await activateFeatured(property.id, startsAt);
+      featuredDone(property.id, startsAt, activated?.source);
     } catch (err) {
       if (err.response?.status === 402 && byCode.FEATURED_SINGLE) {
         // Sin destacados incluidos: se ofrece pagar uno suelto.
@@ -299,9 +308,7 @@ export default function MisPublicaciones() {
                 >
                   {p.deactivatedByAdmin ? "Desactivada por admin" : p.active ? "Activa" : "Inactiva"}
                 </Badge>
-                {isFeatured(p.id) && <Badge className="absolute bottom-3 left-3 gap-1 bg-surface-container-lowest/90 backdrop-blur border border-primary/30 shadow-sm" variant="default">
-                    <Star className="w-3 h-3 fill-current" /> Destacada
-                  </Badge>}
+                {isFeatured(p.id) && <FeaturedBadge className="absolute bottom-3 left-3" />}
               </div>
             </Link>
             <CardContent className="p-4 space-y-2 flex-1 flex flex-col">
@@ -327,7 +334,7 @@ export default function MisPublicaciones() {
               <div className="flex flex-col gap-2 border-t border-outline-variant pt-3 mt-auto">
                 {/* Destacar: botón con texto (una estrella sola no se entiende). Solo para publicaciones activas. */}
                 {!p.deactivatedByAdmin && p.active && (isFeatured(p.id)
-                  ? <div className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-md text-sm font-bold bg-primary/10 text-primary border border-primary/30" title="Esta publicación ya está destacada">
+                  ? <div className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-md text-sm font-bold bg-amber-100 text-amber-950 border border-amber-400" title="Esta publicación ya está destacada">
                       <Star className="w-4 h-4 fill-current" /> Publicación destacada
                     </div>
                   : reservedFor(p.id)

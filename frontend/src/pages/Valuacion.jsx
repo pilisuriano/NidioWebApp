@@ -11,6 +11,8 @@ import { useUsage, isQuotaExceeded } from "@/lib/usage";
 import { QuotaNotice } from "@/components/ui/QuotaNotice";
 import { formatNumber } from "@/lib/format";
 import { parseExplanation, markMissing } from "@/lib/explanation";
+import { RangeBar } from "@/components/valuation/RangeBar";
+import { FactorBars } from "@/components/valuation/FactorBars";
 import { useBlueRate } from "@/lib/blueRate";
 import { cn } from "@/lib/utils";
 const PROPERTY_TYPES = [{
@@ -232,13 +234,10 @@ export default function Valuacion() {
   const priceM2 = result && lastRequest && lastRequest.surfaceM2 > 0 ? estimatedMid / lastRequest.surfaceM2 : null;
   const showArs = lastRequest?.operationType === "RENT" && !!lastRequest?.blueRateUsed;
   const toArs = usd => usd * (lastRequest?.blueRateUsed ?? 0);
-  // Posición del precio declarado dentro de la barra (25%-75% representa el rango estimado).
-  let declaredPct = null;
-  if (result && lastRequest?.declaredPrice != null) {
-    const span = result.estimatedMax - result.estimatedMin || 1;
-    const t = (lastRequest.declaredPrice - result.estimatedMin) / span;
-    declaredPct = Math.max(2, Math.min(98, 25 + t * 50));
-  }
+  // Montos del resultado con su moneda (en alquiler se muestra en ARS, con el equivalente en USD aparte).
+  const fmtMoney = usd => `${showArs ? "ARS" : currency} ${formatNumber(showArs ? toArs(usd) : usd)}`;
+  const rangeM2 = result && lastRequest && lastRequest.surfaceM2 > 0 ? [result.estimatedMin / lastRequest.surfaceM2, result.estimatedMax / lastRequest.surfaceM2] : null;
+  const halfWidthPct = result && estimatedMid > 0 ? Math.round(((result.estimatedMax - result.estimatedMin) / 2 / estimatedMid) * 100) : null;
   return <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       {fromPublicar && <Link to="/publicar" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
           <ArrowLeft className="w-4 h-4" /> Volver a publicar
@@ -256,9 +255,10 @@ export default function Valuacion() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Form */}
         <div className="lg:col-span-5">
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <form onSubmit={handleSubmit} className="space-y-4">
+          {/* h-full: el formulario y el resultado miden siempre lo mismo (el más alto de los dos); el botón queda al pie. */}
+          <Card className="h-full flex flex-col">
+            <CardContent className="p-5 flex-1">
+              <form onSubmit={handleSubmit} className="h-full flex flex-col gap-4">
                 {/* Operación */}
                 <div className="flex rounded-md border border-outline-variant p-1 bg-surface-container-low">
                   {["SALE", "RENT"].map(op => <button key={op} type="button" onClick={() => setOperationType(op)} className={cn("flex-1 rounded text-sm py-2 transition-all", operationType === op ? "font-bold bg-primary text-on-primary shadow-sm" : "font-medium text-on-surface-variant hover:text-on-surface")}>
@@ -384,10 +384,12 @@ export default function Valuacion() {
                     <span>{error}</span>
                   </div>}
 
-                <Button type="submit" disabled={submitting || !neighborhoodId || quotaBlocked} className="w-full h-12 text-base gap-2 disabled:opacity-60">
-                  <Calculator className="w-5 h-5" />
-                  {submitting ? "Calculando…" : "Calcular valuación"}
-                </Button>
+                <div className="mt-auto pt-2">
+                  <Button type="submit" disabled={submitting || !neighborhoodId || quotaBlocked} className="w-full h-12 text-base gap-2 disabled:opacity-60">
+                    <Calculator className="w-5 h-5" />
+                    {submitting ? "Calculando…" : "Calcular valuación"}
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -414,89 +416,59 @@ export default function Valuacion() {
                   </div>
 
                   {/* El rango es el resultado principal (el modelo da un rango, no un
-                      valor exacto), por eso va grande; el valor medio sugerido va
-                      más chico, como referencia. */}
-                  <div className="text-center mb-12 space-y-3">
-                    <div>
-                      <p className="text-xs font-bold text-outline uppercase tracking-widest mb-2">RANGO ESTIMADO</p>
-                      <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
-                        <span className="text-lg sm:text-xl font-bold text-on-surface-variant">{showArs ? "ARS" : currency}</span>
-                        <span className="text-3xl sm:text-5xl font-bold text-primary tracking-tighter">
-                          {formatNumber(showArs ? toArs(result.estimatedMin) : result.estimatedMin)}
-                          <span className="text-on-surface-variant font-normal mx-1 sm:mx-2">–</span>
-                          {formatNumber(showArs ? toArs(result.estimatedMax) : result.estimatedMax)}
-                        </span>
-                      </div>
-                      {showArs && <p className="text-xs text-on-surface-variant mt-1">
-                          ≈ {currency} {formatNumber(result.estimatedMin)} – {formatNumber(result.estimatedMax)}
-                        </p>}
+                      valor exacto), por eso va grande; el valor sugerido va marcado en
+                      la barra de abajo. */}
+                  <div className="mb-6 rounded-xl border border-primary/15 bg-gradient-to-b from-primary/5 to-transparent px-4 py-6 text-center">
+                    <p className="text-xs font-bold text-outline uppercase tracking-widest mb-2">RANGO ESTIMADO</p>
+                    <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
+                      <span className="text-lg sm:text-xl font-bold text-on-surface-variant">{showArs ? "ARS" : currency}</span>
+                      <span className="text-3xl sm:text-5xl font-bold text-primary tracking-tighter">
+                        {formatNumber(showArs ? toArs(result.estimatedMin) : result.estimatedMin)}
+                        <span className="text-on-surface-variant font-normal mx-1 sm:mx-2">–</span>
+                        {formatNumber(showArs ? toArs(result.estimatedMax) : result.estimatedMax)}
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-outline uppercase tracking-widest mb-1">Valor estimado sugerido</p>
-                      <p className="text-xl sm:text-2xl font-bold text-on-surface">
-                        {showArs ? `ARS ${formatNumber(toArs(estimatedMid))}` : `${currency} ${formatNumber(estimatedMid)}`}
-                      </p>
-                      {showArs && <p className="text-[10px] text-on-surface-variant">
-                          ≈ {currency} {formatNumber(estimatedMid)} (cotización dólar blue del momento del cálculo: ${formatNumber(lastRequest.blueRateUsed)})
-                        </p>}
-                    </div>
+                    {showArs && <p className="text-xs text-on-surface-variant mt-1">
+                        ≈ {currency} {formatNumber(result.estimatedMin)} – {formatNumber(result.estimatedMax)}
+                        {" "}(dólar blue del momento del cálculo: ${formatNumber(lastRequest.blueRateUsed)})
+                      </p>}
+                    <p className="mt-3 text-[11px] text-on-surface-variant">
+                      El rango apunta a contener el precio de mercado en unas 8 de cada 10 propiedades parecidas.
+                    </p>
                   </div>
 
-                  {lastRequest && lastRequest.propertyType !== "APARTMENT" && <div className="mb-8 -mt-6"><LowPrecisionNotice /></div>}
+                  {lastRequest && lastRequest.propertyType !== "APARTMENT" && <div className="mb-6"><LowPrecisionNotice /></div>}
 
-                  {/* Barra de rango */}
-                  <div className="mb-6 px-4">
-                    {/* Frame de posicionamiento único: tanto el tooltip como la línea
-                        marcadora se calculan sobre ESTE div (mismo ancho que la barra
-                        de colores), y no sobre el div externo con padding -- si el
-                        tooltip usara el externo (más ancho, por el px-4) y la línea el
-                        interno, un mismo declaredPct% cae en dos posiciones absolutas
-                        distintas y quedan desalineados entre sí (hasta ~16px cerca de
-                        los bordes, 0 en el centro). */}
-                    <div className="relative">
-                      {declaredPct != null && lastRequest?.declaredPriceInput != null && <div className="absolute -top-8 transform -translate-x-1/2 bg-inverse-surface text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap" style={{
-                    left: `${declaredPct}%`
-                  }}>
-                          Tu precio: {lastRequest.operationType === "RENT" ? "ARS" : "USD"} {formatNumber(lastRequest.declaredPriceInput)}
-                          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-inverse-surface"></div>
-                        </div>}
-
-                      <div className="h-4 flex rounded-full overflow-hidden mb-2">
-                        <div className="h-full bg-alert-price/30 w-1/4"></div>
-                        <div className="h-full bg-primary w-2/4"></div>
-                        <div className="h-full bg-alert-price/30 w-1/4"></div>
-                      </div>
-                      {declaredPct != null && <div className="absolute top-0 h-4 w-1 bg-inverse-surface shadow-[0_0_0_2px_#fff]" style={{
-                    left: `${declaredPct}%`
-                  }}></div>}
-                    </div>
-                    <div className="flex justify-between text-xs font-mono text-on-surface-variant">
-                      <span>{showArs ? formatNumber(toArs(result.estimatedMin)) : formatNumber(result.estimatedMin)}</span>
-                      <span className="font-bold text-primary text-center">RANGO<br />ESTIMADO</span>
-                      <span>{showArs ? formatNumber(toArs(result.estimatedMax)) : formatNumber(result.estimatedMax)}</span>
-                    </div>
+                  {/* Barra de rango: extremos, valor sugerido y, si lo cargó, el precio del usuario */}
+                  <div className="mb-6">
+                    <RangeBar
+                      min={result.estimatedMin}
+                      max={result.estimatedMax}
+                      suggested={estimatedMid}
+                      declared={lastRequest?.declaredPrice ?? null}
+                      declaredLabel={lastRequest?.declaredPriceInput != null ? `Tu precio: ${lastRequest.operationType === "RENT" ? "ARS" : "USD"} ${formatNumber(lastRequest.declaredPriceInput)}` : undefined}
+                      format={fmtMoney}
+                    />
                   </div>
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
-                    <div className="border border-outline-variant rounded-lg p-2.5 sm:p-4 bg-surface-container-low/50 space-y-2 min-w-0">
-                      <p className="text-xs text-on-surface-variant">Precio x m² (est.)</p>
-                      <p className="text-sm sm:text-lg font-bold text-on-surface break-words">
-                        {priceM2 != null ? formatNumber(priceM2) : "—"}
+                  {/* Datos derivados (los extremos ya están en la barra, no se repiten) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-6">
+                    <div className="border border-outline-variant rounded-lg p-3 sm:p-4 bg-surface-container-low/50 space-y-1 min-w-0">
+                      <p className="text-xs text-on-surface-variant">Precio por m² sugerido</p>
+                      <p className="text-lg font-bold text-on-surface break-words">{priceM2 != null ? formatNumber(priceM2) : "—"}</p>
+                      <p className="text-[10px] font-mono text-on-surface-variant">{currency}/m²</p>
+                    </div>
+                    <div className="border border-outline-variant rounded-lg p-3 sm:p-4 bg-surface-container-low/50 space-y-1 min-w-0">
+                      <p className="text-xs text-on-surface-variant">Rango por m²</p>
+                      <p className="text-lg font-bold text-on-surface break-words">
+                        {rangeM2 ? `${formatNumber(rangeM2[0])} – ${formatNumber(rangeM2[1])}` : "—"}
                       </p>
                       <p className="text-[10px] font-mono text-on-surface-variant">{currency}/m²</p>
                     </div>
-                    <div className="border border-outline-variant rounded-lg p-2.5 sm:p-4 bg-surface-container-low/50 space-y-2 min-w-0">
-                      <p className="text-xs text-on-surface-variant">Mínimo estimado</p>
-                      <p className="text-sm sm:text-lg font-bold text-on-surface break-words">{showArs ? formatNumber(toArs(result.estimatedMin)) : formatNumber(result.estimatedMin)}</p>
-                      <p className="text-[10px] font-mono text-on-surface-variant">{showArs ? "ARS" : currency}</p>
-                      {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ {currency} {formatNumber(result.estimatedMin)}</p>}
-                    </div>
-                    <div className="border border-outline-variant rounded-lg p-2.5 sm:p-4 bg-surface-container-low/50 space-y-2 min-w-0">
-                      <p className="text-xs text-on-surface-variant">Máximo estimado</p>
-                      <p className="text-sm sm:text-lg font-bold text-on-surface break-words">{showArs ? formatNumber(toArs(result.estimatedMax)) : formatNumber(result.estimatedMax)}</p>
-                      <p className="text-[10px] font-mono text-on-surface-variant">{showArs ? "ARS" : currency}</p>
-                      {showArs && <p className="text-[10px] font-mono text-on-surface-variant">≈ {currency} {formatNumber(result.estimatedMax)}</p>}
+                    <div className="border border-outline-variant rounded-lg p-3 sm:p-4 bg-surface-container-low/50 space-y-1 min-w-0">
+                      <p className="text-xs text-on-surface-variant">Amplitud del rango</p>
+                      <p className="text-lg font-bold text-on-surface">{halfWidthPct != null ? `± ${halfWidthPct} %` : "—"}</p>
+                      <p className="text-[10px] font-mono text-on-surface-variant">alrededor del valor sugerido</p>
                     </div>
                   </div>
 
@@ -512,7 +484,8 @@ export default function Valuacion() {
                       {explanation.mainFactor && <p className="text-sm text-on-surface-variant">
                           Lo que más pesa en esta estimación es <strong className="text-on-surface">{markMissing(explanation.mainFactor, lastRequest?.missing)}</strong>, que {explanation.mainFactorUp ? "sube" : "baja"} el precio.
                         </p>}
-                      {(explanation.up.length > 0 || explanation.down.length > 0) && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {result.explanation?.length > 0 && <FactorBars factors={result.explanation} operationType={lastRequest?.operationType} rate={lastRequest?.blueRateUsed ?? null} missing={lastRequest?.missing} />}
+                      {!(result.explanation?.length > 0) && (explanation.up.length > 0 || explanation.down.length > 0) && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {explanation.up.length > 0 && <div className="space-y-2">
                               <p className="text-xs font-bold text-tertiary flex items-center gap-1.5"><TrendingUp className="w-4 h-4" /> Suben el precio</p>
                               <ul className="flex flex-wrap gap-1.5">

@@ -165,6 +165,18 @@ class UsageQuotaServiceTest {
     }
 
     @Test
+    void listaAmpliadaDelRecomendadorSoloConPaseOPlanOAdmin() {
+        User sinPase = user(1, AccountType.PERSONAL, Role.USER);
+        User conPase = user(2, AccountType.PERSONAL, Role.USER);
+        withPass(conPase, SubscriptionKind.ANALYSIS_PASS);
+        User admin = user(3, AccountType.PERSONAL, Role.ADMIN);
+
+        assertEquals(false, service.hasExtendedResults(sinPase.getEmail()));
+        assertEquals(true, service.hasExtendedResults(conPase.getEmail()));
+        assertEquals(true, service.hasExtendedResults(admin.getEmail()));
+    }
+
+    @Test
     void conPaseTiene30UsosQueReemplazanLaCuotaGratisYSeCuentanDesdeElInicioDelPase() {
         User user = user(8, AccountType.PERSONAL, Role.USER);
         withPass(user, SubscriptionKind.ANALYSIS_PASS);

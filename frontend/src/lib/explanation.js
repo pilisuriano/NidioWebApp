@@ -113,3 +113,32 @@ export function markMissing(factor, missing = {}) {
   }
   return factor;
 }
+
+/**
+ * Factores numéricos que llegan del backend ({ factor, contribution }) listos para graficar: nombres con
+ * tildes, la superficie (usada + cubierta) sumada en un solo factor, y ordenados de mayor a menor peso.
+ */
+export function normalizeFactors(factors) {
+  const byName = new Map();
+  for (const f of factors ?? []) {
+    const raw = prettifyText(f.factor);
+    const name = SURFACE_FACTORS.includes(raw) ? "la superficie" : raw;
+    byName.set(name, (byName.get(name) ?? 0) + Number(f.contribution));
+  }
+  return [...byName.entries()]
+    .map(([factor, contribution]) => ({ factor, contribution }))
+    .filter(row => Number.isFinite(row.contribution) && row.contribution !== 0)
+    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+}
+
+/** Monto de un factor: USD/m² en venta; en alquiler USD/mes, o pesos por mes si hay cotización (rate = dólar blue del cálculo). */
+export function factorAmount(contribution, operationType, rate) {
+  const sign = contribution > 0 ? "+" : "−";
+  const size = Math.abs(contribution);
+  if (operationType === "RENT") {
+    const inArs = Boolean(rate);
+    const value = inArs ? size * rate : size;
+    return `${sign}${inArs ? "ARS" : "USD"} ${value < 1 ? "<1" : formatNumber(value)}/mes`;
+  }
+  return `${sign}USD ${size < 1 ? "<1" : formatNumber(size)}/m²`;
+}

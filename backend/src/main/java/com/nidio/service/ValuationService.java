@@ -1,5 +1,6 @@
 package com.nidio.service;
 
+import com.nidio.dto.ExplanationFactorDto;
 import com.nidio.dto.ValuationCreateRequest;
 import com.nidio.dto.ValuationResponse;
 import com.nidio.dto.ValuationSummaryResponse;
@@ -69,7 +70,10 @@ public class ValuationService {
                 .build();
         valuation = valuationRequestRepository.save(valuation);
 
-        return toResponse(valuation);
+        List<ExplanationFactorDto> factors = prediction.explanation() == null ? null : prediction.explanation().stream()
+                .map(f -> new ExplanationFactorDto(f.factor(), f.contribution(), f.direction()))
+                .toList();
+        return toResponse(valuation, factors);
     }
 
     @Transactional(readOnly = true)
@@ -77,7 +81,7 @@ public class ValuationService {
         ValuationRequest valuation = valuationRequestRepository.findById(id)
                 .filter(v -> v.getUser() != null && v.getUser().getEmail().equals(userEmail))
                 .orElseThrow(() -> new ResourceNotFoundException("No existe la valuación " + id));
-        return toResponse(valuation);
+        return toResponse(valuation, null);
     }
 
     @Transactional(readOnly = true)
@@ -111,13 +115,14 @@ public class ValuationService {
         return ValuationResult.FAIR;
     }
 
-    private static ValuationResponse toResponse(ValuationRequest valuation) {
+    private static ValuationResponse toResponse(ValuationRequest valuation, List<ExplanationFactorDto> factors) {
         return new ValuationResponse(
                 valuation.getId(),
                 valuation.getEstimatedMin(),
                 valuation.getEstimatedMax(),
                 valuation.getResult(),
                 valuation.getCreatedAt(),
-                valuation.getExplanationText());
+                valuation.getExplanationText(),
+                factors);
     }
 }

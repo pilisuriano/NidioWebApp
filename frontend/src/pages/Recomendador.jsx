@@ -16,6 +16,7 @@ import {
 } from "@/lib/recommender";
 import { Nidi } from "@/components/recommender/Nidi";
 import { BudgetSlider } from "@/components/recommender/BudgetSlider";
+import { ExpensesSlider } from "@/components/recommender/ExpensesSlider";
 import { SearchingScreen } from "@/components/recommender/SearchingScreen";
 import { RecommendationResults } from "@/components/recommender/RecommendationResults";
 
@@ -125,6 +126,7 @@ export default function Recomendador() {
   const [answers, setAnswers] = useState(initialAnswers);
   const [prices, setPrices] = useState(null); // precios reales de la operación elegida, ordenados (null = cargando)
   const [pricesError, setPricesError] = useState(false);
+  const [expenseValues, setExpenseValues] = useState([]); // expensas reales de los departamentos, en pesos por mes y ordenadas
   const [result, setResult] = useState(null);
   const [searchSteps, setSearchSteps] = useState([]);
   const runRef = useRef(0);
@@ -155,13 +157,27 @@ export default function Recomendador() {
     return () => { cancelled = true; };
   }, [op]);
 
+  // Expensas: solo si busca departamento. Se guardan en USD y se muestran en pesos con el dólar blue (como la ficha).
+  const wantsExpenses = op != null && answers.typeChoice === "APARTMENT" && blueRate > 0;
+  useEffect(() => {
+    if (!wantsExpenses) { setExpenseValues([]); return; }
+    let cancelled = false;
+    api.get("/api/recommendations/budget-expenses", { params: { operationType: op } })
+      .then(res => {
+        if (cancelled || !Array.isArray(res.data)) return;
+        setExpenseValues(res.data.map(usd => Number(usd) * blueRate).sort((a, b) => a - b));
+      })
+      .catch(() => { if (!cancelled) setExpenseValues([]); });
+    return () => { cancelled = true; };
+  }, [wantsExpenses, op, blueRate]);
+
   function update(patch) {
     setAnswers(prev => ({ ...prev, ...patch }));
   }
   function chooseOperation(value) {
     // Cambiar de operación invalida el presupuesto elegido (los tramos son otros) y los detalles propios de cada una.
     if (value === op) return;
-    setAnswers(prev => ({ ...prev, operationType: value, budget: null, details: {} }));
+    setAnswers(prev => ({ ...prev, operationType: value, budget: null, expenses: null, details: {} }));
   }
 
   // `finalAnswers` permite buscar con respuestas ajustadas en el mismo clic (por ejemplo, al saltear un paso opcional),
@@ -219,8 +235,8 @@ export default function Recomendador() {
 
   const shell = children => <div className="p-4 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="space-y-1 lg:mt-8">
-        <h1 className="text-2xl font-bold text-on-surface">Recomendador con Nidi</h1>
-        <p className="text-sm text-on-surface-variant font-mono">Respondé unas preguntas y te recomiendo 3 propiedades y te explico por qué encaja cada una.</p>
+        <h1 className="text-2xl font-bold text-on-surface">Recomendación con Nidi</h1>
+        <p className="text-sm text-on-surface-variant font-mono">Respondé unas preguntas y te muestro las propiedades que mejor encajan con vos, explicándote por qué encaja cada una.</p>
       </div>
       {/* Cuota mensual, arriba de todo: si ya no quedan, se bloquea antes de empezar para no
           hacer responder las 8 preguntas en vano. */}
@@ -234,7 +250,7 @@ export default function Recomendador() {
         <div className="space-y-4 flex-1">
           <h2 className="text-xl font-bold text-on-surface">¡Hola! Soy Nidi</h2>
           <p className="text-sm text-on-surface leading-relaxed">
-            Te hago 8 preguntas rápidas (y 2 opcionales) y, con los precios, la seguridad, el ruido y lo que hay cerca de cada propiedad, te muestro las 3 que mejor encajan con vos y por qué.
+            Te hago 8 preguntas rápidas (y 2 opcionales) y, con los precios, la seguridad, el ruido y lo que hay cerca de cada propiedad, te muestro las que mejor encajan con vos y por qué.
           </p>
           <p className="text-xs text-on-surface-variant leading-relaxed">
             No guardamos tus respuestas: se usan para armar esta recomendación y se descartan. Es una guía orientativa basada en datos públicos; no reemplaza visitar la propiedad.
@@ -274,7 +290,11 @@ export default function Recomendador() {
       ? <p className="text-sm text-on-surface-variant font-mono">Calculando la barra de precios…</p>
       : prices.length === 0
         ? <p className="text-sm text-alert-price">{pricesError ? "No pudimos cargar los precios. Probá de nuevo en un momento." : "Todavía no hay propiedades publicadas en esta operación."}</p>
-        : <BudgetSlider prices={prices} operationType={op} value={answers.budget} onChange={budget => update({ budget })} />;
+        : <div className="space-y-6">
+            <BudgetSlider prices={prices} operationType={op} value={answers.budget} onChange={budget => update({ budget })} />
+            {wantsExpenses && expenseValues.length > 0
+              && <ExpensesSlider valuesArs={expenseValues} operationType={op} value={answers.expenses} onChange={expenses => update({ expenses })} />}
+          </div>;
   } else if (stepId === "household") {
     const minRooms = effectiveMinRooms(answers);
     body = <div className="space-y-6">

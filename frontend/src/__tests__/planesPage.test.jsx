@@ -10,7 +10,11 @@ for (const [code, name, price, audience] of [
   ['FEATURED_PACK_5','Pack 5 destacados',32,'PROFESSIONAL'],['FEATURED_SINGLE','Destacado 7 días',8,'ANY'],
 ]) catalog[code] = { code, name, description: 'desc', priceUsd: price, audience };
 
-vi.mock('../lib/billing', () => ({ useCatalog: () => ({ byCode: catalog, error: null }) }));
+let mockSubscriptions = [];
+vi.mock('../lib/billing', () => ({
+  useCatalog: () => ({ byCode: catalog, error: null }),
+  useBillingSummary: () => ({ summary: { subscriptions: mockSubscriptions }, refresh: () => {} }),
+}));
 vi.mock('../lib/cardRate', () => ({ useCardRate: () => ({ cardRate: null }), formatArs: () => '', formatUsd: v => `USD ${v}`, arsApprox: () => null }));
 vi.mock('../lib/auth', () => ({ useAuth: () => ({ user: { accountType: 'PERSONAL', role: 'USER' } }) }));
 vi.mock('react-toastify', () => ({ toast: { info: vi.fn(), success: vi.fn() } }));
@@ -57,5 +61,23 @@ describe('Planes con pestañas', () => {
     renderAt('/planes');
     fireEvent.keyDown(screen.getByRole('tab', { name: /busco propiedad/i }), { key: 'ArrowRight' });
     expect(screen.getByRole('tab', { name: /soy dueño/i })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('Plan contratado en Planes', () => {
+  it('marca el plan que ya tengo y bloquea los de menor rango', () => {
+    mockSubscriptions = [{ kind: 'OWNER_5', name: 'Dueño 5', expiresAt: '2026-11-10T12:00:00Z' }];
+    renderAt('/planes#duenos');
+    expect(screen.getByText('Plan contratado')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ya lo tenés' })).toBeDisabled();
+    // OWNER_4 es de menor rango que el que ya tengo
+    expect(screen.getByText(/Ya tenés contratado el plan Dueño 5/)).toBeInTheDocument();
+    mockSubscriptions = [];
+  });
+
+  it('sin planes vigentes no muestra la marca', () => {
+    mockSubscriptions = [];
+    renderAt('/planes#duenos');
+    expect(screen.queryByText('Plan contratado')).not.toBeInTheDocument();
   });
 });

@@ -102,29 +102,37 @@ export function CheckoutDialog({ item, propertyId = null, propertyTitle = null, 
             <p className="text-sm text-on-surface-variant">
               En una pasarela real acá se cargarían los datos de pago. Como es una simulación, elegí cómo querés que termine:
             </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button type="button" className="sm:flex-1 gap-2" onClick={() => resolve(true)} disabled={busy}>
+            {/* Siempre apilados: con el texto en una línea los dos botones no entran lado a lado
+                en el ancho del diálogo (max-w-md) y el segundo se salía del recuadro. */}
+            <div className="flex flex-col gap-2">
+              <Button type="button" className="w-full gap-2" onClick={() => resolve(true)} disabled={busy}>
                 <CheckCircle2 className="w-4 h-4" /> Simular pago aprobado
               </Button>
-              <Button type="button" variant="outline" className="sm:flex-1 gap-2" onClick={() => resolve(false)} disabled={busy}>
+              <Button type="button" variant="outline" className="w-full gap-2" onClick={() => resolve(false)} disabled={busy}>
                 <XCircle className="w-4 h-4" /> Simular pago rechazado
               </Button>
             </div>
           </>}
 
         {step === "approved" && <>
-            <p className="text-sm text-good-value flex items-start gap-2" role="status">
-              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>Listo: ya está activo. Lo vas a ver en “Mi suscripción” de tu perfil.</span>
-            </p>
+            <div className="rounded-lg border border-good-value/30 bg-good-value/10 p-4 flex items-start gap-3" role="status">
+              <CheckCircle2 className="w-6 h-6 shrink-0 text-good-value" />
+              <div className="space-y-1">
+                <p className="font-bold text-good-value">Pago aprobado</p>
+                <p className="text-sm text-on-surface">Listo: ya está activo. Lo vas a ver en “Mi suscripción” de tu perfil.</p>
+              </div>
+            </div>
             <Button type="button" className="w-full" onClick={onClose}>Cerrar</Button>
           </>}
 
         {step === "rejected" && <>
-            <p className="text-sm text-on-surface-variant flex items-start gap-2" role="status">
-              <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>El pago simulado fue rechazado y no se activó nada. Podés intentarlo de nuevo cuando quieras.</span>
-            </p>
+            <div className="rounded-lg border border-alert-price/40 bg-alert-price/10 p-4 flex items-start gap-3" role="alert">
+              <XCircle className="w-6 h-6 shrink-0 text-alert-price" />
+              <div className="space-y-1">
+                <p className="font-bold text-alert-price">Pago rechazado</p>
+                <p className="text-sm text-on-surface">El pago simulado fue rechazado y no se activó nada. Podés intentarlo de nuevo cuando quieras.</p>
+              </div>
+            </div>
             <Button type="button" className="w-full" onClick={onClose}>Cerrar</Button>
           </>}
 

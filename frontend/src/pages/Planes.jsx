@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Building2, Check, Home, Info, Search, Sparkles, Star } from "lucide-react";
+import { Building2, Check, CheckCircle2, Home, Info, Search, Sparkles, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/billing/Price";
 import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
 import { useAuth } from "@/lib/auth";
-import { useCatalog } from "@/lib/billing";
+import { useBillingSummary, useCatalog } from "@/lib/billing";
+import { formatDate } from "@/lib/format";
 import { useCardRate, formatArs } from "@/lib/cardRate";
 import { PLAN_TABS, defaultTabFor, tabFromHash } from "@/lib/planesTabs";
 import { cn } from "@/lib/utils";
@@ -34,8 +35,12 @@ function Section({ id, title, subtitle, children }) {
     </section>;
 }
 
-function PlanCard({ item, suffix, badge, highlights = [], actionLabel = "Contratar", onBuy, disabledReason, featured = false }) {
-  return <Card className={cn("flex flex-col", featured && "border-primary ring-1 ring-primary/30")}>
+// Rango de los planes de publicación: uno más alto reemplaza a uno más bajo (mismo criterio que BillingRules.publisherRank).
+const PUBLISHER_RANK = { OWNER_4: 1, PRO_INMOBILIARIA: 1, OWNER_5: 2, PRO_PLUS: 2, OWNER_6: 3 };
+
+// owned = { expiresAt } si este mismo plan ya está contratado y vigente.
+function PlanCard({ item, suffix, badge, highlights = [], actionLabel = "Contratar", onBuy, disabledReason, featured = false, owned = null }) {
+  return <Card className={cn("flex flex-col", featured && "border-primary ring-1 ring-primary/30", owned && "border-good-value ring-1 ring-good-value/40")}>
       <CardContent className="p-5 flex flex-col gap-4 h-full">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-base font-bold text-on-surface">{item.name}</h3>
@@ -50,10 +55,17 @@ function PlanCard({ item, suffix, badge, highlights = [], actionLabel = "Contrat
               </li>)}
           </ul>}
         <div className="mt-auto pt-2">
-          <Button type="button" className="w-full" disabled={Boolean(disabledReason)} onClick={() => onBuy(item)} title={disabledReason ?? undefined}>
-            {actionLabel}
+          {owned && <div className="rounded-md border border-good-value/30 bg-good-value/10 px-3 py-2 mb-3 flex items-start gap-2" role="status">
+              <CheckCircle2 className="w-4 h-4 text-good-value shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-good-value">Plan contratado</p>
+                <p className="text-xs text-on-surface">Vigente hasta el {formatDate(owned.expiresAt)}</p>
+              </div>
+            </div>}
+          <Button type="button" className="w-full" disabled={Boolean(disabledReason) || Boolean(owned)} onClick={() => onBuy(item)} title={disabledReason ?? undefined}>
+            {owned ? "Ya lo tenés" : actionLabel}
           </Button>
-          {disabledReason && <p className="text-xs text-on-surface-variant mt-2">{disabledReason}</p>}
+          {disabledReason && !owned && <p className={cn("text-xs mt-2", disabledReason.startsWith("Ya tenés") ? "rounded-md border border-good-value/30 bg-good-value/10 px-3 py-2 font-semibold text-good-value" : "text-on-surface-variant")}>{disabledReason}</p>}
         </div>
       </CardContent>
     </Card>;
@@ -151,6 +163,9 @@ export default function Planes() {
   const { byCode, error } = useCatalog();
   const { cardRate } = useCardRate();
   const [checkoutItem, setCheckoutItem] = useState(null);
+  // Planes que la cuenta ya tiene vigentes (solo con sesión: el resumen exige estar logueado).
+  const { summary, refresh: refreshBilling } = useBillingSummary({ enabled: Boolean(user) });
+  const ownedSubscription = code => (summary?.subscriptions ?? []).find(sub => sub.kind === code) ?? null;
 
   const isProfessional = user?.accountType === "PROFESSIONAL";
   const isAdmin = user?.role === "ADMIN";
@@ -182,6 +197,12 @@ export default function Planes() {
 
   // Motivo por el que un ítem no se puede contratar con esta cuenta (si no, null).
   function reasonFor(item) {
+    // Ya tiene un plan de publicación más alto vigente: este no se puede contratar (el backend también lo rechaza).
+    const rank = PUBLISHER_RANK[item.code];
+    const higher = rank ? (summary?.subscriptions ?? []).find(sub => (PUBLISHER_RANK[sub.kind] ?? 0) > rank) : null;
+    if (higher) {
+      return `Ya tenés contratado el plan ${higher.name} (vigente hasta el ${formatDate(higher.expiresAt)}), que es superior a este.`;
+    }
     if (isAdmin) return "Las cuentas de administración no necesitan planes.";
     if (!user) return null;
     if (item.audience === "PROFESSIONAL" && !isProfessional) return "Solo para cuentas profesionales.";
@@ -236,8 +257,9 @@ export default function Planes() {
               item={get("ANALYSIS_PASS")}
               suffix="/ 30 días"
               badge="Pase de análisis"
+              owned={ownedSubscription("ANALYSIS_PASS")}
               featured
-              highlights={["30 tasaciones", "30 recomendaciones, y ver más resultados si los hay", "30 cálculos de Life Score", "Reemplaza el cupo gratis del mes (no se suma)"]}
+              highlights={["30 tasaciones", "30 recomendaciones, con hasta 10 resultados cada una en vez de 3", "30 cálculos de Life Score", "Reemplaza el cupo gratis del mes (no se suma)"]}
               onBuy={handleBuy}
               disabledReason={reasonFor(get("ANALYSIS_PASS"))}
             />
@@ -275,7 +297,7 @@ export default function Planes() {
                 <p className="text-xs text-on-surface-variant mt-auto">Publicar y editar no gasta tus usos de análisis.</p>
               </CardContent>
             </Card>
-            {["OWNER_4", "OWNER_5", "OWNER_6"].map(code => <PlanCard key={code} item={get(code)} suffix="/ 30 días" onBuy={handleBuy} disabledReason={reasonFor(get(code))} />)}
+            {["OWNER_4", "OWNER_5", "OWNER_6"].map(code => <PlanCard key={code} item={get(code)} suffix="/ 30 días" onBuy={handleBuy} disabledReason={reasonFor(get(code))} owned={ownedSubscription(code)} />)}
           </div>
           <p className="text-xs text-on-surface-variant">
             Más de 6 publicaciones activas requiere una cuenta profesional. Una cuenta profesional se crea con CUIT desde el registro.
@@ -290,6 +312,7 @@ export default function Planes() {
             <PlanCard
               item={get("PRO_INMOBILIARIA")}
               suffix="/ 30 días"
+              owned={ownedSubscription("PRO_INMOBILIARIA")}
               highlights={["Hasta 30 publicaciones activas", "1 destacado incluido por período", "30 tasaciones y 30 Life Score", "Hasta 4 destacados a la vez"]}
               onBuy={handleBuy}
               disabledReason={reasonFor(get("PRO_INMOBILIARIA"))}
@@ -297,6 +320,7 @@ export default function Planes() {
             <PlanCard
               item={get("PRO_PLUS")}
               suffix="/ 30 días"
+              owned={ownedSubscription("PRO_PLUS")}
               badge="Más publicaciones"
               featured
               highlights={["Hasta 150 publicaciones activas", "3 destacados incluidos por período", "30 tasaciones y 30 Life Score", "Hasta 5 destacados a la vez"]}
@@ -321,7 +345,10 @@ export default function Planes() {
       {checkoutItem && <CheckoutDialog
         item={checkoutItem}
         onClose={() => setCheckoutItem(null)}
-        onApproved={() => toast.success("¡Listo! Tu compra está activa.")}
+        onApproved={() => {
+          toast.success("¡Listo! Tu compra está activa.");
+          refreshBilling();
+        }}
       />}
     </div>;
 }

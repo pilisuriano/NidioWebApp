@@ -6,6 +6,7 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Getter
 @AllArgsConstructor
@@ -17,4 +18,7 @@ public class ValuationResponse {
     private ValuationResult result;
     private Instant createdAt;
     private String explanationText;
+    // Factores con su valor numérico (para graficarlos). Solo viene al calcular una tasación nueva; las del
+    // historial guardan únicamente el texto, así que acá llega null.
+    private List<ExplanationFactorDto> explanation;
 }

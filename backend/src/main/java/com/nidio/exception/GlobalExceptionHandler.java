@@ -1,6 +1,7 @@
 package com.nidio.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,6 +12,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import java.time.Instant;
 import java.util.List;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -131,6 +133,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
+        // Sin este log el 500 quedaba mudo: el cliente ve "error inesperado" y en la consola no aparecía nada.
+        log.error("Error inesperado en {} {}", request.getMethod(), request.getRequestURI(), ex);
         return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado", request);
     }
 

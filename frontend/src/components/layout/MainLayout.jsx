@@ -28,7 +28,7 @@ const NAV_ITEMS = [{
   path: "/life-score"
 }, {
   icon: Sparkles,
-  label: "Recomendador",
+  label: "Recomendación",
   path: "/recomendador",
   // Mismo criterio que Life Score: es para quien busca, no para quien publica.
   hideForProfessional: true

@@ -36,7 +36,9 @@ public class RecommendationController {
     @PostMapping
     public RecommendationResponse recommend(@Valid @RequestBody RecommendationRequest request, Authentication authentication) {
         usageQuotaService.checkAvailable(authentication.getName(), QuotaFeature.RECOMMENDATION);
-        RecommendationResponse response = recommendationService.recommend(request);
+        // El límite de resultados lo decide el backend según el pase o plan de la cuenta, nunca el pedido.
+        boolean moreUnlocked = usageQuotaService.hasExtendedResults(authentication.getName());
+        RecommendationResponse response = recommendationService.recommend(request, moreUnlocked);
         usageQuotaService.register(authentication.getName(), QuotaFeature.RECOMMENDATION);
         return response;
     }
@@ -44,6 +46,11 @@ public class RecommendationController {
     @GetMapping("/budget-prices")
     public List<BigDecimal> budgetPrices(@RequestParam OperationType operationType) {
         return recommendationService.budgetPrices(operationType);
+    }
+
+    @GetMapping("/budget-expenses")
+    public List<BigDecimal> budgetExpenses(@RequestParam OperationType operationType) {
+        return recommendationService.expensesValues(operationType);
     }
 
     @GetMapping("/budget-ranges")

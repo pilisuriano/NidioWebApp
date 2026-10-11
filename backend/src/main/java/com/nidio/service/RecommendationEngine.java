@@ -28,6 +28,8 @@ import java.util.function.Predicate;
 public class RecommendationEngine {
 
     public static final int RESULTS = 3;
+    /** Lista ampliada para quien tiene pase de análisis o plan: las mismas primeras 3 y hasta 7 más. */
+    public static final int EXTENDED_RESULTS = 10;
 
     // Criterio de descarte: se quitan las propiedades en el cuartil inferior del catálogo.
     // Si quedan menos de RESULTS se baja el umbral al decil inferior y, si no alcanza, se
@@ -84,8 +86,20 @@ public class RecommendationEngine {
             boolean poolOrAmenities,
             boolean furnished,
             boolean aptoCredito,
-            Long neighborhoodId
+            Long neighborhoodId,
+            BigDecimal expensesUsd
     ) {
+        /** Sin expensas cargadas (null): la propiedad nunca se descarta por el tope de expensas. */
+        public Candidate(Long id, PropertyType type, BigDecimal price, BigDecimal priceUsd, Integer rooms,
+                         BigDecimal valuationMin, BigDecimal valuationMax,
+                         Map<POICategory, Integer> categoryScores, double securityScore, double quietScore,
+                         Double lat, Double lon, boolean bright, boolean garage, boolean poolOrAmenities,
+                         boolean furnished, boolean aptoCredito, Long neighborhoodId) {
+            this(id, type, price, priceUsd, rooms, valuationMin, valuationMax, categoryScores,
+                    securityScore, quietScore, lat, lon, bright, garage, poolOrAmenities, furnished,
+                    aptoCredito, neighborhoodId, null);
+        }
+
         /** Sin barrio (null): la propiedad nunca cuenta para el tope por barrio. */
         public Candidate(Long id, PropertyType type, BigDecimal price, BigDecimal priceUsd, Integer rooms,
                          BigDecimal valuationMin, BigDecimal valuationMax,
@@ -94,7 +108,7 @@ public class RecommendationEngine {
                          boolean furnished, boolean aptoCredito) {
             this(id, type, price, priceUsd, rooms, valuationMin, valuationMax, categoryScores,
                     securityScore, quietScore, lat, lon, bright, garage, poolOrAmenities, furnished,
-                    aptoCredito, null);
+                    aptoCredito, null, null);
         }
     }
 
@@ -108,11 +122,13 @@ public class RecommendationEngine {
     ) {
     }
 
-    /** Cuántas propiedades quedaban después de cada filtro (code: CATALOG, TYPE, BUDGET, ROOMS, PRICE, DEALBREAKER). */
+    /** Cuántas propiedades quedaban después de cada filtro (code: CATALOG, TYPE, BUDGET, EXPENSES, ROOMS, PRICE, DEALBREAKER). */
     public record FunnelStep(String code, int remaining) {
     }
 
-    public record Result(List<Scored> items, boolean broadened, String message, List<FunnelStep> funnel) {
+    /** totalMatches: cuántas propiedades quedaron en el ranking (las que encajan), se muestren o no. */
+    public record Result(List<Scored> items, boolean broadened, String message, List<FunnelStep> funnel,
+                         int totalMatches) {
     }
 
     private record Entry(Criterion criterion, double weight, double score) {
@@ -122,10 +138,19 @@ public class RecommendationEngine {
 
     /** @param catalog todas las propiedades activas de la operación pedida, con sus puntajes completos. */
     public Result recommend(RecommendationRequest request, List<Candidate> catalog) {
+        return recommend(request, catalog, RESULTS);
+    }
+
+    /**
+     * @param limit cuántos resultados devolver (RESULTS o EXTENDED_RESULTS). Las primeras RESULTS son siempre las mismas
+     *              sin importar el límite: ampliar la lista nunca cambia el orden ni las que ya se veían.
+     */
+    public Result recommend(RecommendationRequest request, List<Candidate> catalog, int limit) {
         // Filtros duros uno detrás del otro; se guarda cuántas quedan en cada paso para poder mostrar cómo se llegó al resultado.
         List<Candidate> afterType = keep(catalog, c -> passesType(request, c));
         List<Candidate> afterBudget = keep(afterType, c -> passesBudget(request, c));
-        List<Candidate> afterRooms = keep(afterBudget, c -> passesRooms(request, c));
+        List<Candidate> afterExpenses = keep(afterBudget, c -> passesExpenses(request, c));
+        List<Candidate> afterRooms = keep(afterExpenses, c -> passesRooms(request, c));
         List<Candidate> base = keep(afterRooms, c -> passesPrice(request, c));
 
         Criterion dealbreaker = dealbreakerCriterion(request.getDealbreaker());
@@ -156,7 +181,7 @@ public class RecommendationEngine {
                 .thenComparing(Comparator.<Scored>comparingInt(Scored::score).reversed())
                 .thenComparing(s -> s.candidate().id());
         scored.sort(order);
-        List<Scored> top = pickDiverse(scored);
+        List<Scored> top = pickDiverse(scored, limit);
 
         String message = null;
         if (broadened) {
@@ -174,10 +199,11 @@ public class RecommendationEngine {
                 new FunnelStep("CATALOG", catalog.size()),
                 new FunnelStep("TYPE", afterType.size()),
                 new FunnelStep("BUDGET", afterBudget.size()),
+                new FunnelStep("EXPENSES", afterExpenses.size()),
                 new FunnelStep("ROOMS", afterRooms.size()),
                 new FunnelStep("PRICE", base.size()),
                 new FunnelStep("DEALBREAKER", pool.size()));
-        return new Result(top, broadened, message, funnel);
+        return new Result(top, broadened, message, funnel, scored.size());
     }
 
     /**
@@ -185,6 +211,52 @@ public class RecommendationEngine {
      * las que quedaron afuera, en el orden del ranking. Los resultados salen ordenados como el ranking.
      */
     static List<Scored> pickDiverse(List<Scored> ranked) {
+        return pickDiverse(ranked, RESULTS);
+    }
+
+    /** Tope por barrio de una lista ampliada: el 40 % (con 10 resultados, 4 por barrio). */
+    static int maxPerNeighborhood(int limit) {
+        return limit <= RESULTS ? MAX_PER_NEIGHBORHOOD : (int) Math.ceil(limit * 0.4);
+    }
+
+    /**
+     * Las primeras RESULTS se eligen exactamente igual que sin ampliar; el resto (hasta limit) sigue el orden del
+     * ranking con el tope por barrio de la lista ampliada, y si no alcanza se completa con lo que quedó.
+     */
+    static List<Scored> pickDiverse(List<Scored> ranked, int limit) {
+        List<Scored> chosen = pickTopDiverse(ranked);
+        if (limit <= RESULTS) {
+            return chosen;
+        }
+        int cap = maxPerNeighborhood(limit);
+        Map<Long, Integer> perNeighborhood = new HashMap<>();
+        for (Scored s : chosen) {
+            if (s.candidate().neighborhoodId() != null) {
+                perNeighborhood.merge(s.candidate().neighborhoodId(), 1, Integer::sum);
+            }
+        }
+        for (boolean strict : new boolean[]{true, false}) {
+            for (Scored s : ranked) {
+                if (chosen.size() >= limit) {
+                    return chosen;
+                }
+                if (chosen.contains(s)) {
+                    continue;
+                }
+                Long n = s.candidate().neighborhoodId();
+                if (strict && n != null && perNeighborhood.getOrDefault(n, 0) >= cap) {
+                    continue;
+                }
+                chosen.add(s);
+                if (n != null) {
+                    perNeighborhood.merge(n, 1, Integer::sum);
+                }
+            }
+        }
+        return chosen;
+    }
+
+    private static List<Scored> pickTopDiverse(List<Scored> ranked) {
         List<Scored> chosen = new ArrayList<>();
         Map<Long, Integer> perNeighborhood = new HashMap<>();
         for (Scored s : ranked) {
@@ -248,6 +320,12 @@ public class RecommendationEngine {
             return false;
         }
         return r.getBudgetMax() == null || c.price().compareTo(r.getBudgetMax()) <= 0;
+    }
+
+    /** Tope de expensas: sin tope pasa todo; una propiedad sin expensas cargadas nunca se descarta (no se sabe). */
+    private static boolean passesExpenses(RecommendationRequest r, Candidate c) {
+        return r.getExpensesMaxUsd() == null || c.expensesUsd() == null
+                || c.expensesUsd().compareTo(r.getExpensesMaxUsd()) <= 0;
     }
 
     private static boolean passesRooms(RecommendationRequest r, Candidate c) {

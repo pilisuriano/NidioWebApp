@@ -54,7 +54,7 @@ export function useCatalog() {
 }
 
 /** Resumen de suscripción (planes, packs, publicaciones, destacados) y pagos del usuario logueado. */
-export function useBillingSummary() {
+export function useBillingSummary({ enabled = true } = {}) {
   const [summary, setSummary] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,8 +70,13 @@ export function useBillingSummary() {
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
+    // enabled = false (sin sesión): no se pide nada, el resumen exige estar logueado.
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     refresh();
-  }, [refresh]);
+  }, [refresh, enabled]);
   return { summary, payments, loading, error, refresh };
 }
 

@@ -15,6 +15,7 @@ import { api, apiErrorMessage } from "@/lib/api";
 import { BASE_TILES } from "@/lib/mapTiles";
 import { useUsage, isQuotaExceeded } from "@/lib/usage";
 import { QuotaNotice } from "@/components/ui/QuotaNotice";
+import { ScoreBreakdown } from "@/components/lifescore/ScoreBreakdown";
 import { EnvironmentLegend, EnvironmentNote, EnvironmentOverlays, LayerToggles, useEnvironmentLayers } from "@/components/map/EnvironmentLayers";
 
 const CATEGORIES = [
@@ -79,6 +80,19 @@ const CUSTOM_PLACE_PIN_ICON = L.divIcon({
   iconSize: [28, 28],
   iconAnchor: [14, 14]
 });
+
+// Los POIs van en un pane propio, por debajo del markerPane (600): los CircleMarker se dibujan en un
+// <svg> y, en el mismo pane que los pines (casita y estrellas), quedaban encima y los tapaban. Con el
+// pane en 590 los círculos se pueden clickear igual, pero la casita y "Mis lugares" siempre quedan arriba.
+const POI_PANE = "poiPane";
+
+function PoiPane() {
+  const map = useMap();
+  if (!map.getPane(POI_PANE)) {
+    map.createPane(POI_PANE).style.zIndex = "590";
+  }
+  return null;
+}
 
 // Color del puntaje total, en línea con el nivel que ya muestra scoreLabel
 // (rojo = bajo, azul = neutral, verdes = óptimo y excelente). El nivel también
@@ -224,6 +238,8 @@ export default function LifeScore() {
   const newPlaceDebounceRef = useRef(null);
 
   const [result, setResult] = useState(null);
+  // Pesos de "Mis lugares" y radio con los que se calculó ESTE resultado (el desglose los necesita; los sliders pueden cambiar después).
+  const [resultMeta, setResultMeta] = useState({ placeWeights: {}, radiusKm: null });
   // Categorías de POIs apagadas en el mapa (botones de la leyenda): en zonas
   // densas hay cientos de puntos y abruma, así que cada categoría se puede
   // ocultar. No afecta el puntaje, solo lo que se dibuja.
@@ -370,6 +386,7 @@ export default function LifeScore() {
         customPlaceIds: customPlaces.length > 0 ? selectedPlaceIds : null
       });
       setResult(res.data);
+      setResultMeta({ placeWeights: customPlaceWeights, radiusKm: customPlaceRadiusKm });
       refreshUsage();
     } catch (err) {
       // Sin usos (429): el cartel de QuotaNotice ya lo explica, no hace falta repetirlo como error.
@@ -808,14 +825,15 @@ export default function LifeScore() {
                 <MapContainer key={result.id} center={[result.location.lat, result.location.lon]} zoom={15} className="w-full h-full min-h-[420px]">
                   <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
                   <EnvironmentOverlays env={env} />
+                  <PoiPane />
                   <FitBounds points={mapPoints} />
                   <RecenterToPropertyControl to={[result.location.lat, result.location.lon]} />
-                  <Marker position={[result.location.lat, result.location.lon]} icon={PROPERTY_PIN_ICON}>
+                  <Marker position={[result.location.lat, result.location.lon]} icon={PROPERTY_PIN_ICON} zIndexOffset={1000}>
                     <Popup>{address}</Popup>
                   </Marker>
                   {result.categories.filter(cat => !hiddenCategories.has(cat.category)).flatMap(cat => cat.pois.map((poi, i) => (
                     <CircleMarker
-                      key={`${cat.category}-${i}`} center={[poi.lat, poi.lon]} radius={6} pane="markerPane"
+                      key={`${cat.category}-${i}`} center={[poi.lat, poi.lon]} radius={6} pane={POI_PANE}
                       pathOptions={{ color: CATEGORY_COLOR[cat.category], fillColor: CATEGORY_COLOR[cat.category], fillOpacity: 0.7, weight: 1 }}
                     >
                       <Popup>
@@ -937,19 +955,29 @@ export default function LifeScore() {
               )}
             </Card>
 
-            {/* Explicación en texto del puntaje -- no un desglose numérico: la
-                cuenta exacta ya se hizo del lado del backend, esto solo la cuenta
-                en palabras (ver LifeScoreService.buildExplanation). */}
+            {/* Explicación del puntaje: la frase que arma el backend (LifeScoreService.buildExplanation) y, debajo,
+                el desglose en barras -- el total es un promedio ponderado, así que cuánto aporta cada categoría
+                se puede calcular exacto con los pesos y puntajes que ya vienen en el resultado. */}
             <Card className="lg:col-span-2">
               <CardContent className="p-5 flex items-start gap-3 h-full">
                 <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-sm font-bold text-on-surface uppercase tracking-widest mb-2">
-                    ¿Por qué este puntaje?
-                  </h3>
-                  <p className="text-sm text-on-surface-variant">
-                    {result?.explanation ?? "Calculá el score para ver acá el detalle de por qué dio ese resultado."}
-                  </p>
+                <div className="min-w-0 flex-1 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-on-surface uppercase tracking-widest mb-2">
+                      ¿Por qué este puntaje?
+                    </h3>
+                    {!result && <p className="text-sm text-on-surface-variant">
+                        Calculá el score para ver acá el detalle de por qué dio ese resultado.
+                      </p>}
+                  </div>
+                  {result && <ScoreBreakdown
+                      result={result}
+                      placeWeights={resultMeta.placeWeights}
+                      radiusKm={resultMeta.radiusKm}
+                      categoryMeta={CATEGORIES.map(c => ({ ...c, color: CATEGORY_COLOR[c.key] }))}
+                      placeColor={CUSTOM_PLACE_COLOR}
+                      fallback={result.explanation}
+                    />}
                 </div>
               </CardContent>
             </Card>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRequest, defaultProximity, formatBudgetRange, initialAnswers, isStepAnswered, allRequiredAnswered,
-  searchingSteps, shuffle, effectiveMinRooms, suggestedMinRooms, budgetAtPosition, countWithinBudget, formatDistance, funnelSummary, PROXIMITY_CATEGORIES, STEP_IDS, REQUIRED_STEPS
+  searchingSteps, shuffle, effectiveMinRooms, suggestedMinRooms, budgetAtPosition, countWithinBudget, expensesAtPosition, formatExpenses, formatDistance, funnelSummary, PROXIMITY_CATEGORIES, STEP_IDS, REQUIRED_STEPS
 } from '../lib/recommender';
 
 function completeAnswers(overrides = {}) {
@@ -196,5 +196,37 @@ describe('searchingSteps', () => {
     }));
     expect(full.some(s => s.includes('distancia'))).toBe(true);
     expect(full.find(s => s.includes('clave'))).toContain('transporte público, comercios del día a día');
+  });
+});
+
+describe('expenses cap', () => {
+  const VALUES = [80000, 120000, 150000, 200000, 260000, 400000]; // pesos por mes, ordenados
+
+  it('builds the bar from the real values: last position is "sin tope", the rest rounds up', () => {
+    expect(expensesAtPosition(VALUES, 100)).toBeNull();
+    expect(expensesAtPosition(VALUES, 0)).toBe(80000);
+    expect(expensesAtPosition([], 50)).toBeNull();
+    const cap = expensesAtPosition(VALUES, 50);
+    expect(cap).toBeGreaterThanOrEqual(150000);
+    expect(cap % 10000).toBe(0);
+  });
+
+  it('writes the amount in pesos per month', () => {
+    expect(formatExpenses(150000)).toBe('ARS 150.000 por mes');
+  });
+
+  it('sends the cap in USD only for apartments and with an exchange rate', () => {
+    const answers = completeAnswers({ expenses: { maxArs: 150000, position: 40 } });
+    expect(buildRequest(answers, 1500).expensesMaxUsd).toBe(100);
+    expect(buildRequest(answers, null)).not.toHaveProperty('expensesMaxUsd');
+    expect(buildRequest({ ...answers, typeChoice: 'HOUSE_PH' }, 1500)).not.toHaveProperty('expensesMaxUsd');
+    expect(buildRequest({ ...answers, typeChoice: 'ANY' }, 1500)).not.toHaveProperty('expensesMaxUsd');
+    expect(buildRequest(completeAnswers(), 1500)).not.toHaveProperty('expensesMaxUsd'); // sin tope elegido
+  });
+
+  it('shows the expenses filter in the funnel only when it removed something', () => {
+    const base = [{ code: 'CATALOG', remaining: 50 }, { code: 'TYPE', remaining: 40 }, { code: 'BUDGET', remaining: 30 }];
+    expect(funnelSummary([...base, { code: 'EXPENSES', remaining: 12 }])).toContain('12 con expensas dentro de tu tope');
+    expect(funnelSummary([...base, { code: 'EXPENSES', remaining: 30 }]).some(l => l.includes('expensas'))).toBe(false);
   });
 });

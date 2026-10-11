@@ -152,6 +152,17 @@ public class UsageQuotaService {
         return user.getAccountType() == AccountType.PROFESSIONAL ? professionalMonthlyLimit : personalMonthlyLimit;
     }
 
+    /**
+     * Si la cuenta puede ver la lista ampliada del recomendador: tiene pase de análisis o plan vigente (o es admin).
+     * Es lo que el Pase de análisis incluye además de los 30 usos (ver nidio-modelo-negocio-planes-usd).
+     */
+    @Transactional(readOnly = true)
+    public boolean hasExtendedResults(String userEmail) {
+        User user = findUser(userEmail);
+        return isUnlimited(user)
+                || entitlementService.activeAnalysisEntitlement(user.getId(), Instant.now(clock)).isPresent();
+    }
+
     private static boolean isUnlimited(User user) {
         return user.getRole() == Role.ADMIN;
     }
