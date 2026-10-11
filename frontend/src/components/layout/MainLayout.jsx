@@ -21,7 +21,9 @@ const NAV_ITEMS = [{
 }, {
   icon: ClipboardList,
   label: "Mis publicaciones",
-  path: "/mis-publicaciones"
+  path: "/mis-publicaciones",
+  // Solo tiene sentido con sesión iniciada.
+  requiresAuth: true
 }, {
   icon: HeartPulse,
   label: "Life Score",
@@ -36,7 +38,8 @@ const NAV_ITEMS = [{
   icon: Heart,
   label: "Mis favoritos",
   path: "/favoritos",
-  hideForProfessional: true
+  hideForProfessional: true,
+  requiresAuth: true
 }, {
   icon: CreditCard,
   label: "Planes",
@@ -79,7 +82,7 @@ export function MainLayout() {
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileMenuOpen]);
   const isProfessional = user?.accountType === "PROFESSIONAL";
-  const navItems = NAV_ITEMS.filter(item => !item.hideForProfessional || !isProfessional);
+  const navItems = NAV_ITEMS.filter(item => (!item.hideForProfessional || !isProfessional) && (!item.requiresAuth || user));
   async function handleLogout() {
     setConfirmingLogout(false);
     await logout();
