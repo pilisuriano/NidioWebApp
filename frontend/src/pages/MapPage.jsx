@@ -25,12 +25,36 @@ const PROPERTY_TYPE_OPTIONS = [["", "Todos los tipos"], ["APARTMENT", "Departame
 
 // Centro aproximado de CABA (lat, lon).
 const CABA_CENTER = [-34.605, -58.43];
+// En celular la vista inicial arranca un paso más alejada (zoom 11 en vez de
+// 12) para que entre toda CABA en la pantalla angosta. La usan tanto el
+// MapContainer como el botón "Centrar en CABA".
+const MOBILE_MAX_WIDTH = 640;
+function initialZoom() {
+  return window.innerWidth < MOBILE_MAX_WIDTH ? 11 : 12;
+}
+// En celular el centro se corre un poco al norte para que la ciudad quede
+// debajo del buscador (que tapa la parte de arriba del mapa).
+function initialCenter() {
+  return window.innerWidth < MOBILE_MAX_WIDTH ? [-34.585, -58.44] : CABA_CENTER;
+}
 // Leaflet ya mueve el mapa solo para que el popup no quede tapado por el
 // borde del contenedor, pero no sabe que la barra de búsqueda/filtros
 // (arriba a la izquierda, fuera del control de Leaflet) también tapa. Con
 // este padding reservamos esa zona: si el popup caería ahí, el mapa se
 // corre para dejarlo visible al lado.
-const POPUP_OPTIONS = { autoPanPaddingTopLeft: L.point(480, 170), autoPanPaddingBottomRight: L.point(20, 20) };
+// En compu el buscador ocupa ~480px a la izquierda; en celular y tablet
+// (< lg) va arriba a todo el ancho, así que ahí solo se reserva el alto.
+// Antes se usaban siempre 480px a la izquierda: en un celular de 375px eso
+// es más que la pantalla, y Leaflet corría el mapa hasta dejar el popup
+// afuera (al tocar un barrio con el mapa de calor no se veía nada).
+// En celular, además, los botones de la derecha (listado, capas, mapa de
+// calor) bajan hasta ~290px, así que se reserva un poco más de alto.
+function popupOptions() {
+  const w = window.innerWidth;
+  if (w < MOBILE_MAX_WIDTH) return { autoPanPaddingTopLeft: L.point(12, 290), autoPanPaddingBottomRight: L.point(12, 20) };
+  if (w < 1024) return { autoPanPaddingTopLeft: L.point(12, 190), autoPanPaddingBottomRight: L.point(12, 20) };
+  return { autoPanPaddingTopLeft: L.point(480, 170), autoPanPaddingBottomRight: L.point(20, 20) };
+}
 // Mismo criterio y estilos que el ValuationBadge de PropertyDetail.jsx (y el
 // ResultBadge de Valuacion.jsx), para que la clasificación se vea igual en
 // toda la app -- acá para la ficha flotante de la propiedad tocada en el mapa.
@@ -203,7 +227,7 @@ function RecenterControl() {
     L.DomEvent.disableClickPropagation(link);
     L.DomEvent.on(link, "click", e => {
       L.DomEvent.preventDefault(e);
-      map.flyTo(CABA_CENTER, 12, { duration: 0.75 });
+      map.flyTo(initialCenter(), initialZoom(), { duration: 0.75 });
     });
     return () => L.DomUtil.remove(link);
   }, [map]);
@@ -513,17 +537,17 @@ export default function MapPage() {
     // Solo popup al click (igual que Ruido/Seguridad): sin etiqueta
     // permanente sobre el polígono, para no saturar el mapa con un pill por
     // barrio.
-    mapLayer.bindPopup(`<strong>${props.neighborhoodName}</strong><br/>` + `${formatNumber(props.avgPriceM2)} ${unit}`, POPUP_OPTIONS);
+    mapLayer.bindPopup(`<strong>${props.neighborhoodName}</strong><br/>` + `${formatNumber(props.avgPriceM2)} ${unit}`, popupOptions());
   }
   function onEachNoiseFeature(feature, mapLayer) {
     const props = feature.properties;
     const barrio = props.neighborhoodName ? `<strong>${props.neighborhoodName}</strong><br/>` : "";
-    mapLayer.bindPopup(`${barrio}Nivel de ruido: <strong>${props.noiseLevel} dB</strong>`, POPUP_OPTIONS);
+    mapLayer.bindPopup(`${barrio}Nivel de ruido: <strong>${props.noiseLevel} dB</strong>`, popupOptions());
   }
   function onEachSecurityFeature(feature, mapLayer) {
     const props = feature.properties;
     const barrio = props.neighborhoodName ? `<strong>${props.neighborhoodName}</strong><br/>` : "";
-    mapLayer.bindPopup(`${barrio}Índice de seguridad: <strong>${props.securityIndex}/100</strong><br/>Incidentes/año: ${props.crimeCount}`, POPUP_OPTIONS);
+    mapLayer.bindPopup(`${barrio}Índice de seguridad: <strong>${props.securityIndex}/100</strong><br/>Incidentes/año: ${props.crimeCount}`, popupOptions());
   }
   // Chip de "Características": clickear un tag lo prende/apaga (comparación
   // case-insensitive para no duplicar "Cochera" con "cochera" si se escribe
@@ -791,7 +815,7 @@ export default function MapPage() {
             puede scrollear hasta el Footer con el cursor encima del mapa
             (la rueda queda capturada por el zoom) — el zoom con botones
             +/-, doble click o pellizco (touch) sigue funcionando igual. */}
-        <MapContainer center={CABA_CENTER} zoom={12} scrollWheelZoom={true} className="map-with-search w-full h-full absolute inset-0">
+        <MapContainer center={initialCenter()} zoom={initialZoom()} scrollWheelZoom={true} className="map-with-search w-full h-full absolute inset-0">
           {/* Mapa base de CARTO (necesita VITE_CARTO_API_KEY; ver lib/mapTiles.js). Se prefiere
               al tile server crudo de OSM porque éste aplica rate-limiting a apps que no calzan
               su política de uso (causaba el mapa "gris", sin tiles, en desarrollo); sin clave,

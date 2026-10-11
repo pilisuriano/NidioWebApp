@@ -208,6 +208,8 @@ export default function LifeScore() {
   // significa "seleccionado".
   const [deselectedPlaceIds, setDeselectedPlaceIds] = useState(new Set());
   const [placeToDelete, setPlaceToDelete] = useState(null);
+  // Leyenda de categorías del mapa abierta/cerrada (solo importa en celular).
+  const [poiLegendOpen, setPoiLegendOpen] = useState(false);
   const [newPlaceLabel, setNewPlaceLabel] = useState("");
   const [newPlaceAddress, setNewPlaceAddress] = useState("");
   const [newPlaceLat, setNewPlaceLat] = useState(null);
@@ -819,7 +821,17 @@ export default function LifeScore() {
                   (mismo patrón que la leyenda de pines por tasación en
                   MapPage.jsx/Explorar) -- solo tiene sentido una vez que hay
                   un resultado calculado, que es cuando aparecen los POIs. */}
-              {result && <div className="absolute bottom-6 right-3 z-[1000] bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-2.5 rounded-lg shadow-sm space-y-1 text-[10px] font-bold text-on-surface max-h-[85%] overflow-y-auto">
+              {/* En celular la leyenda arranca cerrada (un botón chico) para no
+                  tapar medio mapa; desde sm en adelante se ve siempre. */}
+              {result && !poiLegendOpen && (
+                <button
+                  type="button" onClick={() => setPoiLegendOpen(true)}
+                  className="sm:hidden absolute bottom-6 right-3 z-[1000] bg-surface-container-lowest/95 border border-outline-variant rounded-lg shadow-sm px-3 py-2 flex items-center gap-1.5 text-xs font-bold text-on-surface"
+                >
+                  <Eye className="w-3.5 h-3.5" /> Categorías
+                </button>
+              )}
+              {result && <div className={`${poiLegendOpen ? "" : "hidden sm:block "}absolute bottom-6 right-3 z-[1000] bg-surface-container-lowest/90 backdrop-blur border border-outline-variant p-2.5 rounded-lg shadow-sm space-y-1 text-[10px] font-bold text-on-surface max-h-[85%] overflow-y-auto`}>
                   {CATEGORIES.map(c => {
                     const hidden = hiddenCategories.has(c.key);
                     const count = result.categories.find(cat => cat.category === c.key)?.poiCount ?? 0;
@@ -846,6 +858,12 @@ export default function LifeScore() {
                     className="w-full pt-1 mt-0.5 border-t border-outline-variant text-center font-bold text-primary hover:underline"
                   >
                     {allCategoriesHidden ? "Mostrar todas" : "Ocultar todas"}
+                  </button>
+                  <button
+                    type="button" onClick={() => setPoiLegendOpen(false)}
+                    className="sm:hidden w-full pt-1 text-center font-bold text-on-surface-variant hover:underline"
+                  >
+                    Cerrar
                   </button>
                 </div>}
               {!result && (
