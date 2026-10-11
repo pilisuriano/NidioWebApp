@@ -226,3 +226,9 @@ body {
     top: 120px;
   }
 }
+
+/* Etiquetas de calles sobre las capas de color (ver components/map/OverlayLabels.jsx): vienen en
+   estilo "dark" (texto blanco, borde oscuro) y se invierten para tener texto negro con borde blanco. */
+.leaflet-layer.nidio-labels {
+  filter: invert(1) contrast(2);
+}

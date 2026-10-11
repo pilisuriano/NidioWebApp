@@ -117,9 +117,9 @@ class RecommendationEngineTest {
 
         List<RecommendationEngine.FunnelStep> funnel = engine.recommend(r, catalog).funnel();
 
-        assertEquals(List.of("CATALOG", "TYPE", "BUDGET", "ROOMS", "PRICE", "DEALBREAKER"),
+        assertEquals(List.of("CATALOG", "TYPE", "BUDGET", "EXPENSES", "ROOMS", "PRICE", "DEALBREAKER"),
                 funnel.stream().map(RecommendationEngine.FunnelStep::code).toList());
-        assertEquals(List.of(4, 3, 2, 1, 1, 1), funnel.stream().map(RecommendationEngine.FunnelStep::remaining).toList());
+        assertEquals(List.of(4, 3, 2, 2, 1, 1, 1), funnel.stream().map(RecommendationEngine.FunnelStep::remaining).toList());
     }
 
     @Test
@@ -361,6 +361,103 @@ class RecommendationEngineTest {
         List<Candidate> catalog = List.of(neutral(1), neutral(2), neutral(3), neutral(4));
 
         assertEquals(3, engine.recommend(request(), catalog).items().size());
+    }
+
+    /** Misma propiedad pero con expensas (USD por mes), para probar el tope de expensas. */
+    private static Candidate withExpenses(Candidate c, Double expensesUsd) {
+        return new Candidate(c.id(), c.type(), c.price(), c.priceUsd(), c.rooms(), c.valuationMin(),
+                c.valuationMax(), c.categoryScores(), c.securityScore(), c.quietScore(), c.lat(), c.lon(),
+                c.bright(), c.garage(), c.poolOrAmenities(), c.furnished(), c.aptoCredito(), c.neighborhoodId(),
+                expensesUsd == null ? null : BigDecimal.valueOf(expensesUsd));
+    }
+
+    @Test
+    void expensesCapRemovesCostlierPropertiesButKeepsTheOnesWithoutExpensesData() {
+        List<Candidate> catalog = List.of(
+                withExpenses(neutral(1), 100.0),   // dentro del tope
+                withExpenses(neutral(2), 300.0),   // por encima del tope
+                withExpenses(neutral(3), null),    // sin expensas cargadas: no se puede saber, no se descarta
+                withExpenses(neutral(4), 200.0));  // justo en el tope (se incluye)
+        RecommendationRequest r = request();
+        r.setExpensesMaxUsd(BigDecimal.valueOf(200));
+
+        Result result = engine.recommend(r, catalog);
+
+        assertEquals(List.of(1L, 3L, 4L), ids(result).stream().sorted().toList());
+        assertFalse(ids(result).contains(2L));
+        // El filtro aparece en el resumen con lo que quedó después de aplicarlo.
+        RecommendationEngine.FunnelStep step = result.funnel().stream()
+                .filter(f -> f.code().equals("EXPENSES")).findFirst().orElseThrow();
+        assertEquals(3, step.remaining());
+    }
+
+    @Test
+    void withoutAnExpensesCapNothingIsRemoved() {
+        List<Candidate> catalog = List.of(
+                withExpenses(neutral(1), 100.0), withExpenses(neutral(2), 900.0), withExpenses(neutral(3), null));
+
+        assertEquals(3, engine.recommend(request(), catalog).items().size());
+    }
+
+    /** 20 propiedades, cada una en su barrio, de mejor a peor puntaje (transporte y todo lo demás parejo hacia abajo). */
+    private static List<Candidate> rankedCatalog(boolean sameNeighborhood) {
+        List<Candidate> catalog = new ArrayList<>();
+        for (int i = 1; i <= 20; i++) {
+            catalog.add(inNeighborhood(
+                    cand(i, PropertyType.APARTMENT, 1000, 3, 900L, 1100L, flat(100 - i * 4), 50, 50, null, null),
+                    sameNeighborhood ? 10 : 100 + i));
+        }
+        return catalog;
+    }
+
+    @Test
+    void extendedListKeepsTheSameFirstThreeAndAddsMore() {
+        List<Candidate> catalog = rankedCatalog(false);
+
+        Result free = engine.recommend(request(), catalog);
+        Result extended = engine.recommend(request(), catalog, RecommendationEngine.EXTENDED_RESULTS);
+
+        assertEquals(3, free.items().size());
+        assertEquals(RecommendationEngine.EXTENDED_RESULTS, extended.items().size());
+        // Pagar amplía la lista, nunca cambia el orden ni las que ya se veían.
+        assertEquals(ids(free), ids(extended).subList(0, 3));
+        assertEquals(free.totalMatches(), extended.totalMatches());
+        assertTrue(free.totalMatches() > RecommendationEngine.EXTENDED_RESULTS);
+    }
+
+    @Test
+    void extendedListKeepsTheFirstThreeEvenWhenTheNeighborhoodRuleSkipsOne() {
+        // Las mejores 3 son del barrio 10: la regla deja afuera a la tercera y entra una de otro barrio.
+        List<Candidate> catalog = new ArrayList<>(rankedCatalog(false));
+        catalog.set(0, inNeighborhood(catalog.get(0), 10));
+        catalog.set(1, inNeighborhood(catalog.get(1), 10));
+        catalog.set(2, inNeighborhood(catalog.get(2), 10));
+
+        Result free = engine.recommend(request(), catalog);
+        Result extended = engine.recommend(request(), catalog, RecommendationEngine.EXTENDED_RESULTS);
+
+        assertEquals(ids(free), ids(extended).subList(0, 3));
+        // La tercera del ranking (id 3) no estaba entre las 3 gratis pero sí aparece en la lista ampliada.
+        assertFalse(ids(free).contains(3L));
+        assertTrue(ids(extended).contains(3L));
+    }
+
+    @Test
+    void extendedListIsCompletedEvenIfEverythingIsInOneNeighborhood() {
+        List<Candidate> catalog = rankedCatalog(true);
+
+        Result extended = engine.recommend(request(), catalog, RecommendationEngine.EXTENDED_RESULTS);
+
+        assertEquals(RecommendationEngine.EXTENDED_RESULTS, extended.items().size());
+    }
+
+    @Test
+    void extendedListAfterTheFirstThreeFollowsTheRankingOrder() {
+        List<Candidate> catalog = rankedCatalog(false);
+
+        List<Long> ids = ids(engine.recommend(request(), catalog, RecommendationEngine.EXTENDED_RESULTS));
+
+        assertEquals(ids.subList(3, ids.size()), ids.subList(3, ids.size()).stream().sorted().toList());
     }
 
     @Test

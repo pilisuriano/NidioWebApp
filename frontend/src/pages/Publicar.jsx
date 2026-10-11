@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -56,7 +56,14 @@ function Stepper({ step }) {
     </div>;
 }
 
+// Un mismo formulario sirve para publicar (/publicar) y para editar una publicación
+// propia (/mis-publicaciones/:id/editar). Al editar: se precarga desde el backend, no se
+// usa el borrador de sessionStorage y se guarda con PUT /api/my-properties/:id. Si cambia
+// algo que usa el modelo de tasación, el backend recalcula el rango de Nidio al guardar
+// (y si ml-service no responde, no se guarda nada).
 export default function Publicar() {
+  const { id: editId } = useParams();
+  const editing = Boolean(editId);
   const navigate = useNavigate();
   const { user } = useAuth();
   // Quién publica no es una elección manual: lo determina el tipo de
@@ -64,7 +71,7 @@ export default function Publicar() {
   // se le muestra el check de verificada y su logo en el aviso); una cuenta
   // común siempre publica como Dueño directo.
   const isProfessional = user?.accountType === "PROFESSIONAL";
-  const draft = loadDraft();
+  const draft = editing ? null : loadDraft();
   const [step, setStep] = useState(draft?.step ?? 0);
   const [neighborhoods, setNeighborhoods] = useState([]);
   const [error, setError] = useState(null);
@@ -76,6 +83,9 @@ export default function Publicar() {
   // ver handlePublish más abajo.
   const [publishPhase, setPublishPhase] = useState(null);
   const [created, setCreated] = useState(null);
+  // Edición: se cargan los datos de la publicación antes de mostrar el formulario.
+  const [loadingEdit, setLoadingEdit] = useState(editing);
+  const [loadEditError, setLoadEditError] = useState(null);
   // Foto que se muestra grande en el paso "Revisá antes de publicar" — se
   // elige haciendo click en alguna de las miniaturas de abajo, para poder
   // ver todas las fotos cargadas y no solo la primera con un "+N foto".
@@ -123,6 +133,52 @@ export default function Publicar() {
   });
 
   useEffect(() => {
+    if (!editing) return;
+    let cancelled = false;
+    api.get(`/api/my-properties/${editId}`).then(res => {
+      if (cancelled) return;
+      const p = res.data;
+      setForm(f => ({
+        ...f,
+        operationType: p.operationType,
+        propertyType: p.propertyType,
+        publisherType: p.publisherType ?? f.publisherType,
+        neighborhoodId: String(p.neighborhood.id),
+        address: p.address,
+        // Coordenadas guardadas: sirven para el chequeo de barrio en vivo. Si la dirección
+        // no se toca, el backend conserva la ubicación; si se edita, hay que elegir otra sugerencia.
+        lat: p.location?.lat ?? null,
+        lon: p.location?.lon ?? null,
+        surfaceM2: String(p.surfaceM2),
+        totalSurfaceM2: p.totalSurfaceM2 != null ? String(p.totalSurfaceM2) : "",
+        rooms: p.rooms,
+        bathrooms: p.bathrooms != null ? String(p.bathrooms) : "",
+        ageYears: p.ageYears != null ? String(p.ageYears) : "",
+        orientation: p.orientation ?? "",
+        price: String(p.price),
+        imageUrls: p.imageUrls ?? [],
+        description: p.description ?? "",
+        propertyCondition: p.propertyCondition ?? "",
+        expensesUsd: p.expensesUsd != null ? String(p.expensesUsd) : "",
+        hasPool: Boolean(p.hasPool),
+        hasGarage: Boolean(p.hasGarage),
+        buildingAmenities: Boolean(p.buildingAmenities),
+        security24h: Boolean(p.security24h),
+        bright: Boolean(p.bright),
+        aptoCredito: Boolean(p.aptoCredito),
+        furnished: Boolean(p.furnished)
+      }));
+    }).catch(err => {
+      if (!cancelled) setLoadEditError(apiErrorMessage(err, "No se pudo cargar la publicación"));
+    }).finally(() => {
+      if (!cancelled) setLoadingEdit(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, editId]);
+
+  useEffect(() => {
     api.get("/api/neighborhoods").then(res => {
       setNeighborhoods(res.data);
       setForm(f => f.neighborhoodId ? f : { ...f, neighborhoodId: String(res.data[0]?.id ?? "") });
@@ -138,8 +194,9 @@ export default function Publicar() {
   // Se guarda en cada cambio para poder ir a "Tasación" y volver sin perder
   // lo cargado (ver DRAFT_KEY).
   useEffect(() => {
+    if (editing) return;
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, step }));
-  }, [form, step]);
+  }, [form, step, editing]);
 
   function update(field, value) {
     setForm(f => ({ ...f, [field]: value }));
@@ -247,7 +304,7 @@ export default function Publicar() {
     setSubmitting(true);
     setPublishPhase("loading");
     try {
-      const res = await api.post("/api/properties", {
+      const body = {
         propertyType: form.propertyType,
         operationType: form.operationType,
         neighborhoodId: Number(form.neighborhoodId),
@@ -278,7 +335,8 @@ export default function Publicar() {
         bright: form.bright,
         aptoCredito: form.aptoCredito,
         furnished: form.furnished
-      });
+      };
+      const res = editing ? await api.put(`/api/my-properties/${editId}`, body) : await api.post("/api/properties", body);
       // Pequeña pausa a propósito: deja que el relleno del logo termine de
       // llegar al 100% en pantalla antes de saltar a la pantalla de
       // "publicado" -- si no, el usuario nunca ve el cierre.
@@ -293,7 +351,9 @@ export default function Publicar() {
       // solo se dispara si el backend terminó respondiendo un error real
       // (ml-service caído/con error después de sus reintentos, dirección
       // inválida, etc.), nunca por el solo hecho de estar tardando.
-      setError(apiErrorMessage(err, "No se pudo publicar el aviso: no se pudo calcular la tasación automática. Probá de nuevo en un momento."));
+      setError(apiErrorMessage(err, editing
+        ? "No se pudieron guardar los cambios: no se pudo recalcular la tasación. No se modificó nada, probá de nuevo en un momento."
+        : "No se pudo publicar el aviso: no se pudo calcular la tasación automática. Probá de nuevo en un momento."));
     } finally {
       setSubmitting(false);
       setPublishPhase(null);
@@ -301,6 +361,40 @@ export default function Publicar() {
   }
 
   const selectedNeighborhood = neighborhoods.find(n => String(n.id) === form.neighborhoodId);
+
+  if (editing && loadingEdit) {
+    return <div className="p-8 text-center text-on-surface-variant font-mono text-sm">Cargando publicación…</div>;
+  }
+  if (editing && loadEditError) {
+    return <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto text-center space-y-3">
+        <p className="text-sm text-error">{loadEditError}</p>
+        <Link to="/mis-publicaciones" className="text-primary font-semibold hover:underline text-sm">Volver a Mis publicaciones</Link>
+      </div>;
+  }
+
+  if (created && editing) {
+    return <>
+      <PublishingOverlay phase={publishPhase} />
+      <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto animate-in fade-in duration-500">
+        <Card>
+          <CardContent className="p-6 sm:p-10 text-center space-y-6">
+            <div className="w-16 h-16 rounded-full bg-good-value/10 text-good-value flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold text-on-surface">¡Cambios guardados!</h1>
+              <p className="text-on-surface-variant">{created.title} · {created.address}</p>
+              {created.valuation && <p className="text-xs text-on-surface-variant">Si cambiaste datos que afectan la tasación, Nidio ya recalculó su rango de precio.</p>}
+            </div>
+            <div className="flex justify-center gap-3 pt-2">
+              <Button variant="outline" onClick={() => navigate("/mis-publicaciones")}>Volver a Mis publicaciones</Button>
+              <Button onClick={() => navigate(`/propiedades/${created.id}`)}>Ver publicación</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>;
+  }
 
   if (created) {
     return <>
@@ -337,8 +431,8 @@ export default function Publicar() {
     <PublishingOverlay phase={publishPhase} />
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-2 animate-in fade-in duration-500">
       <div className="text-center space-y-1 mb-6">
-        <h1 className="text-2xl font-bold text-on-surface">Publicá tu propiedad</h1>
-        <p className="text-sm text-on-surface-variant">Cargala en pocos pasos y sumala al catálogo de Nidio.</p>
+        <h1 className="text-2xl font-bold text-on-surface">{editing ? "Editá tu publicación" : "Publicá tu propiedad"}</h1>
+        <p className="text-sm text-on-surface-variant">{editing ? "Cambiá lo que necesites. Si modificás datos que afectan la tasación (barrio, superficie, ambientes, estado, amenities…), Nidio recalcula su rango de precio al guardar." : "Cargala en pocos pasos y sumala al catálogo de Nidio."}</p>
       </div>
 
       <Stepper step={step} />
@@ -442,7 +536,7 @@ export default function Publicar() {
               <div className="space-y-3">
                 <label className="text-xs font-bold text-outline uppercase tracking-widest">Características adicionales (opcional)</label>
                 <p className="text-xs text-on-surface-variant">
-                  Ninguno de estos datos es obligatorio, pero cuantos más cargues, más ajustado va a ser el rango de precio que calcula Nidio automáticamente al publicar.
+                  Ninguno de estos datos es obligatorio, pero cuantos más cargues, más ajustado va a ser el rango de precio que calcula Nidio automáticamente{editing ? " (se recalcula al guardar si cambian)." : " al publicar."}
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div className="space-y-2">
@@ -492,7 +586,7 @@ export default function Publicar() {
             </div>}
 
           {step === 3 && <div className="space-y-4">
-              <p className="text-xs font-bold text-outline uppercase tracking-widest">Revisá antes de publicar</p>
+              <p className="text-xs font-bold text-outline uppercase tracking-widest">{editing ? "Revisá antes de guardar" : "Revisá antes de publicar"}</p>
               <div className="rounded-lg border border-outline-variant overflow-hidden">
                 <div className="h-44 bg-surface-dim relative">
                   {form.imageUrls[Math.min(previewIndex, Math.max(0, form.imageUrls.length - 1))] && <img src={form.imageUrls[Math.min(previewIndex, Math.max(0, form.imageUrls.length - 1))]} alt="" className="w-full h-full object-cover" />}
@@ -535,11 +629,11 @@ export default function Publicar() {
         </Button>
         {step < STEPS.length - 1
           ? <Button onClick={handleNext}>Continuar</Button>
-          : <Button onClick={handlePublish} disabled={submitting}>{submitting ? "Publicando…" : "Publicar aviso"}</Button>}
+          : <Button onClick={handlePublish} disabled={submitting}>{editing ? (submitting ? "Guardando…" : "Guardar cambios") : (submitting ? "Publicando…" : "Publicar aviso")}</Button>}
       </div>
 
       <p className="text-center text-xs text-on-surface-variant pt-2">
-        ¿Cambiaste de idea? <Link to="/" className="text-primary font-semibold hover:underline">Volver a Inicio</Link>
+        ¿Cambiaste de idea? {editing ? <Link to="/mis-publicaciones" className="text-primary font-semibold hover:underline">Volver a Mis publicaciones</Link> : <Link to="/" className="text-primary font-semibold hover:underline">Volver a Inicio</Link>}
       </p>
     </div>
   </>;

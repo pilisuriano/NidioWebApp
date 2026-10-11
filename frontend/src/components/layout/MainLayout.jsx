@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Home, Map, Calculator, HeartPulse, Heart, ClipboardList, User, LogOut, ShieldCheck, Menu, X, Plus, Sparkles } from "lucide-react";
+import { Home, Map, Calculator, HeartPulse, Heart, ClipboardList, User, LogOut, ShieldCheck, Menu, X, Plus, Sparkles, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { Footer } from "./Footer";
@@ -21,17 +21,16 @@ const NAV_ITEMS = [{
 }, {
   icon: ClipboardList,
   label: "Mis publicaciones",
-  path: "/mis-publicaciones"
+  path: "/mis-publicaciones",
+  // Solo tiene sentido con sesión iniciada.
+  requiresAuth: true
 }, {
   icon: HeartPulse,
   label: "Life Score",
-  path: "/life-score",
-  // Solo tiene sentido para quien busca comprar/alquilar, no para una
-  // cuenta profesional (inmobiliaria/broker/desarrollador) que publica.
-  hideForProfessional: true
+  path: "/life-score"
 }, {
   icon: Sparkles,
-  label: "Recomendador",
+  label: "Recomendación",
   path: "/recomendador",
   // Mismo criterio que Life Score: es para quien busca, no para quien publica.
   hideForProfessional: true
@@ -39,7 +38,12 @@ const NAV_ITEMS = [{
   icon: Heart,
   label: "Mis favoritos",
   path: "/favoritos",
-  hideForProfessional: true
+  hideForProfessional: true,
+  requiresAuth: true
+}, {
+  icon: CreditCard,
+  label: "Planes",
+  path: "/planes"
 }];
 export function MainLayout() {
   const {
@@ -78,7 +82,7 @@ export function MainLayout() {
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileMenuOpen]);
   const isProfessional = user?.accountType === "PROFESSIONAL";
-  const navItems = NAV_ITEMS.filter(item => !item.hideForProfessional || !isProfessional);
+  const navItems = NAV_ITEMS.filter(item => (!item.hideForProfessional || !isProfessional) && (!item.requiresAuth || user));
   async function handleLogout() {
     setConfirmingLogout(false);
     await logout();

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Facebook, Instagram, Youtube, Twitter, Mail } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
-const SITE_LINKS = [{ label: "Inicio", to: "/" }, { label: "Explorar propiedades", to: "/mapa" }, { label: "Tasación", to: "/tasacion" }, { label: "Mis publicaciones", to: "/mis-publicaciones" }, { label: "Life Score", to: "/life-score", hideForProfessional: true }, { label: "Mis favoritos", to: "/favoritos", hideForProfessional: true }];
+const SITE_LINKS = [{ label: "Inicio", to: "/" }, { label: "Explorar propiedades", to: "/mapa" }, { label: "Tasación", to: "/tasacion" }, { label: "Mis publicaciones", to: "/mis-publicaciones", requiresAuth: true }, { label: "Life Score", to: "/life-score" }, { label: "Recomendación", to: "/recomendador", hideForProfessional: true }, { label: "Planes", to: "/planes" }, { label: "Mis favoritos", to: "/favoritos", hideForProfessional: true, requiresAuth: true }];
 
 const SOCIAL_LINKS = [{ icon: Facebook, label: "Facebook" }, { icon: Instagram, label: "Instagram" }, { icon: Youtube, label: "YouTube" }, { icon: Twitter, label: "X" }];
 
@@ -12,7 +12,7 @@ const SOCIAL_LINKS = [{ icon: Facebook, label: "Facebook" }, { icon: Instagram, 
 export function Footer() {
   const { user } = useAuth();
   const isProfessional = user?.accountType === "PROFESSIONAL";
-  const siteLinks = SITE_LINKS.filter(item => !item.hideForProfessional || !isProfessional);
+  const siteLinks = SITE_LINKS.filter(item => (!item.hideForProfessional || !isProfessional) && (!item.requiresAuth || user));
   return <footer className="bg-inverse-surface text-inverse-on-surface mt-16 border-l border-inverse-on-surface/15">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
         <div className="space-y-4">

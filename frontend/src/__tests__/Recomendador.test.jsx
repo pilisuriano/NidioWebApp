@@ -27,7 +27,7 @@ const RESULT = {
   ],
   items: [{
     property: { id: 7, title: 'Depto luminoso', propertyType: 'APARTMENT', operationType: 'RENT', neighborhoodName: 'Palermo', price: 900000, surfaceM2: 45, rooms: 2, bathrooms: 1, imageUrl: null },
-    matchScore: 81, priceStatus: 'IN_RANGE', reasons: ['x'], tradeoff: null,
+    matchScore: 81, priceStatus: 'IN_RANGE', reasons: ['x'], tradeoff: null, expensesUsd: 100,
     explanation: 'Te la recomendamos porque tiene mucho transporte público cerca.',
   }],
 };
@@ -104,6 +104,7 @@ describe('Recomendador', () => {
     expect(await screen.findByText(/encontré una propiedad para vos/i)).toBeInTheDocument();
     expect(screen.getByText(/ampliamos un poco la búsqueda/i)).toBeInTheDocument();
     expect(screen.getByText(/te la recomendamos porque/i)).toBeInTheDocument();
+    expect(screen.getByText(/ars 151\.500 por mes/i)).toBeInTheDocument(); // 100 USD × 1515
     expect(screen.getByText('Precio dentro de lo que estima Nidio')).toBeInTheDocument();
     expect(screen.queryByText('81')).not.toBeInTheDocument(); // el puntaje no se muestra
     // Cómo se llegó al resultado, con los números reales del backend
@@ -152,5 +153,37 @@ describe('Recomendador', () => {
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(await screen.findByRole('button', { name: /siguiente/i })).toBeInTheDocument();
+  });
+
+  it('shows the expenses bar only when looking for an apartment', async () => {
+    api.get.mockImplementation(url => Promise.resolve({
+      data: url.includes('budget-expenses') ? [100, 150, 200, 260, 300] : PRICES,
+    }));
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /empezar/i }));
+    const next = () => user.click(screen.getByRole('button', { name: /siguiente/i }));
+    await user.click(screen.getByRole('radio', { name: 'Alquilar' })); await next();
+    await user.click(screen.getByRole('radio', { name: 'Departamento' })); await next();
+
+    expect(await screen.findByRole('slider', { name: /expensas máximas/i })).toBeInTheDocument();
+    expect(screen.getByText('Sin tope de expensas')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('slider', { name: /expensas máximas/i }), { target: { value: '0' } });
+    // 100 USD × 1515 = 151.500 → redondeado hacia arriba al paso de 10.000
+    expect(await screen.findByText(/Hasta ARS 1[5-6]0\.000 por mes/)).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/api/recommendations/budget-expenses', { params: { operationType: 'RENT' } });
+  });
+
+  it('does not ask for expenses when looking for a house', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /empezar/i }));
+    const next = () => user.click(screen.getByRole('button', { name: /siguiente/i }));
+    await user.click(screen.getByRole('radio', { name: 'Alquilar' })); await next();
+    await user.click(screen.getByRole('radio', { name: /casa o ph/i })); await next();
+
+    await screen.findByRole('slider', { name: /presupuesto máximo/i });
+    expect(screen.queryByRole('slider', { name: /expensas máximas/i })).not.toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalledWith('/api/recommendations/budget-expenses', expect.anything());
   });
 });

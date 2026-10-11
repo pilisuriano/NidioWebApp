@@ -1,0 +1,36 @@
+{
+  "tolerancia_m": 5.0,
+  "dia_2025": {
+    "filas_leidas": 181,
+    "geometrias_invalidas_reparadas": 13,
+    "duplicados_exactos_eliminados": 40,
+    "filas_finales": 141
+  },
+  "dia_2018": {
+    "filas_leidas": 167,
+    "geometrias_invalidas_reparadas": 9,
+    "duplicados_exactos_eliminados": 11,
+    "filas_finales": 156
+  },
+  "noche_2025": {
+    "filas_leidas": 145,
+    "geometrias_invalidas_reparadas": 7,
+    "duplicados_exactos_eliminados": 0,
+    "filas_finales": 145
+  },
+  "dia_final": {
+    "comunas_2_15_de_2025": 140,
+    "comuna_1_de_2018": 13
+  },
+  "salida_day": {
+    "bytes": 6496218,
+    "bytes_gzip": 1315051,
+    "km2_cubiertos": 57.92
+  },
+  "salida_night": {
+    "bytes": 6421081,
+    "bytes_gzip": 1301139,
+    "km2_cubiertos": 57.89
+  },
+  "barrios_sin_franjas": []
+}

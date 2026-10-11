@@ -70,6 +70,12 @@ public class RecommendationRequest {
     @DecimalMin(value = "0", message = "El presupuesto máximo no puede ser negativo")
     private BigDecimal budgetMax;
 
+    // Expensas máximas por mes, en USD (la pantalla las elige en pesos y las convierte con el dólar blue). Solo se
+    // manda al buscar departamentos. null = sin tope. Una propiedad sin expensas cargadas (casa, PH o dato
+    // desconocido) nunca se descarta por este filtro: no hay cómo saber si cumple.
+    @DecimalMin(value = "0", message = "Las expensas máximas no pueden ser negativas")
+    private BigDecimal expensesMaxUsd;
+
     @NotNull(message = "El campo 'household' es obligatorio")
     private Household household;
 

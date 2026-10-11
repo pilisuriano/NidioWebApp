@@ -110,7 +110,8 @@ export function initialAnswers() {
   return {
     operationType: null,
     typeChoice: null,
-    budget: null, // { min, max } (null en un extremo = sin tope), tomado de /budget-ranges
+    budget: null, // { min, max, position } (null en un extremo = sin tope)
+    expenses: null, // { maxArs, position }: tope de expensas por mes en pesos (solo departamentos); null = sin tope
     household: null,
     minRooms: null, // null = el mínimo que sugiere la convivencia; un número = lo que eligió
     dealbreaker: null,
@@ -163,14 +164,37 @@ function budgetStep(value, operationType) {
   return value < 100000 ? 5000 : value < 300000 ? 10000 : 25000;
 }
 
+/** Tope en la posición 0-100 de una barra de valores ordenados, redondeado hacia arriba con `stepOf(valor)`. */
+function capAtPosition(values, position, stepOf) {
+  if (!values || values.length === 0 || position >= 100) return null;
+  const t = Math.max(0, position) / 100 * (values.length - 1);
+  const i = Math.floor(t);
+  const raw = values[i] + (values[Math.min(i + 1, values.length - 1)] - values[i]) * (t - i);
+  const step = stepOf(raw);
+  return Math.ceil(raw / step) * step; // hacia arriba: el tope siempre alcanza para el valor de esa posición
+}
+
 /** Tope de presupuesto en la posición 0-100 de la barra (null = sin tope, que es la posición 100). */
 export function budgetAtPosition(prices, position, operationType) {
-  if (!prices || prices.length === 0 || position >= 100) return null;
-  const t = Math.max(0, position) / 100 * (prices.length - 1);
-  const i = Math.floor(t);
-  const raw = prices[i] + (prices[Math.min(i + 1, prices.length - 1)] - prices[i]) * (t - i);
-  const step = budgetStep(raw, operationType);
-  return Math.ceil(raw / step) * step; // hacia arriba: el tope siempre alcanza para el precio de esa posición
+  return capAtPosition(prices, position, raw => budgetStep(raw, operationType));
+}
+
+// ---- Expensas: misma idea que el presupuesto, con las expensas reales de los departamentos del catálogo ----
+// Las expensas se guardan en USD pero en Argentina se cotizan en pesos: la barra se muestra en pesos (valores en
+// USD × dólar blue) y al buscar el tope vuelve a USD.
+
+function expensesStep(valueArs) {
+  return valueArs < 100000 ? 5000 : valueArs < 300000 ? 10000 : 25000;
+}
+
+/** Tope de expensas en pesos por mes en la posición 0-100 (null = sin tope). `valuesArs` va ordenado de menor a mayor. */
+export function expensesAtPosition(valuesArs, position) {
+  return capAtPosition(valuesArs, position, expensesStep);
+}
+
+/** Expensas por mes en pesos, para mostrar: "ARS 150.000 por mes". */
+export function formatExpenses(valueArs) {
+  return `ARS ${Math.round(Number(valueArs)).toLocaleString("es-AR")} por mes`;
 }
 
 /** Cuántas propiedades del catálogo cuestan hasta el tope (null = todas). */
@@ -234,6 +258,10 @@ export function buildRequest(answers, blueRate) {
   if (answers.minRooms != null) body.minRooms = answers.minRooms;
   if (Object.keys(details).length > 0) body.details = details;
   if (typeof blueRate === "number" && blueRate > 0) body.blueRate = blueRate;
+  // Tope de expensas: solo si busca departamento (en casas y PH casi nunca hay expensas) y hay cotización para volverlo a USD.
+  if (answers.typeChoice === "APARTMENT" && answers.expenses?.maxArs != null && typeof blueRate === "number" && blueRate > 0) {
+    body.expensesMaxUsd = Math.round(answers.expenses.maxArs / blueRate * 100) / 100;
+  }
   if (answers.work?.lat != null && answers.work?.lon != null) {
     body.workLat = answers.work.lat;
     body.workLon = answers.work.lon;
@@ -246,6 +274,7 @@ const FUNNEL_TEXT = {
   CATALOG: n => `${n} ${n === 1 ? "propiedad publicada" : "propiedades publicadas"}`,
   TYPE: n => `${n} del tipo que elegiste`,
   BUDGET: n => `${n} dentro de tu presupuesto`,
+  EXPENSES: n => `${n} con expensas dentro de tu tope`,
   ROOMS: n => `${n} con los ambientes que necesitás`,
   PRICE: n => `${n} sin las que están por encima del precio que estima Nidio`,
   DEALBREAKER: n => `${n} después de dejar de lado las zonas que descartarías`,
@@ -281,6 +310,6 @@ export function searchingSteps(answers) {
   steps.push("Mirando la seguridad y el ruido de cada barrio");
   steps.push("Comparando cada precio con la estimación de Nidio");
   if (answers.work?.lat != null) steps.push("Calculando la distancia a tu trabajo o estudio");
-  steps.push("Armando tu top 3 y explicando por qué encaja cada una");
+  steps.push("Armando tu lista de recomendadas y explicando por qué encaja cada una");
   return steps;
 }

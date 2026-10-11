@@ -17,3 +17,14 @@ export const BASE_TILES = CARTO_KEY
       url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       attribution: OSM_ATTRIBUTION,
     };
+
+// Solo las etiquetas (calles, barrios), para dibujarlas ENCIMA de las
+// capas de color (ruido, seguridad) y que las calles se sigan leyendo. Solo existe con
+// clave de CARTO. Se usa el estilo "dark" (texto blanco con borde oscuro) y OverlayLabels lo invierte
+// con CSS: queda texto negro con borde blanco, mucho más marcado que el gris de Voyager. Con el mapa estándar de OSM no hay una capa de etiquetas aparte, y ahí
+// la legibilidad la resuelve la mezcla "multiplicar" de las capas de color.
+export const BASE_LABELS = CARTO_KEY
+  ? {
+      url: `https://basemaps.cartocdn.com/rastertiles/dark_only_labels/{z}/{x}/{y}.png?key=${encodeURIComponent(CARTO_KEY)}`,
+    }
+  : null;

@@ -1,22 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "@/lib/leaflet-setup";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, MapPin, Building2, Calculator, HeartPulse, CheckCircle2, AlertTriangle, Info, Camera, ChevronLeft, ChevronRight, ChevronDown, Ruler, DoorOpen, Bath, CalendarClock, Compass, Building, User as UserIcon, Mail, Phone, BadgeCheck, X, Wallet, Waves, Car, Sparkles, ShieldCheck, Sun, CreditCard, Sofa } from "lucide-react";
+import { ArrowLeft, MapPin, Building2, Calculator, HeartPulse, CheckCircle2, Camera, ChevronLeft, ChevronRight, ChevronDown, Ruler, DoorOpen, Bath, CalendarClock, Compass, Building, User as UserIcon, Mail, Phone, BadgeCheck, X, Wallet, Waves, Car, Sparkles, ShieldCheck, Sun, CreditCard, Sofa } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatPrice, formatNumber, PROPERTY_TYPE_LABEL, OPERATION_TYPE_LABEL, PUBLISHER_TYPE_LABEL } from "@/lib/format";
 import { useBlueRate } from "@/lib/blueRate";
+import { ValuationBadge } from "@/components/ui/ValuationBadge";
+import { FeaturedBadge } from "@/components/property/PropertyBadges";
+import { useFeaturedIds } from "@/lib/billing";
 import { cn } from "@/lib/utils";
 import { toast } from "react-toastify";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
+import { EnvironmentMap } from "@/components/property/EnvironmentMap";
+import { EnvironmentChips } from "@/components/property/EnvironmentChips";
+import { usePropertyEnvironment } from "@/lib/environment";
 import { COUNTRY_CODES } from "@/lib/countries";
-import { BASE_TILES } from "@/lib/mapTiles";
 
 // Preguntas rápidas tipo Zonaprop ("Preguntas para la inmobiliaria"): en vez
 // de escribir desde cero, un click completa el mensaje.
@@ -52,27 +56,6 @@ const LOCATION_PIN_ICON = L.divIcon({
   iconAnchor: [11, 11]
 });
 
-// Mismo criterio y estilos que el ResultBadge de las tasaciones, para que la
-// clasificación se vea igual en toda la app.
-function ValuationBadge({ result }) {
-  if (result === "FAIR") {
-    return <Badge variant="good" className="bg-good-value/5 gap-1 border border-good-value/20">
-        <CheckCircle2 className="w-3 h-3" /> EN RANGO
-      </Badge>;
-  }
-  if (result === "OVERVALUED") {
-    return <Badge variant="alert" className="gap-1">
-        <AlertTriangle className="w-3 h-3" /> SOBREVALUADA
-      </Badge>;
-  }
-  if (result === "UNDERVALUED") {
-    return <Badge variant="secondary" className="bg-secondary/10 text-secondary gap-1 border border-secondary/20">
-        <Info className="w-3 h-3" /> SUBVALUADA
-      </Badge>;
-  }
-  return null;
-}
-
 export default function PropertyDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -85,7 +68,9 @@ export default function PropertyDetail() {
   // publicadores como si fueran un comprador/inquilino más — perfil más
   // profesional, sin la función de contacto.
   const isProfessional = user?.accountType === "PROFESSIONAL";
+  const featuredIds = useFeaturedIds();
   const [property, setProperty] = useState(null);
+  const environment = usePropertyEnvironment(property ? [property.id] : []);
   // No tiene sentido mandarse un mail a una misma: si la propiedad la
   // publicó el usuario logueado, se muestra un aviso en vez del formulario.
   const isOwner = Boolean(user?.email && property?.createdByEmail && user.email.toLowerCase() === property.createdByEmail.toLowerCase());
@@ -280,6 +265,7 @@ export default function PropertyDetail() {
           las fotos" sobre la última si hay más. Al tocar cualquier foto se
           abre un visor a pantalla completa. */}
       <div className="relative">
+        {featuredIds.has(property.id) && <FeaturedBadge className="absolute top-3 left-3 z-10 pointer-events-none" />}
         {images.length === 0
           ? <div className="h-64 sm:h-96 rounded-xl bg-surface-dim flex items-center justify-center text-on-surface-variant text-sm font-mono">Sin fotos</div>
           : images.length === 1
@@ -359,6 +345,7 @@ export default function PropertyDetail() {
               {property.ageYears != null && <span className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant"><CalendarClock className="w-4 h-4" /> {property.ageYears === 0 ? "A estrenar" : `${property.ageYears} años`}</span>}
               {property.orientation && <span className="flex items-center gap-1.5 text-sm font-mono text-on-surface-variant"><Compass className="w-4 h-4" /> {property.orientation}</span>}
             </div>
+            <EnvironmentChips environment={environment[property.id]} size="lg" />
             {/* Expensas: la API siempre manda expensesUsd en USD (misma unidad
                 que el modelo, ver Property.expensesUsd), pero en Argentina las
                 expensas se cotizan en pesos -- nunca se muestra el número USD
@@ -489,12 +476,7 @@ export default function PropertyDetail() {
 
           <div className="space-y-2">
             <h2 className="text-xs font-bold text-outline uppercase tracking-widest">Ubicación</h2>
-            <div className="h-64 rounded-xl overflow-hidden border border-outline-variant">
-              <MapContainer center={[property.location.lat, property.location.lon]} zoom={15} scrollWheelZoom={false} className="w-full h-full">
-                <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
-                <Marker position={[property.location.lat, property.location.lon]} icon={LOCATION_PIN_ICON} />
-              </MapContainer>
-            </div>
+            <EnvironmentMap lat={property.location.lat} lon={property.location.lon} neighborhoodName={property.neighborhood.name} pinIcon={LOCATION_PIN_ICON} />
           </div>
         </div>
 

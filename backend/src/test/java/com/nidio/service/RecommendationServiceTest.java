@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -154,6 +156,38 @@ class RecommendationServiceTest {
         // Sin cotización no se compara pesos contra dólares.
         RecommendationRequest withoutRate = request(Dealbreaker.FEW_SHOPS, NoisePreference.TOLERANT);
         assertEquals("UNKNOWN", service.recommend(withoutRate).items().get(0).priceStatus());
+    }
+
+    @Test
+    void listIsLimitedToThreeUnlessTheAccountHasAPassOrPlan() {
+        List<Property> properties = new ArrayList<>();
+        List<PropertyLifeScoreCategory> rows = new ArrayList<>();
+        List<Object[]> noise = new ArrayList<>();
+        List<Object[]> security = new ArrayList<>();
+        for (int i = 1; i <= 16; i++) {
+            properties.add(property(i, i, 1000));
+            rows.addAll(allCategories(i, 50 + i));
+            noise.add(new Object[]{(long) i, BigDecimal.valueOf(55)});
+            security.add(new Object[]{(long) i, BigDecimal.valueOf(50)});
+        }
+        when(propertyRepository.findActiveByOperationType(OperationType.RENT)).thenReturn(properties);
+        when(lifeScoreRepository.findByPropertyIdIn(any())).thenReturn(rows);
+        when(noiseZoneRepository.findNoiseLevelsByNeighborhood()).thenReturn(noise);
+        when(securityZoneRepository.findSecurityIndexByNeighborhood()).thenReturn(security);
+        RecommendationRequest r = request(Dealbreaker.FEW_SHOPS, NoisePreference.TOLERANT);
+
+        RecommendationResponse free = service.recommend(r);
+        RecommendationResponse unlocked = service.recommend(r, true);
+
+        assertEquals(3, free.items().size());
+        assertFalse(free.moreUnlocked());
+        assertEquals(10, unlocked.items().size());
+        assertTrue(unlocked.moreUnlocked());
+        // Las 3 primeras son las mismas, y el total de propiedades que encajan viaja en las dos respuestas.
+        assertEquals(free.items().stream().map(i -> i.property().id()).toList(),
+                unlocked.items().stream().limit(3).map(i -> i.property().id()).toList());
+        assertTrue(free.totalMatches() > 3);
+        assertEquals(free.totalMatches(), unlocked.totalMatches());
     }
 
     @Test

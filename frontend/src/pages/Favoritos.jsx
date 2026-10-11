@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { formatPrice, formatNumber, OPERATION_TYPE_LABEL } from "@/lib/format";
 import { useFavorites } from "@/lib/favorites";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
+import { EnvironmentChips } from "@/components/property/EnvironmentChips";
+import { usePropertyEnvironment } from "@/lib/environment";
 import { sortProperties, SORT_OPTIONS } from "@/lib/propertyFilters";
 
 // "Mis favoritos": reemplaza a la vieja "Mis búsquedas" (que mostraba
@@ -30,6 +32,7 @@ export default function Favoritos() {
   }, []);
 
   const favorites = sortProperties(properties.filter(p => isFavorite(p.id)), sort);
+  const environment = usePropertyEnvironment(favorites.map(p => p.id));
 
   return <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-outline-variant pb-6">
@@ -91,6 +94,7 @@ export default function Favoritos() {
                   <span className="flex items-center gap-1"><Building2 className="w-3 h-3" /> {p.rooms} amb.</span>
                   <span className="flex items-center gap-1"><Ruler className="w-3 h-3" /> {formatNumber(p.surfaceM2)} m²</span>
                 </div>
+                <EnvironmentChips environment={environment[p.id]} />
               </Wrapper>
             </CardContent>
           </Card>;

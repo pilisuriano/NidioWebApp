@@ -8,6 +8,7 @@ import com.nidio.model.OperationType;
 import com.nidio.model.POICategory;
 import com.nidio.model.Property;
 import com.nidio.model.PropertyLifeScoreCategory;
+import com.nidio.model.PropertyType;
 import com.nidio.repository.NoiseZoneRepository;
 import com.nidio.repository.PropertyLifeScoreCategoryRepository;
 import com.nidio.repository.PropertyRepository;
@@ -61,10 +62,16 @@ public class RecommendationService {
     private record Catalog(List<Candidate> candidates, Map<Long, Property> propertiesById) {
     }
 
-    @Transactional(readOnly = true)
     public RecommendationResponse recommend(RecommendationRequest request) {
+        return recommend(request, false);
+    }
+
+    /** @param moreUnlocked cuenta con pase o plan vigente: devuelve hasta 10 resultados en vez de 3. */
+    @Transactional(readOnly = true)
+    public RecommendationResponse recommend(RecommendationRequest request, boolean moreUnlocked) {
         Catalog catalog = buildCatalog(request.getOperationType(), request.getBlueRate());
-        RecommendationEngine.Result result = engine.recommend(request, catalog.candidates());
+        RecommendationEngine.Result result = engine.recommend(request, catalog.candidates(),
+                moreUnlocked ? RecommendationEngine.EXTENDED_RESULTS : RecommendationEngine.RESULTS);
 
         List<RecommendationItem> items = new ArrayList<>();
         for (RecommendationEngine.Scored scored : result.items()) {
@@ -83,13 +90,15 @@ public class RecommendationService {
                     scored.reasons(),
                     scored.tradeoff(),
                     scored.explanation(),
-                    workKm));
+                    workKm,
+                    property.getExpensesUsd()));
         }
         List<RecommendationResponse.FunnelStep> funnel = new ArrayList<>();
         for (RecommendationEngine.FunnelStep step : result.funnel()) {
             funnel.add(new RecommendationResponse.FunnelStep(step.code(), step.remaining()));
         }
-        return new RecommendationResponse(items, result.broadened(), result.message(), funnel);
+        return new RecommendationResponse(items, result.broadened(), result.message(), funnel,
+                result.totalMatches(), moreUnlocked);
     }
 
     /**
@@ -104,6 +113,22 @@ public class RecommendationService {
         }
         prices.sort(Comparator.naturalOrder());
         return prices;
+    }
+
+    /**
+     * Expensas mensuales reales (en USD, de menor a mayor) de los departamentos activos de la operación que las
+     * tienen cargadas: con ellas la pantalla arma la barra de expensas, igual que la de presupuesto.
+     */
+    @Transactional(readOnly = true)
+    public List<BigDecimal> expensesValues(OperationType operationType) {
+        List<BigDecimal> values = new ArrayList<>();
+        for (Property p : propertyRepository.findActiveByOperationType(operationType)) {
+            if (p.getPropertyType() == PropertyType.APARTMENT && p.getExpensesUsd() != null) {
+                values.add(p.getExpensesUsd());
+            }
+        }
+        values.sort(Comparator.naturalOrder());
+        return values;
     }
 
     /**
@@ -204,7 +229,7 @@ public class RecommendationService {
                     Boolean.TRUE.equals(p.getHasPool()) || Boolean.TRUE.equals(p.getBuildingAmenities()),
                     Boolean.TRUE.equals(p.getFurnished()),
                     Boolean.TRUE.equals(p.getAptoCredito()),
-                    n));
+                    n, p.getExpensesUsd()));
             byId.put(p.getId(), p);
         }
         return new Catalog(candidates, byId);

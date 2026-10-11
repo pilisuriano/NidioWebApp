@@ -15,16 +15,22 @@ export const ORIENTATION_OPTIONS = ["Frente", "Contrafrente", "Interno", "Latera
 // no tiene columnas por amenity), se buscan como palabras dentro de la
 // descripción/título, igual que el buscador de texto libre.
 export const AMENITY_OPTIONS = ["Cochera", "Pileta", "Balcón", "Terraza", "Parrilla", "Aire acondicionado", "Permite mascotas", "Seguridad 24hs", "Gimnasio", "Baulera"];
-// Chip especial "Sin amenities": muestra solo las propiedades que no tienen
-// ninguna de las características de arriba. Viaja en la misma lista que el
-// resto de los tags (y en el query string, ver buildFilterQueryString), pero
-// es excluyente con ellos: elegirlo apaga los demás y viceversa (ver
-// toggleAmenityTag).
+// Chip especial "Sin amenities": muestra solo las propiedades que no tienen ningún amenity.
+// Un amenity es un servicio o espacio común del edificio/complejo (pileta, parrilla/quincho,
+// gimnasio, SUM, seguridad 24hs). Cochera, balcón, terraza, aire acondicionado, baulera o
+// "permite mascotas" son características de la unidad, NO amenities: una propiedad con cochera
+// y nada más sigue siendo "sin amenities". Los chips de arriba siguen buscando por palabra,
+// incluidas esas características. Viaja en la misma lista que el resto de los tags (y en el
+// query string, ver buildFilterQueryString), pero es excluyente con ellos (ver toggleAmenityTag).
 export const NO_AMENITIES = "Sin amenities";
-// Campos estructurados que se cargan al publicar (ver AMENITY_SWITCHES en
-// Publicar.jsx) y que cuentan como amenity para "Sin amenities". Luminoso,
-// apto crédito y amoblado no son amenities, por eso no están.
-const AMENITY_FIELDS = ["hasPool", "hasGarage", "buildingAmenities", "security24h"];
+// Campos estructurados que se cargan al publicar (ver AMENITY_SWITCHES en Publicar.jsx) y que
+// cuentan como amenity. No están hasGarage (cochera), luminoso, apto crédito ni amoblado.
+const AMENITY_FIELDS = ["hasPool", "buildingAmenities", "security24h"];
+// Palabras que, en el título o la descripción, delatan un amenity (el catálogo no tiene columna
+// por amenity). Se buscan como palabra entera: "sum" no debe encontrarse dentro de "suma".
+const AMENITY_WORDS = ["pileta", "piscina", "parrilla", "quincho", "gimnasio", "sum", "solarium"];
+// "seguridad 24" va aparte porque después trae "hs", "horas", etc.
+const AMENITY_WORDS_RE = new RegExp(`(?:^|[^\\p{L}\\p{N}])(?:(?:${AMENITY_WORDS.join("|")})(?![\\p{L}\\p{N}])|seguridad\\s*24)`, "u");
 
 /** Prende/apaga un tag de "Características" (sin distinguir mayúsculas) y
  * mantiene "Sin amenities" excluyente con el resto. */
@@ -35,13 +41,12 @@ export function toggleAmenityTag(list, tag) {
   return [...list.filter(t => t !== NO_AMENITIES), tag];
 }
 
-/** true si la propiedad no tiene ningún amenity: ni los campos cargados al
- * publicar ni ninguna de las palabras de AMENITY_OPTIONS en el título o la
- * descripción. */
+/** true si la propiedad no tiene ningún amenity (ver NO_AMENITIES): ni los campos cargados al
+ * publicar ni ninguna palabra de AMENITY_WORDS en el título o la descripción. */
 export function hasNoAmenities(property) {
   if (AMENITY_FIELDS.some(field => property[field])) return false;
   const haystack = [property.title, property.description].filter(Boolean).join(" ").toLowerCase();
-  return !AMENITY_OPTIONS.some(tag => haystack.includes(tag.toLowerCase()));
+  return !AMENITY_WORDS_RE.test(haystack);
 }
 // El catálogo llega ordenado por id descendente (ver PropertyService.listProperties
 // en el backend), que ya equivale a "más recientes primero" — por eso esa es
@@ -199,4 +204,31 @@ export async function fetchAllProperties(api, baseParams) {
     }
   }
   return allContent;
+}
+
+/**
+ * Pone las propiedades destacadas (Set de ids) en la 1.ª posición y luego una cada `every`
+ * resultados, respetando el orden elegido dentro de cada grupo. Si hay más destacadas que
+ * lugares, el resto sigue después. Las destacadas compran visibilidad: no se filtran de más
+ * ni se altera su valuación.
+ */
+export function interleaveFeatured(list, featuredIds, every = 5) {
+  if (!featuredIds || featuredIds.size === 0) return list;
+  const featured = list.filter(p => featuredIds.has(p.id));
+  if (featured.length === 0) return list;
+  const rest = list.filter(p => !featuredIds.has(p.id));
+  const result = [];
+  let f = 0;
+  let r = 0;
+  while (f < featured.length || r < rest.length) {
+    const featuredSlot = result.length % every === 0;
+    if (featuredSlot && f < featured.length) {
+      result.push(featured[f++]);
+    } else if (r < rest.length) {
+      result.push(rest[r++]);
+    } else {
+      result.push(featured[f++]);
+    }
+  }
+  return result;
 }

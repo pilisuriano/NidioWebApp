@@ -79,6 +79,14 @@ public class MlServiceClient {
     public record LifeScoreMlResponse(BigDecimal totalScore, List<LifeScoreMlCategory> categories) {
     }
 
+    // Ruido de un punto (GET /noise). level: 1 = tranquilo ... 4 = muy ruidoso, escala relativa a CABA.
+    // source: "2025", o "2018" (diurno de la Comuna 1). Un período en null = sin dato.
+    public record NoiseMlLevel(int dbLow, int dbHigh, int level, String label, String source, double distanceM) {
+    }
+
+    public record NoiseMlResponse(NoiseMlLevel day, NoiseMlLevel night) {
+    }
+
     public PredictResponse predict(PredictRequest request) {
         try {
             PredictResponse response = restClient.post()
@@ -123,6 +131,21 @@ public class MlServiceClient {
             // técnico acá porque es un caso menos frecuente y más útil de
             // loguear tal cual para diagnosticar si vuelve a pasar.
             throw new MlServiceException("ml-service no responde (/life-score): " + e.getMessage());
+        }
+    }
+
+    public NoiseMlResponse noise(double lat, double lon) {
+        try {
+            NoiseMlResponse response = restClient.get()
+                    .uri(uri -> uri.path("/noise").queryParam("lat", lat).queryParam("lon", lon).build())
+                    .retrieve()
+                    .body(NoiseMlResponse.class);
+            if (response == null) {
+                throw new MlServiceException("ml-service devolvió una respuesta inválida para /noise");
+            }
+            return response;
+        } catch (RestClientException e) {
+            throw new MlServiceException("ml-service no responde (/noise): " + e.getMessage());
         }
     }
 }

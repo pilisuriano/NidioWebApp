@@ -10,8 +10,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface PropertyRepository extends JpaRepository<Property, Long> {
+
+    // Publicaciones sin rango de tasación guardado (avisos demo antiguos o publicadas con ml-service
+    // caído): las completa PropertyValuationBackfillRunner al arrancar.
+    @Query("select p.id from Property p where p.valuationRangeMin is null or p.valuationRangeMax is null order by p.id")
+    List<Long> findIdsMissingValuation();
+
+    // Publicaciones activas de una cuenta: se compara contra el límite de su plan (BillingRules).
+    long countByCreatedByIdAndActiveTrue(Long userId);
 
     // Catálogo completo (activas) de una operación, con el barrio ya cargado: lo usa el
     // recomendador (RecommendationService).
@@ -98,4 +107,21 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
         """)
     Page<Property> findAllForOwner(
             @Param("ownerEmail") String ownerEmail, @Param("query") String query, @Param("active") Boolean active, Pageable pageable);
+
+    // Igual que findAllForOwner pero solo las que tienen un destacado en curso en este momento
+    // (ya arrancó y no venció; las reservas que empiezan más adelante no cuentan todavía).
+    @Query("""
+        SELECT p FROM Property p
+        WHERE p.createdBy.email = :ownerEmail
+          AND (:query IS NULL OR :query = ''
+            OR LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%'))
+            OR LOWER(p.address) LIKE LOWER(CONCAT('%', :query, '%'))
+            OR LOWER(p.neighborhood.name) LIKE LOWER(CONCAT('%', :query, '%')))
+          AND (:active IS NULL OR p.active = :active)
+          AND EXISTS (SELECT 1 FROM FeaturedListing f
+                      WHERE f.propertyId = p.id AND f.startsAt <= :now AND f.endsAt > :now)
+        """)
+    Page<Property> findFeaturedForOwner(
+            @Param("ownerEmail") String ownerEmail, @Param("query") String query, @Param("active") Boolean active,
+            @Param("now") java.time.Instant now, Pageable pageable);
 }

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 
 /**
- * Cuota gratuita mensual de Tasación / Recomendador (ver UsageQuotaService en
- * el backend). feature es "valuation" o "recommendation" (las claves de
- * GET /api/usage). Devuelve null mientras carga o si el backend no responde:
+ * Cuota de Tasación / Recomendador / Life Score (gratis del mes, pase o plan; ver
+ * UsageQuotaService en el backend). feature es "valuation", "recommendation" o
+ * "lifeScore" (las claves de GET /api/usage). Devuelve null mientras carga o si el backend no responde:
  * en ese caso no se muestra nada ni se bloquea (el backend igual es el que
  * corta con 429 si de verdad no quedan usos).
  */
@@ -20,6 +20,20 @@ export function useUsage(feature) {
   }, [refresh]);
   const blocked = Boolean(status && !status.unlimited && status.remaining <= 0);
   return { status, blocked, refresh };
+}
+
+/** Estado de las tres funciones juntas, para "Mi suscripción" en el perfil. */
+export function useAllUsage() {
+  const [usage, setUsage] = useState(null);
+  const refresh = useCallback(() => {
+    return api.get("/api/usage")
+      .then(res => setUsage(res.data))
+      .catch(() => setUsage(null));
+  }, []);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+  return { usage, refresh };
 }
 
 /** true si el error de axios es el 429 de "se terminaron los usos gratis del mes". */

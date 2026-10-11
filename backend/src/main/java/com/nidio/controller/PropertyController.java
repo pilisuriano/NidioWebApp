@@ -7,6 +7,7 @@ import com.nidio.dto.PropertyDetailResponse;
 import com.nidio.dto.PropertySummaryResponse;
 import com.nidio.model.OperationType;
 import com.nidio.model.PropertyType;
+import com.nidio.service.EntitlementService;
 import com.nidio.service.PropertyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ import java.math.BigDecimal;
 public class PropertyController {
 
     private final PropertyService propertyService;
+    private final EntitlementService entitlementService;
 
     @GetMapping
     public PagedResponse<PropertySummaryResponse> list(
@@ -54,6 +56,8 @@ public class PropertyController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public PropertyDetailResponse create(@Valid @RequestBody CreatePropertyRequest request, Authentication authentication) {
+        // Límite de publicaciones activas según el plan (402 si ya llegó al tope).
+        entitlementService.assertCanPublish(authentication.getName());
         return propertyService.createProperty(request, authentication.getName());
     }
 

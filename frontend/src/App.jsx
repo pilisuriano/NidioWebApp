@@ -22,6 +22,7 @@ import Recomendador from "./pages/Recomendador";
 import Favoritos from "./pages/Favoritos";
 import MisPublicaciones from "./pages/MisPublicaciones";
 import Perfil from "./pages/Perfil";
+import Planes from "./pages/Planes";
 import Terminos from "./pages/Terminos";
 import Privacidad from "./pages/Privacidad";
 import Publicar from "./pages/Publicar";
@@ -43,10 +44,9 @@ export default function App() {
               <Route path="tasacion" element={<RequireAuth>
                     <Valuacion />
                   </RequireAuth>} />
+              {/* Life Score también está incluido en los planes profesionales (30 por período). */}
               <Route path="life-score" element={<RequireAuth>
-                    <RequireNotProfessional>
-                      <LifeScore />
-                    </RequireNotProfessional>
+                    <LifeScore />
                   </RequireAuth>} />
               <Route path="recomendador" element={<RequireAuth>
                     <RequireNotProfessional>
@@ -64,10 +64,15 @@ export default function App() {
               <Route path="perfil" element={<RequireAuth>
                     <Perfil />
                   </RequireAuth>} />
+              {/* Planes y precios: público (se puede ver sin sesión; para contratar hay que iniciar sesión). */}
+              <Route path="planes" element={<Planes />} />
               <Route path="terminos" element={<Terminos />} />
               <Route path="privacidad" element={<Privacidad />} />
               <Route path="publicar" element={<RequireAuth>
-                    <Publicar />
+                    <Publicar key="nueva" />
+                  </RequireAuth>} />
+              <Route path="mis-publicaciones/:id/editar" element={<RequireAuth>
+                    <Publicar key="edicion" />
                   </RequireAuth>} />
             </Route>
 
