@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { optimizedImage, IMG_CARD } from "@/lib/images";
 import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -242,7 +243,7 @@ export default function PropertyListing() {
         {pageItems.map(p => <Link key={p.id} to={`/propiedades/${p.id}`}>
             <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer h-full flex flex-col">
               <div className="h-44 bg-surface-dim relative">
-                {p.imageUrl && <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover" />}
+                {p.imageUrl && <img src={optimizedImage(p.imageUrl, IMG_CARD)} alt={p.title} loading="lazy" className="w-full h-full object-cover" />}
                 <Badge className="absolute top-3 right-3" variant="good">{OPERATION_TYPE_LABEL[p.operationType]}</Badge>
                 <FavoriteButton propertyId={p.id} className="absolute top-3 left-3" />
                 {featuredIds.has(p.id) && <Badge className="absolute bottom-3 left-3 gap-1 bg-surface-container-lowest/90 border border-primary/30 shadow-sm"><Star className="w-3 h-3 fill-current" /> Destacada</Badge>}

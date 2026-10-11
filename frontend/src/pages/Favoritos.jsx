@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { optimizedImage, IMG_CARD } from "@/lib/images";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -69,7 +70,7 @@ export default function Favoritos() {
           return <Card key={p.id} className={cn("overflow-hidden transition-shadow h-full flex flex-col", inactive ? "opacity-80" : "hover:shadow-md")}>
             <Wrapper {...wrapperProps}>
               <div className="h-44 bg-surface-dim relative">
-                {p.imageUrl && <img src={p.imageUrl} alt={p.title} className={cn("w-full h-full object-cover", inactive && "grayscale")} />}
+                {p.imageUrl && <img src={optimizedImage(p.imageUrl, IMG_CARD)} alt={p.title} loading="lazy" className={cn("w-full h-full object-cover", inactive && "grayscale")} />}
                 <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
                   {typeof p.active === "boolean" && <Badge
                       variant={p.active ? "default" : "alert"}

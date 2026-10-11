@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { optimizedImage, IMG_CARD } from "@/lib/images";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -297,7 +298,7 @@ export default function MisPublicaciones() {
         {properties.map(p => <Card key={p.id} className="overflow-hidden h-full flex flex-col">
             <Link to={`/propiedades/${p.id}`}>
               <div className="h-40 bg-surface-dim relative">
-                {p.imageUrls?.[0] && <img src={p.imageUrls[0]} alt={p.title} className="w-full h-full object-cover" />}
+                {p.imageUrls?.[0] && <img src={optimizedImage(p.imageUrls[0], IMG_CARD)} alt={p.title} loading="lazy" className="w-full h-full object-cover" />}
                 <Badge className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur border border-good-value/20 shadow-sm" variant="good">{OPERATION_TYPE_LABEL[p.operationType]}</Badge>
                 <Badge
                   className={cn(

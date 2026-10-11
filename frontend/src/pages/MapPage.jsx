@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { optimizedImage, IMG_THUMB, IMG_CARD } from "@/lib/images";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, GeoJSON, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
@@ -899,7 +900,7 @@ export default function MapPage() {
             ficha flotante: foto, precio, dirección — no un popup chico. */}
         {selectedProperty && <div className="absolute bottom-3 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-4 lg:bottom-52 sm:w-[360px] max-h-[calc(100%-1.5rem)] overflow-y-auto z-[1100] bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant overflow-hidden">
           <div className="relative">
-            {selectedProperty.imageUrl ? <img src={selectedProperty.imageUrl} alt={selectedProperty.title} className="w-full h-32 sm:h-44 object-cover bg-surface-dim" /> : <div className="w-full h-32 sm:h-44 bg-surface-dim" />}
+            {selectedProperty.imageUrl ? <img src={optimizedImage(selectedProperty.imageUrl, IMG_CARD)} loading="lazy" alt={selectedProperty.title} className="w-full h-32 sm:h-44 object-cover bg-surface-dim" /> : <div className="w-full h-32 sm:h-44 bg-surface-dim" />}
             <button type="button" onClick={() => setSelectedId(null)} aria-label="Cerrar" className="absolute top-2 right-2 w-8 h-8 rounded-full bg-surface-container-lowest/90 backdrop-blur flex items-center justify-center shadow-sm hover:bg-surface-container-lowest">
               <X className="w-4 h-4 text-on-surface" />
             </button>
@@ -1039,7 +1040,7 @@ export default function MapPage() {
             </p>}
           {nearbyProperties.slice(0, 12).map(p => <Card key={p.id} onClick={() => setSelectedId(p.id)} className={cn("relative overflow-hidden cursor-pointer", nearbyPanelExpanded ? "w-full" : "min-w-[270px] sm:min-w-[320px] flex-shrink-0", p.id === selectedId ? "border-primary border-2" : "border-outline-variant")}>
               <div className="p-4 flex gap-4">
-                {p.imageUrl && <img src={p.imageUrl} className="w-20 h-20 rounded-lg object-cover bg-surface-dim" alt={p.title} />}
+                {p.imageUrl && <img src={optimizedImage(p.imageUrl, IMG_THUMB)} loading="lazy" className="w-20 h-20 rounded-lg object-cover bg-surface-dim" alt={p.title} />}
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex justify-between items-start gap-2">
                     <h4 className="font-bold text-sm text-on-surface line-clamp-1">{p.title}</h4>

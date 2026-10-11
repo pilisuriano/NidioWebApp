@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { optimizedImage, IMG_CARD } from "@/lib/images";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -198,7 +199,7 @@ export default function Dashboard() {
             {properties.map(p => <Link key={p.id} to={`/propiedades/${p.id}`} className="shrink-0 w-72 snap-start">
                 <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer h-full">
                   <div className="h-40 bg-surface-dim relative">
-                    {p.imageUrl && <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover" />}
+                    {p.imageUrl && <img src={optimizedImage(p.imageUrl, IMG_CARD)} alt={p.title} loading="lazy" className="w-full h-full object-cover" />}
                     <OperationBadge operationType={p.operationType} className="absolute top-3 right-3" />
                     {showingFeatured && <FeaturedBadge className="absolute top-3 left-3" />}
                   </div>

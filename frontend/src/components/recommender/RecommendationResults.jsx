@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { optimizedImage, IMG_CARD } from "@/lib/images";
 import { Link } from "react-router-dom";
 import { Briefcase, Building2, ChevronDown, DoorOpen, ExternalLink, Info, MapPin, Receipt, Ruler, RotateCcw, Pencil, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -58,7 +59,7 @@ export function RecommendationResults({ result, onEdit, onRestart }) {
           return <Link key={p.id} to={`/propiedades/${p.id}`} target="_blank" rel="noopener noreferrer" aria-label={`${p.title}, ${p.neighborhoodName}. Se abre en una pestaña nueva`} className="block h-full nidi-pop" style={{ animationDelay: `${Math.min(index, FIRST_RESULTS - 1) * 0.25}s` }}>
               <Card className="overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow cursor-pointer">
                 <div className="h-44 bg-surface-dim relative">
-                  {p.imageUrl && <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />}
+                  {p.imageUrl && <img src={optimizedImage(p.imageUrl, IMG_CARD)} alt="" loading="lazy" className="w-full h-full object-cover" />}
                   <FavoriteButton propertyId={p.id} className="absolute top-3 left-3" />
                   <span className="absolute bottom-3 left-3 w-8 h-8 rounded-full bg-primary text-on-primary text-sm font-bold flex items-center justify-center shadow">{index + 1}</span>
                   <Badge className="absolute top-3 right-3 bg-surface-container-lowest border border-good-value/20 shadow-sm" variant="good">{OPERATION_TYPE_LABEL[p.operationType]}</Badge>
