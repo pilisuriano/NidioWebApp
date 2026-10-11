@@ -98,7 +98,7 @@ export default function Dashboard() {
       {/* Quick Actions. "Publicar" vivía como botón suelto en la barra de
           arriba (ya sacada de MainLayout); ahora es una card más acá, con
           la misma explicación breve que el resto. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${isProfessional ? "lg:grid-cols-4" : "xl:grid-cols-5"}`}>
         <Link to="/mapa" className="flex h-full">
           <Card className="hover:shadow-md transition-shadow cursor-pointer group border-primary/20 h-full w-full flex flex-col justify-between">
             <CardHeader>
@@ -145,6 +145,23 @@ export default function Dashboard() {
               <CardContent className="mt-4">
                 <span className="text-sm font-bold text-secondary flex items-center gap-1 group-hover:gap-2 transition-all">
                   Calcular score <ArrowRight className="w-4 h-4" />
+                </span>
+              </CardContent>
+            </Card>
+          </Link>}
+
+        {!isProfessional && <Link to="/recomendador" className="flex h-full">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer group h-full w-full flex flex-col justify-between">
+              <CardHeader>
+                <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center mb-4 text-secondary">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <CardTitle>Recomendación</CardTitle>
+                <CardDescription className="mt-2">Respondé unas preguntas y Nidi te recomienda las propiedades que mejor encajan con vos.</CardDescription>
+              </CardHeader>
+              <CardContent className="mt-4">
+                <span className="text-sm font-bold text-secondary flex items-center gap-1 group-hover:gap-2 transition-all">
+                  Empezar test <ArrowRight className="w-4 h-4" />
                 </span>
               </CardContent>
             </Card>
@@ -219,37 +236,43 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          <div className="relative h-80 hidden md:block">
-            {/* Card de fondo, decorativa (da sensación de pila de fichas) */}
-            <div className="absolute top-14 right-0 w-60 h-64 rounded-2xl bg-surface-dim rotate-6 shadow-md" />
-            {/* Ficha de propiedad de ejemplo */}
-            <div className="absolute top-6 right-6 w-64 bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant overflow-hidden">
-              <img src={MOCK_PROPERTY_IMAGE_URL} alt="" className="w-full h-32 object-cover" />
-              <div className="p-4 space-y-2">
-                <p className="font-bold text-lg text-on-surface">USD 245.000</p>
-                <p className="text-xs font-mono text-on-surface-variant">3 amb · 68 m² · Depto en venta</p>
-                <div className="h-2 bg-surface-dim rounded-full w-full mt-2" />
-                <div className="h-2 bg-surface-dim rounded-full w-2/3" />
+          <div className="hidden md:flex items-center h-80">
+            {/* Badges flotantes: lo que Nidio suma sobre el aviso (valor, entorno y recomendación).
+                Van en su propia columna, centrados en el espacio entre el título y la ficha. */}
+            <div className="flex-1 flex flex-col items-center gap-5 pr-2">
+              <div className="bg-surface-container-lowest rounded-full shadow-lg border border-outline-variant py-1.5 pl-1.5 pr-4 flex items-center gap-2 -translate-x-3">
+                <span className="w-9 h-9 rounded-full bg-good-value/10 text-good-value flex items-center justify-center flex-shrink-0">
+                  <Calculator className="w-4 h-4" />
+                </span>
+                <span className="text-xs font-bold text-on-surface">Tasación</span>
+              </div>
+              <div className="bg-surface-container-lowest rounded-full shadow-lg border border-outline-variant py-1.5 pl-1.5 pr-4 flex items-center gap-2 translate-x-3">
+                <span className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                  <HeartPulse className="w-4 h-4" />
+                </span>
+                <span className="text-xs font-bold text-on-surface">Life Score</span>
+              </div>
+              <div className="bg-surface-container-lowest rounded-full shadow-lg border border-outline-variant py-1.5 pl-1.5 pr-4 flex items-center gap-2 -translate-x-3">
+                <span className="w-9 h-9 rounded-full bg-secondary/10 text-secondary flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                <span className="text-xs font-bold text-on-surface">Recomendación</span>
               </div>
             </div>
-            {/* Badges flotantes: lo que Nidio suma sobre el aviso (valor, entorno y recomendación) */}
-            <div className="absolute top-0 left-0 z-10 bg-surface-container-lowest rounded-full shadow-lg border border-outline-variant py-1.5 pl-1.5 pr-4 flex items-center gap-2 max-w-[240px]">
-              <span className="w-9 h-9 rounded-full bg-good-value/10 text-good-value flex items-center justify-center flex-shrink-0">
-                <Calculator className="w-4 h-4" />
-              </span>
-              <span className="text-xs font-bold text-on-surface">Rango de valor</span>
-            </div>
-            <div className="absolute top-24 left-2 z-10 bg-surface-container-lowest rounded-full shadow-lg border border-outline-variant py-1.5 pl-1.5 pr-4 flex items-center gap-2 max-w-[240px]">
-              <span className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                <HeartPulse className="w-4 h-4" />
-              </span>
-              <span className="text-xs font-bold text-on-surface">Life Score</span>
-            </div>
-            <div className="absolute bottom-6 left-10 z-10 bg-surface-container-lowest rounded-full shadow-lg border border-outline-variant py-1.5 pl-1.5 pr-4 flex items-center gap-2 max-w-[240px]">
-              <span className="w-9 h-9 rounded-full bg-secondary/10 text-secondary flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-4 h-4" />
-              </span>
-              <span className="text-xs font-bold text-on-surface">Recomendación</span>
+
+            <div className="relative w-72 h-80 flex-shrink-0">
+              {/* Card de fondo, decorativa (da sensación de pila de fichas) */}
+              <div className="absolute top-14 right-0 w-60 h-64 rounded-2xl bg-surface-dim rotate-6 shadow-md" />
+              {/* Ficha de propiedad de ejemplo */}
+              <div className="absolute top-6 right-6 w-64 bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant overflow-hidden">
+                <img src={MOCK_PROPERTY_IMAGE_URL} alt="" className="w-full h-32 object-cover" />
+                <div className="p-4 space-y-2">
+                  <p className="font-bold text-lg text-on-surface">USD 245.000</p>
+                  <p className="text-xs font-mono text-on-surface-variant">3 amb · 68 m² · Depto en venta</p>
+                  <div className="h-2 bg-surface-dim rounded-full w-full mt-2" />
+                  <div className="h-2 bg-surface-dim rounded-full w-2/3" />
+                </div>
+              </div>
             </div>
           </div>
         </div>}
