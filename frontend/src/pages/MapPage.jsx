@@ -997,12 +997,15 @@ export default function MapPage() {
               <div className="text-[10px] font-mono text-on-surface-variant">
                 {operationType === "SALE" ? "USD/m²" : "ARS/mes (precio total)"}
               </div>
+              <div className="text-[10px] font-normal text-on-surface-variant">
+                Fuente: IDECBA, Gobierno de la Ciudad de Buenos Aires. Procesados por Nidio.
+              </div>
             </>}
           {colorVisible && layer === "security" && <div className="space-y-1">
               <p>Seguridad del barrio</p>
               <div className="h-2.5 rounded-full" style={{ background: "linear-gradient(to right, hsl(0,80%,42%), hsl(70,80%,46%), hsl(140,80%,50%))" }}></div>
               <div className="flex justify-between text-[10px] font-normal text-on-surface-variant"><span>Menos seguro</span><span>Más seguro</span></div>
-              <div className="text-[10px] font-normal text-on-surface-variant">Comparado con el resto de CABA</div>
+              <div className="text-[10px] font-normal text-on-surface-variant">Comparado con el resto de CABA. Hechos denunciados 2023-2025. Fuente: Delitos, BA Data (CC BY 2.5 AR)</div>
             </div>}
           {noisePeriod && <div className="space-y-1">
               <p>Ruido {noisePeriod === "day" ? "diurno" : "nocturno"} por calle</p>
