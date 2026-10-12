@@ -11,7 +11,7 @@ const SECTIONS = [{
   body: "Usamos tu email para verificar tu cuenta, permitirte iniciar sesión y enviarte links de recuperación de contraseña cuando los solicitás. No usamos tus datos con fines publicitarios ni los vendemos ni compartimos con terceros."
 }, {
   title: "4. Catálogo de propiedades",
-  body: "El catálogo de propiedades que se muestra en Nidio es sintético (simulado), generado para validar la plataforma sin exponer datos reales de personas ni de inmuebles. No contiene datos personales de propietarios, inquilinos ni inmobiliarias reales."
+  body: "El catálogo de propiedades que se muestra en Nidio se construyó a partir de una muestra de datos del mercado inmobiliario de CABA, a la que se le anonimizaron las direcciones, se le asignaron publicadores ficticios y se le agregaron fotografías ilustrativas, para validar la plataforma sin exponer datos de personas ni de inmuebles reales. No contiene datos personales de propietarios, inquilinos ni inmobiliarias reales."
 }, {
   title: "5. Seguridad",
   body: "El acceso a la plataforma está protegido con autenticación basada en JWT y contraseñas encriptadas con BCrypt, y todas las comunicaciones se realizan mediante HTTPS. Las sesiones expiran a las 24 horas de actividad o a los 30 minutos de inactividad."
@@ -33,7 +33,7 @@ export default function Privacidad() {
   return <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="border-b border-outline-variant pb-6">
         <h1 className="text-3xl font-bold text-on-surface mb-2">Privacidad y protección de datos</h1>
-        <p className="text-sm font-mono text-on-surface-variant">Última actualización: agosto de 2026.</p>
+        <p className="text-sm font-mono text-on-surface-variant">Última actualización: octubre de 2026.</p>
       </div>
 
       <Card>
