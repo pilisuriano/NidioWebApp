@@ -492,7 +492,7 @@ export default function PropertyDetail() {
               </div>
               {!property.createdByName
                 ? <p className="text-sm text-on-surface-variant">
-                    Esta propiedad es parte del catálogo sintético de demostración de Nidio: no tiene un publicador real para contactar.
+                    Esta propiedad es parte del catálogo de demostración de Nidio: su publicador es una cuenta ficticia y no se puede contactar.
                   </p>
                 : isOwner
                   ? <p className="text-sm text-on-surface-variant">

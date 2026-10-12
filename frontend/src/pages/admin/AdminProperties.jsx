@@ -300,7 +300,7 @@ export default function AdminProperties() {
   return <div className="space-y-8 animate-in fade-in duration-500">
       <div className="border-b border-outline-variant pb-6">
         <h1 className="text-3xl font-bold text-on-surface mb-2">Propiedades</h1>
-        <p className="text-sm font-mono text-on-surface-variant">Catálogo completo: sintéticas y publicadas por usuarios.</p>
+        <p className="text-sm font-mono text-on-surface-variant">Catálogo completo: de demostración y publicadas por usuarios.</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
@@ -361,7 +361,7 @@ export default function AdminProperties() {
                     <br />{formatNumber(p.surfaceM2)} m² · {p.rooms} amb.
                   </td>
                   <td className="p-4 text-sm font-bold text-primary">{formatPrice(p.price, p.operationType)}</td>
-                  <td className="p-4 text-xs text-on-surface-variant">{p.createdByName ?? "Catálogo sintético"}</td>
+                  <td className="p-4 text-xs text-on-surface-variant">{p.createdByName ?? "Catálogo de demostración"}</td>
                   <td className="p-4">
                     <Badge variant={p.active ? "good" : "alert"}>{p.active ? "Activa" : "Desactivada"}</Badge>
                   </td>

@@ -7,8 +7,8 @@ const SECTIONS = [{
   title: "2. Qué es Nidio",
   body: "Nidio es una plataforma de análisis del mercado inmobiliario de la Ciudad Autónoma de Buenos Aires (CABA), pensada para compradores e inquilinos. A diferencia de un portal de avisos clasificados, Nidio no publica ni intermedia operaciones inmobiliarias reales: ofrece herramientas de análisis (estimación de rango de valor, mapas de calor de precios y un indicador de entorno urbano o \"Life Score\") para ayudarte a tomar decisiones informadas."
 }, {
-  title: "3. Catálogo de propiedades sintético",
-  body: "El catálogo de propiedades que se muestra en Nidio es simulado (sintético) y se usa exclusivamente para validar el funcionamiento de la plataforma. No representa avisos reales ni ofertas vigentes de venta o alquiler, y no debe usarse para contactar a ningún tercero ni para tomar decisiones de compra o alquiler sobre una propiedad puntual. Las imágenes son ilustrativas (bancos de imágenes de uso libre)."
+  title: "3. Catálogo de propiedades",
+  body: "El catálogo de propiedades que se muestra en Nidio se construyó a partir de una muestra del conjunto de datos con el que se entrenó el modelo de valuación. Las direcciones fueron anonimizadas, los publicadores son cuentas ficticias, las imágenes son ilustrativas (bancos de imágenes de uso libre) y los precios son valores de referencia cargados manualmente a partir de propiedades comparables. Por eso no representa avisos reales ni ofertas vigentes de venta o alquiler, y no debe usarse para contactar a ningún tercero ni para tomar decisiones de compra o alquiler sobre una propiedad puntual."
 }, {
   title: "4. Estimaciones de valor y Life Score",
   body: "Los rangos de valor generados por el modelo de valuación y los puntajes de Life Score son estimaciones orientativas basadas en datos públicos y modelos estadísticos. No constituyen una tasación profesional, no reemplazan el asesoramiento de un martillero o corredor matriculado, y Nidio no garantiza que el precio final de una operación real coincida con el rango estimado."
@@ -33,7 +33,7 @@ export default function Terminos() {
   return <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="border-b border-outline-variant pb-6">
         <h1 className="text-3xl font-bold text-on-surface mb-2">Términos y condiciones</h1>
-        <p className="text-sm font-mono text-on-surface-variant">Última actualización: agosto de 2026.</p>
+        <p className="text-sm font-mono text-on-surface-variant">Última actualización: octubre de 2026.</p>
       </div>
 
       <Card>
