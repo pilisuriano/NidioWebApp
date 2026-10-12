@@ -147,6 +147,32 @@ class RecommendationEngineTest {
     }
 
     @Test
+    void chosenRoomsOptionsAreExactAndTheLastOneMeansFiveOrMore() {
+        List<Candidate> catalog = List.of(
+                cand(1, PropertyType.APARTMENT, 1000, 1, 900L, 1100L, flat(50), 50, 50, null, null),
+                cand(2, PropertyType.APARTMENT, 1000, 2, 900L, 1100L, flat(50), 50, 50, null, null),
+                cand(3, PropertyType.APARTMENT, 1000, 3, 900L, 1100L, flat(50), 50, 50, null, null),
+                cand(5, PropertyType.APARTMENT, 1000, 5, 900L, 1100L, flat(50), 50, 50, null, null),
+                cand(6, PropertyType.APARTMENT, 1000, 6, 900L, 1100L, flat(50), 50, 50, null, null));
+
+        // Solo 2 y 3 ambientes: ni la de 1 ni las de 5 o más, aunque la pareja sugiera 2 como mínimo.
+        RecommendationRequest twoOrThree = request();
+        twoOrThree.setRoomsOptions(List.of(2, 3));
+        assertEquals(List.of(2L, 3L), ids(engine.recommend(twoOrThree, catalog)));
+
+        // 5+ incluye las de 5 y las de 6.
+        RecommendationRequest fivePlus = request();
+        fivePlus.setRoomsOptions(List.of(5));
+        assertEquals(List.of(5L, 6L), ids(engine.recommend(fivePlus, catalog)));
+
+        // Si viene roomsOptions, manda sobre minRooms.
+        RecommendationRequest both = request();
+        both.setMinRooms(4);
+        both.setRoomsOptions(List.of(1));
+        assertEquals(List.of(1L), ids(engine.recommend(both, catalog)));
+    }
+
+    @Test
     void distanceIsMeasuredInKilometersInAStraightLine() {
         // 0,1 grado de latitud son unos 11,12 km (1 grado = 111,19 km), sin importar la longitud.
         assertEquals(11.12, RecommendationEngine.distanceKm(-34.6, -58.4, -34.5, -58.4), 0.02);

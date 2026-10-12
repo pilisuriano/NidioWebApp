@@ -11,7 +11,7 @@ const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright
 export const BASE_TILES = CARTO_KEY
   ? {
       url: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${encodeURIComponent(CARTO_KEY)}`,
-      attribution: `${OSM_ATTRIBUTION} &copy; <a href="https://carto.com/attributions">CARTO</a>`,
+      attribution: `${OSM_ATTRIBUTION} &copy; <a href="https://carto.com/attribution">CARTO</a>`,
     }
   : {
       url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",

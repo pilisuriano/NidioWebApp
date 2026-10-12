@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { optimizedImage, IMG_THUMB } from "@/lib/images";
 import { UploadCloud, X, Loader2 } from "lucide-react";
 import { api, apiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -77,7 +78,7 @@ export function ImageUploader({ images, onChange }) {
         )}
       >
         {images.map((url, i) => <div key={url + i} className="group relative aspect-square overflow-hidden rounded-lg bg-surface-dim">
-            <img src={url} alt="" className="h-full w-full object-cover" />
+            <img src={optimizedImage(url, IMG_THUMB)} alt="" className="h-full w-full object-cover" />
             {i === 0 && <span className="absolute bottom-1 left-1 rounded bg-inverse-surface/80 px-1.5 py-0.5 text-[10px] font-bold text-white">Portada</span>}
             <button type="button" onClick={() => removeAt(i)} aria-label="Quitar foto" className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-inverse-surface/80 text-white opacity-0 transition-opacity group-hover:opacity-100">
               <X className="h-3.5 w-3.5" />

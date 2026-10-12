@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { optimizedImage, IMG_THUMB, IMG_CARD } from "@/lib/images";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, GeoJSON, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
@@ -19,15 +20,15 @@ import { useFeaturedIds } from "@/lib/billing";
 import { FavoriteButton } from "@/components/property/FavoriteButton";
 import { NidioLoadingMark } from "@/components/ui/NidioLoadingMark";
 import {
-  filterProperties, countActiveFilters, buildFilterQueryString, fetchAllProperties,
-  ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, NO_AMENITIES, toggleAmenityTag } from "@/lib/propertyFilters";
+  filterProperties, countActiveFilters, buildFilterQueryString, parseFilterQueryString, fetchAllProperties,
+  ROOMS_OPTIONS, roomsOptionLabel, toggleRoomsOption, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, NO_AMENITIES, toggleAmenityTag } from "@/lib/propertyFilters";
 import { cn } from "@/lib/utils";
 import { BASE_TILES } from "@/lib/mapTiles";
 import { NoiseStreetsLayer, useNoiseCuts } from "@/components/map/NoiseStreetsLayer";
 import { OverlayLabels } from "@/components/map/OverlayLabels";
 import { MAP_LEVEL_COLORS, noiseLegend } from "@/lib/environment";
 
-const PROPERTY_TYPE_OPTIONS = [["", "Todos los tipos"], ["APARTMENT", "Departamento"], ["HOUSE", "Casa"], ["PH", "PH"]];
+const PROPERTY_TYPE_OPTIONS = [["", "Tipo de propiedad"], ["APARTMENT", "Departamento"], ["HOUSE", "Casa"], ["PH", "PH"]];
 
 // Centro aproximado de CABA (lat, lon).
 const CABA_CENTER = [-34.605, -58.43];
@@ -329,7 +330,10 @@ export default function MapPage() {
   // compararlo contra el rango tasado.
   const { blueRate } = useBlueRate();
   const featuredIds = useFeaturedIds();
-  const [operationType, setOperationType] = useState("SALE");
+  // El buscador de Inicio manda operación, tipo y ambientes ya interpretados por la URL
+  // (ver lib/heroSearch.js); si no vienen, arranca en Comprar / todos los tipos.
+  const [searchParams] = useSearchParams();
+  const [operationType, setOperationType] = useState(() => parseFilterQueryString(searchParams).operationType === "RENT" ? "RENT" : "SALE");
   // Ambientes/condición son los ejes reales en los que IDECBA publica el
   // precio (no hay una serie única "precio/m² del barrio"), pero no se
   // exponen como filtro en el mapa: se fija 2 ambientes/usado (el segmento
@@ -343,7 +347,7 @@ export default function MapPage() {
   // JTS/PostGIS -- ver NeighborhoodService.getCabaBoundary). Es geometría de
   // referencia fija, no depende de ningún filtro: se pide una sola vez.
   const [cabaBoundary, setCabaBoundary] = useState(null);
-  const [propertyType, setPropertyType] = useState("");
+  const [propertyType, setPropertyType] = useState(() => PROPERTY_TYPE_OPTIONS.some(([value]) => value && value === searchParams.get("propertyType")) ? searchParams.get("propertyType") : "");
   const [properties, setProperties] = useState([]);
   const [locations, setLocations] = useState({});
   // Para mostrar el logo de Nidio "llenándose" sobre el mapa mientras se
@@ -353,13 +357,12 @@ export default function MapPage() {
   // Si se llega desde el buscador de Inicio (/mapa?search=...), arranca con
   // ese término ya cargado.
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   // "Más filtros": todo esto filtra client-side sobre lo que ya está
   // cargado (ver visibleProperties más abajo), igual que la búsqueda de
   // texto — no pega contra el backend de nuevo.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [minRooms, setMinRooms] = useState(0);
+  const [roomsFilter, setRoomsFilter] = useState(() => parseFilterQueryString(searchParams).rooms);
   const [minBathrooms, setMinBathrooms] = useState(0);
   const [priceFrom, setPriceFrom] = useState("");
   const [priceTo, setPriceTo] = useState("");
@@ -382,6 +385,24 @@ export default function MapPage() {
   // La línea/handle del panel "Propiedades cerca" lo agranda un poco (más
   // filas visibles, en vez de una sola tira que scrollea de costado).
   const [nearbyPanelExpanded, setNearbyPanelExpanded] = useState(false);
+  // Alto real del panel "Propiedades cerca" (cambia al agrandarlo y según el celular). Las
+  // referencias de color del mapa de calor se suben por encima de él: antes el panel las
+  // tapaba justo después de buscar un barrio (reportado en la prueba de SUS).
+  const nearbyPanelRef = useRef(null);
+  const [nearbyPanelHeight, setNearbyPanelHeight] = useState(0);
+  useEffect(() => {
+    const el = nearbyPanelRef.current;
+    if (!showNearbyPanel || !el) {
+      setNearbyPanelHeight(0);
+      return undefined;
+    }
+    const update = () => setNearbyPanelHeight(el.offsetHeight);
+    update();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [showNearbyPanel]);
   useEffect(() => {
     setShowNearbyPanel(false);
     setNearbyPanelExpanded(false);
@@ -412,7 +433,7 @@ export default function MapPage() {
     // que crece el catálogo de propiedades.
     const baseParams = {
       operationType,
-      // "" (Todos los tipos) no debe mandarse como filtro: el backend
+      // "" (Tipo de propiedad, sin elegir) no debe mandarse como filtro: el backend
       // interpreta la ausencia del param como "sin filtrar por tipo".
       ...(propertyType ? { propertyType } : {})
     };
@@ -478,7 +499,7 @@ export default function MapPage() {
     const values = securityData?.features.map(f => f.properties.securityIndex) ?? [];
     return values.length ? [Math.min(...values), Math.max(...values)] : [0, 100];
   }, [securityData]);
-  const activeFilters = { minRooms, minBathrooms, priceFrom, priceTo, ageFilter, publisherType: publisherTypeFilter, orientations: orientationFilter, amenities: amenityFilter };
+  const activeFilters = { rooms: roomsFilter, minBathrooms, priceFrom, priceTo, ageFilter, publisherType: publisherTypeFilter, orientations: orientationFilter, amenities: amenityFilter };
   const activeFilterCount = countActiveFilters(activeFilters);
   // Búsqueda por palabras (no por frase exacta): "depto palermo" separa en
   // ["depto", "palermo"] y una propiedad matchea si CADA palabra aparece en
@@ -634,8 +655,8 @@ export default function MapPage() {
             <div className="space-y-2">
               <p className="text-xs font-bold text-outline uppercase tracking-widest">Ambientes</p>
               <div className="flex gap-2">
-                {ROOMS_OPTIONS.map(n => <button key={n} type="button" onClick={() => setMinRooms(n)} className={cn("flex-1 text-sm py-1.5 rounded-md border transition-colors", minRooms === n ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
-                    {n === 0 ? "Todos" : `${n}+`}
+                {ROOMS_OPTIONS.map(n => <button key={n} type="button" aria-pressed={roomsFilter.includes(n)} aria-label={`${roomsOptionLabel(n)} ${n === 1 ? "ambiente" : "ambientes"}`} onClick={() => setRoomsFilter(list => toggleRoomsOption(list, n))} className={cn("flex-1 text-sm py-1.5 rounded-md border transition-colors", roomsFilter.includes(n) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
+                    {roomsOptionLabel(n)}
                   </button>)}
               </div>
             </div>
@@ -715,7 +736,7 @@ export default function MapPage() {
 
             <div className="sm:col-span-2 flex justify-between items-center pt-2 border-t border-outline-variant">
               <button type="button" onClick={() => {
-                setMinRooms(0);
+                setRoomsFilter([]);
                 setMinBathrooms(0);
                 setPriceFrom("");
                 setPriceTo("");
@@ -732,13 +753,12 @@ export default function MapPage() {
           </div>}
       </div>
 
-      {/* Selector de capas. top-24 (antes top-6): el chip de usuario ahora
-          vive arriba a la derecha del todo (MainLayout, z-[1300]) en TODAS
-          las páginas, incluida esta -- este selector se corre más abajo
-          para no quedar tapado por el chip en vez de al revés. */}
+      {/* Selector de capas. */}
       {/* En celular/tablet arranca debajo del buscador (que ahí ocupa todo
           el ancho) y con márgenes más chicos. */}
-      <div className="absolute top-[128px] right-3 lg:top-24 lg:right-6 z-[1000] flex flex-col items-end gap-2">
+      {/* z-[1010] y alto máximo con scroll: con el panel "Propiedades cerca" abierto (z-[1000], pegado abajo) las
+          capas quedaban tapadas; ahora el selector termina arriba del panel y se desplaza si no entra. */}
+      <div style={nearbyPanelHeight > 0 ? { maxHeight: `calc(100% - 140px - ${nearbyPanelHeight}px)` } : undefined} className="absolute top-[128px] right-3 lg:top-6 lg:right-6 z-[1010] flex flex-col items-end gap-2 max-h-[calc(100%-9rem)] overflow-y-auto overflow-x-hidden pl-2 pb-2">
         {/* Acceso directo al listado en grilla (mismos filtros ya aplicados:
             operación, tipo, texto y "Más filtros"). Antes vivía debajo de la
             barra de búsqueda a ancho completo -- tapaba demasiado mapa; se
@@ -923,7 +943,7 @@ export default function MapPage() {
             ficha flotante: foto, precio, dirección — no un popup chico. */}
         {selectedProperty && <div className="absolute bottom-3 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-4 lg:bottom-52 sm:w-[360px] max-h-[calc(100%-1.5rem)] overflow-y-auto z-[1100] bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant overflow-hidden">
           <div className="relative">
-            {selectedProperty.imageUrl ? <img src={selectedProperty.imageUrl} alt={selectedProperty.title} className="w-full h-32 sm:h-44 object-cover bg-surface-dim" /> : <div className="w-full h-32 sm:h-44 bg-surface-dim" />}
+            {selectedProperty.imageUrl ? <img src={optimizedImage(selectedProperty.imageUrl, IMG_CARD)} loading="lazy" alt={selectedProperty.title} className="w-full h-32 sm:h-44 object-cover bg-surface-dim" /> : <div className="w-full h-32 sm:h-44 bg-surface-dim" />}
             <button type="button" onClick={() => setSelectedId(null)} aria-label="Cerrar" className="absolute top-2 right-2 w-8 h-8 rounded-full bg-surface-container-lowest/90 backdrop-blur flex items-center justify-center shadow-sm hover:bg-surface-container-lowest">
               <X className="w-4 h-4 text-on-surface" />
             </button>
@@ -968,7 +988,7 @@ export default function MapPage() {
             panel de abajo todavía no se abrió. Titila con un punto tipo
             notificación (animate-ping) para llamar la atención sin taparse
             texto a sí mismo con la animación. */}
-        {searchedNeighborhoodName && !showNearbyPanel && <button type="button" onClick={() => setShowNearbyPanel(true)} className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-[1050] flex items-center gap-2 bg-primary text-on-primary rounded-full shadow-xl pl-4 pr-5 py-3 font-bold text-sm hover:opacity-90 transition-all">
+        {searchedNeighborhoodName && !showNearbyPanel && !selectedProperty && <button type="button" onClick={() => setShowNearbyPanel(true)} className="absolute left-1/2 -translate-x-1/2 bottom-5 z-[1050] flex items-center gap-2 bg-primary text-on-primary rounded-full shadow-xl pl-4 pr-5 py-3 font-bold text-sm hover:opacity-90 transition-all">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-on-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-on-primary"></span>
@@ -980,7 +1000,7 @@ export default function MapPage() {
         {/* Leyenda */}
         {/* Leyenda: en compu se corre a la derecha del botón del menú (que vive a la
             izquierda, a mitad de altura) y se puede plegar, así nunca lo tapa. */}
-        {(colorVisible || noisePeriod) && <div className="absolute bottom-4 left-3 sm:bottom-40 sm:left-16 lg:left-20 z-[1000] w-[235px] max-h-[40vh] overflow-y-auto bg-surface-container-lowest/95 backdrop-blur border border-outline-variant rounded-lg shadow-sm text-xs font-bold text-on-surface">
+        {(colorVisible || noisePeriod) && <div style={nearbyPanelHeight > 0 ? { bottom: nearbyPanelHeight + 12 } : undefined} className="absolute bottom-4 left-3 sm:bottom-40 sm:left-16 lg:left-20 z-[1010] w-[235px] max-h-[40vh] overflow-y-auto bg-surface-container-lowest/95 backdrop-blur border border-outline-variant rounded-lg shadow-sm text-xs font-bold text-on-surface">
           <button type="button" onClick={() => setReferencesOpen(o => !o)} aria-expanded={referencesOpen} className="flex w-full items-center justify-between px-3 py-2">
             Referencias <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", !referencesOpen && "rotate-180")} aria-hidden="true" />
           </button>
@@ -1027,7 +1047,7 @@ export default function MapPage() {
           la vista en el mapa (recuadro visible), así que se actualiza solo
           al mover o hacer zoom, y al tocar un pin (que recentra el mapa
           ahí). */}
-      {showNearbyPanel && <div className="absolute bottom-0 w-full bg-surface-container-lowest border-t border-outline-variant shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl p-4 sm:p-6 z-[1000] animate-in slide-in-from-bottom duration-300">
+      {showNearbyPanel && <div ref={nearbyPanelRef} className="absolute bottom-0 w-full bg-surface-container-lowest border-t border-outline-variant shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl p-4 sm:p-6 z-[1000] animate-in slide-in-from-bottom duration-300">
         <button type="button" onClick={() => setShowNearbyPanel(false)} aria-label="Cerrar panel de propiedades" className="absolute top-3 right-4 sm:top-4 sm:right-6 w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-dim hover:text-on-surface transition-colors">
           <X className="w-4 h-4" />
         </button>
@@ -1063,7 +1083,7 @@ export default function MapPage() {
             </p>}
           {nearbyProperties.slice(0, 12).map(p => <Card key={p.id} onClick={() => setSelectedId(p.id)} className={cn("relative overflow-hidden cursor-pointer", nearbyPanelExpanded ? "w-full" : "min-w-[270px] sm:min-w-[320px] flex-shrink-0", p.id === selectedId ? "border-primary border-2" : "border-outline-variant")}>
               <div className="p-4 flex gap-4">
-                {p.imageUrl && <img src={p.imageUrl} className="w-20 h-20 rounded-lg object-cover bg-surface-dim" alt={p.title} />}
+                {p.imageUrl && <img src={optimizedImage(p.imageUrl, IMG_THUMB)} loading="lazy" className="w-20 h-20 rounded-lg object-cover bg-surface-dim" alt={p.title} />}
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex justify-between items-start gap-2">
                     <h4 className="font-bold text-sm text-on-surface line-clamp-1">{p.title}</h4>

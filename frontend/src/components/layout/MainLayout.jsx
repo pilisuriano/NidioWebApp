@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Home, Map, Calculator, HeartPulse, Heart, ClipboardList, User, LogOut, ShieldCheck, Menu, X, Plus, Sparkles, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,6 +56,7 @@ export function MainLayout() {
   // izquierda quedaría pegado al buscador "Alquilar/Comprar"). En el resto
   // de las páginas (Inicio, etc.) no hay ningún control fijo en esa esquina,
   // así que vuelve a la posición arriba a la izquierda de siempre.
+  // En Explorar propiedades el mapa ocupa toda la pantalla: ahí el botón del menú se alinea con los de zoom.
   const isMapPage = location.pathname.startsWith("/mapa");
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   // Abierto por defecto; el usuario lo puede cerrar con el botón de la
@@ -109,10 +109,10 @@ export function MainLayout() {
         sidebarOpen ? "lg:w-64" : "lg:w-0"
       )}>
         <div className="w-64 h-full flex flex-col">
-          <div className="flex items-center justify-between p-6">
+          <div className="flex items-center justify-between px-6 pt-9 pb-2">
             <Link to="/" className="block">
-              <img src="/logo.svg" alt="nidio" className="h-8 w-auto" />
-              <p className="text-[10px] uppercase tracking-widest text-outline-variant mt-1">Inmuebles en CABA</p>
+              <img src="/logo.svg" alt="nidio" className="h-11 w-auto" />
+              <p className="text-[11px] uppercase tracking-widest text-outline-variant mt-1.5">Inmuebles en CABA</p>
             </Link>
             <button
               type="button"
@@ -125,7 +125,7 @@ export function MainLayout() {
             </button>
           </div>
 
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
             {navItems.map(item => <NavLink key={item.path} to={item.path} end={item.path === "/"} className={({
             isActive
           }) => cn("flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all", isActive ? "bg-primary text-on-primary border-l-4 border-inverse-primary rounded-l-none" : "text-outline-variant hover:bg-surface-variant/10 hover:text-inverse-on-surface")}>
@@ -165,62 +165,6 @@ export function MainLayout() {
         </div>
       </aside>
 
-      {/* Botón flotante para reabrir el menú, solo visible cuando está
-          cerrado (sin la barra de arriba ya no hay otro lugar fijo donde
-          ponerlo). z-[1300]: en Explorar propiedades el mapa de Leaflet usa
-          z-index propios de hasta 1200. En Explorar propiedades va al medio
-          del borde izquierdo (no en la esquina superior) para no quedar
-          pegado/superpuesto al buscador "Alquilar/Comprar" de esa página,
-          que también arranca pegado a la esquina de arriba -- en el resto
-          de las páginas (Inicio, etc.) no hay nada fijo en esa esquina, así
-          que va arriba a la izquierda, la posición "de siempre". */}
-      {!sidebarOpen && createPortal(
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(true)}
-          aria-label="Abrir menú"
-          title="Abrir menú"
-          className={cn("hidden lg:block fixed z-[1300] p-2.5 rounded-lg bg-inverse-surface text-inverse-on-surface shadow-lg hover:opacity-90 transition-opacity will-change-transform", isMapPage ? "top-1/2 left-4 -translate-y-1/2" : "top-4 left-4")}
-        >
-          <Menu className="w-5 h-5" />
-        </button>,
-        document.body
-      )}
-
-      {/* Usuario logueado: ya no hay barra blanca arriba, pero se mantiene
-          un acceso rápido al perfil como chip flotante arriba a la derecha,
-          junto con el botón de "Publicar propiedad" al lado (a pedido, para
-          tenerlo a mano en todas las páginas y no solo como card en Inicio).
-          Mismo z-[1300] que el botón de abrir menú, por la misma razón.
-          Siempre arriba a la derecha del todo, en TODAS las páginas
-          (antes, en Explorar propiedades quedaba más abajo -- top-40 -- para
-          no chocar con el selector de capas de esa página; ahora es al
-          revés: el selector de capas de MapPage.jsx es el que se corre para
-          abajo, ver el comentario junto a "Selector de capas" ahí). */}
-      {user && createPortal(
-        <div className="hidden lg:flex fixed top-4 right-4 z-[1300] items-center gap-2 will-change-transform">
-          <Link
-            to="/publicar"
-            className="flex items-center gap-1.5 pl-3 pr-4 py-1.5 rounded-full bg-primary text-on-primary shadow-lg hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Publicar</span>
-          </Link>
-          <Link
-            to="/perfil"
-            className="flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-surface-container-lowest shadow-lg border border-outline-variant hover:shadow-xl transition-shadow group"
-          >
-            <span className="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
-              {user.name?.charAt(0).toUpperCase() ?? "?"}
-            </span>
-            <span className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">
-              {user.name?.split(" ")[0]}
-            </span>
-          </Link>
-        </div>,
-        document.body
-      )}
-
       {/* Main Content Area. Sin topbar: la vieja barra blanca con el título
           de la página y el botón "Publicar" se sacó; Publicar ahora vive
           como card en el Inicio, junto a Tasación y Life Score. */}
@@ -228,6 +172,19 @@ export function MainLayout() {
         {/* Barra superior solo en celular/tablet (lg:hidden): botón de menú,
             logo y los accesos rápidos (Publicar / perfil) que en compu son
             chips flotantes arriba a la derecha. */}
+        {/* Botón para reabrir el menú, solo en compu y solo cuando el menú está cerrado. Flota arriba a la izquierda;
+            en Explorar propiedades va a mitad de altura del borde izquierdo, alineado con los botones de zoom del mapa
+            (10px de margen, 34px de ancho), para no pisar el buscador. Ya no hay chips de Publicar ni de usuario
+            arriba: el perfil está en el menú de la izquierda y Publicar es una card del Inicio. */}
+        {!sidebarOpen && <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menú"
+            title="Abrir menú"
+            className={cn("hidden lg:flex fixed z-[1300] items-center justify-center rounded-lg bg-inverse-surface text-inverse-on-surface shadow-lg hover:opacity-90 transition-opacity", isMapPage ? "top-1/2 left-[10px] -translate-y-1/2 w-[34px] h-[34px]" : "top-4 left-4 p-2.5")}
+          >
+            <Menu className="w-5 h-5" />
+          </button>}
         <header className="lg:hidden flex items-center justify-between gap-2 h-14 px-3 sm:px-4 bg-inverse-surface text-inverse-on-surface flex-shrink-0 z-[1300]">
           <div className="flex items-center gap-2 min-w-0">
             <button
@@ -264,7 +221,8 @@ export function MainLayout() {
             encima. En flujo de bloque normal el Footer simplemente aparece
             después de todo el contenido, sin importar cuánto mida. */}
         <main className="flex-1 min-h-0 overflow-auto bg-surface relative">
-          <Outlet />
+          {/* sidebarOpen se comparte con las páginas: el Inicio muestra el logo sobre la portada cuando el menú está cerrado. */}
+          <Outlet context={{ sidebarOpen }} />
           <Footer />
         </main>
       </div>

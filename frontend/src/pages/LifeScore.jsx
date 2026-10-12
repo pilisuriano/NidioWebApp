@@ -824,7 +824,11 @@ export default function LifeScore() {
               </div>}
             <div className="w-full h-full rounded-lg relative overflow-hidden min-h-[420px]">
               {result ? (
-                <MapContainer key={result.id} center={[result.location.lat, result.location.lon]} zoom={15} className="w-full h-full min-h-[420px]">
+                /* scrollWheelZoom/doubleClickZoom/touchZoom "center": el zoom se hace sobre el
+                    centro de la vista y no sobre el cursor. Con el default de Leaflet, un
+                    toque de rueda con el mouse lejos de la casa la sacaba de cámara y no
+                    se la encontraba más (reportado en la prueba de SUS). */
+                <MapContainer key={result.id} center={[result.location.lat, result.location.lon]} zoom={15} scrollWheelZoom="center" doubleClickZoom="center" touchZoom="center" className="w-full h-full min-h-[420px]">
                   <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
                   <EnvironmentOverlays env={env} />
                   <PoiPane />

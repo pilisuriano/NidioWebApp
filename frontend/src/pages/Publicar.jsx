@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { optimizedImage, IMG_THUMB, IMG_CARD } from "@/lib/images";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -589,12 +590,12 @@ export default function Publicar() {
               <p className="text-xs font-bold text-outline uppercase tracking-widest">{editing ? "Revisá antes de guardar" : "Revisá antes de publicar"}</p>
               <div className="rounded-lg border border-outline-variant overflow-hidden">
                 <div className="h-44 bg-surface-dim relative">
-                  {form.imageUrls[Math.min(previewIndex, Math.max(0, form.imageUrls.length - 1))] && <img src={form.imageUrls[Math.min(previewIndex, Math.max(0, form.imageUrls.length - 1))]} alt="" className="w-full h-full object-cover" />}
+                  {form.imageUrls[Math.min(previewIndex, Math.max(0, form.imageUrls.length - 1))] && <img src={optimizedImage(form.imageUrls[Math.min(previewIndex, Math.max(0, form.imageUrls.length - 1))], IMG_CARD)} alt="" className="w-full h-full object-cover" />}
                   <Badge className="absolute top-3 right-3" variant="good">{form.operationType === "SALE" ? "VENTA" : "ALQUILER"}</Badge>
                 </div>
                 {form.imageUrls.length > 1 && <div className="flex gap-2 overflow-x-auto px-3 py-2 bg-surface-container-low border-t border-outline-variant">
                     {form.imageUrls.map((url, i) => <button key={url + i} type="button" onClick={() => setPreviewIndex(i)} className={cn("w-14 h-14 rounded-md overflow-hidden shrink-0 border-2 transition-colors", i === previewIndex ? "border-primary" : "border-transparent opacity-70 hover:opacity-100")}>
-                        <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                        <img src={optimizedImage(url, IMG_THUMB)} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
                       </button>)}
                   </div>}
                 <div className="p-5 space-y-3">

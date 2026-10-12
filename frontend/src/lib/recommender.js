@@ -21,7 +21,7 @@ export const TYPE_OPTIONS = [
 
 // Cada opción de convivencia SUGIERE un mínimo de ambientes (mismo criterio que el backend:
 // RecommendationEngine.minRooms; es un supuesto de diseño, no un dato). La persona lo puede cambiar
-// con las opciones de ROOMS_CHOICES (en el pedido viaja como `minRooms`).
+// marcando una o varias opciones de ROOMS_CHOICES (en el pedido viaja como `roomsOptions`).
 export const HOUSEHOLD_OPTIONS = [
   { value: "SOLO", label: "Solo/a", hint: "Sugerimos desde 1 ambiente" },
   { value: "COUPLE", label: "En pareja", hint: "Sugerimos desde 2 ambientes" },
@@ -31,17 +31,35 @@ export const HOUSEHOLD_OPTIONS = [
 
 const SUGGESTED_MIN_ROOMS = { SOLO: 1, COUPLE: 2, FAMILY: 3, SHARED: 3 };
 
-/** Ambientes mínimos que se pueden elegir (el último significa "ese número o más"). */
+/** Opciones de ambientes que se pueden marcar (1 a 4 exactas; la última significa "5 o más"). */
 export const ROOMS_CHOICES = [1, 2, 3, 4, 5];
+
+/** Cómo se muestra cada opción: "1", "2", "3", "4" y "5+". */
+export function roomsLabel(n) {
+  return n === ROOMS_CHOICES[ROOMS_CHOICES.length - 1] ? `${n}+` : String(n);
+}
 
 /** Mínimo sugerido para una convivencia (null si todavía no eligió). */
 export function suggestedMinRooms(household) {
   return SUGGESTED_MIN_ROOMS[household] ?? null;
 }
 
-/** Mínimo de ambientes en vigor: lo que eligió la persona o, si no tocó nada, lo sugerido. */
-export function effectiveMinRooms(answers) {
-  return answers.minRooms ?? suggestedMinRooms(answers.household);
+/**
+ * Ambientes marcados en vigor: lo que eligió la persona o, si no tocó nada, desde lo que sugiere la
+ * convivencia hasta 5+ (ej. en pareja: 2, 3, 4 y 5+). Se pueden marcar varios.
+ */
+export function effectiveRooms(answers) {
+  if (Array.isArray(answers.rooms)) return answers.rooms;
+  const min = suggestedMinRooms(answers.household);
+  return min == null ? [] : ROOMS_CHOICES.filter(n => n >= min);
+}
+
+/** Marca o desmarca una opción de ambientes; siempre queda al menos una marcada. */
+export function toggleRoom(current, n) {
+  if (current.includes(n)) {
+    return current.length > 1 ? current.filter(x => x !== n) : current;
+  }
+  return [...current, n].sort((a, b) => a - b);
 }
 
 /** Qué tanto pesa la cercanía a la dirección de trabajo o estudio (paso opcional 10). */
@@ -113,7 +131,7 @@ export function initialAnswers() {
     budget: null, // { min, max, position } (null en un extremo = sin tope)
     expenses: null, // { maxArs, position }: tope de expensas por mes en pesos (solo departamentos); null = sin tope
     household: null,
-    minRooms: null, // null = el mínimo que sugiere la convivencia; un número = lo que eligió
+    rooms: null, // null = desde el mínimo que sugiere la convivencia; una lista (ej. [2, 3]) = lo que eligió
     dealbreaker: null,
     noisePreference: null,
     proximity: defaultProximity(),
@@ -255,7 +273,7 @@ export function buildRequest(answers, blueRate) {
     proximity: { ...answers.proximity },
     overpricedPolicy: answers.overpricedPolicy,
   };
-  if (answers.minRooms != null) body.minRooms = answers.minRooms;
+  if (Array.isArray(answers.rooms) && answers.rooms.length > 0) body.roomsOptions = [...answers.rooms].sort((a, b) => a - b);
   if (Object.keys(details).length > 0) body.details = details;
   if (typeof blueRate === "number" && blueRate > 0) body.blueRate = blueRate;
   // Tope de expensas: solo si busca departamento (en casas y PH casi nunca hay expensas) y hay cotización para volverlo a USD.

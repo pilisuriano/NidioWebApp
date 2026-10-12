@@ -328,8 +328,18 @@ public class RecommendationEngine {
                 || c.expensesUsd().compareTo(r.getExpensesMaxUsd()) <= 0;
     }
 
+    /** Opción de ambientes que significa "esa cantidad o más" (la última del filtro de la pantalla). */
+    static final int ROOMS_OPEN_ENDED = 5;
+
     private static boolean passesRooms(RecommendationRequest r, Candidate c) {
-        return c.rooms() != null && c.rooms() >= requiredRooms(r);
+        if (c.rooms() == null) {
+            return false;
+        }
+        List<Integer> options = r.getRoomsOptions();
+        if (options != null && !options.isEmpty()) {
+            return options.stream().anyMatch(o -> o >= ROOMS_OPEN_ENDED ? c.rooms() >= ROOMS_OPEN_ENDED : c.rooms() == o.intValue());
+        }
+        return c.rooms() >= requiredRooms(r);
     }
 
     private static boolean passesPrice(RecommendationRequest r, Candidate c) {

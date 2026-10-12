@@ -867,6 +867,13 @@ public class PropertyService {
                 property.getImageUrls().isEmpty() ? null : property.getImageUrls().get(0),
                 valuation,
                 location,
-                property.isActive());
+                property.isActive(),
+                property.getHasPool(),
+                property.getHasGarage(),
+                property.getBuildingAmenities(),
+                property.getSecurity24h(),
+                property.getBright(),
+                property.getAptoCredito(),
+                property.getFurnished());
     }
 }

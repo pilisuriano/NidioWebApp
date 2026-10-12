@@ -28,7 +28,8 @@ describe('RecommendationResults: más resultados', () => {
     expect(screen.getAllByText(/^Depto \d$/)).toHaveLength(3);
     const note = screen.getByTestId('more-locked');
     expect(note).toHaveTextContent('Hay 27 propiedades más que también encajan');
-    expect(screen.getByRole('link', { name: /ver planes/i })).toHaveAttribute('href', '/planes');
+    expect(screen.getByRole('link', { name: /ver 27 propiedades más/i })).toHaveAttribute('href', '/planes');
+    expect(note).toHaveTextContent('Llegaste al tope gratuito');
     expect(screen.queryByRole('button', { name: /propiedades más/i })).not.toBeInTheDocument();
   });
 

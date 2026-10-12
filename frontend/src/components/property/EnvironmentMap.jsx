@@ -36,7 +36,7 @@ export function EnvironmentMap({ lat, lon, neighborhoodName, pinIcon }) {
   return <div className="space-y-2">
       <LayerToggles env={env} />
       <div className="relative h-96 rounded-xl overflow-hidden border border-outline-variant">
-        <MapContainer center={[lat, lon]} zoom={16} scrollWheelZoom className="w-full h-full">
+        <MapContainer center={[lat, lon]} zoom={16} scrollWheelZoom="center" doubleClickZoom="center" touchZoom="center" className="w-full h-full">
           <TileLayer attribution={BASE_TILES.attribution} url={BASE_TILES.url} />
           <EnvironmentOverlays env={env} currentNeighborhood={neighborhoodName} />
           <Marker position={[lat, lon]} icon={pinIcon} />

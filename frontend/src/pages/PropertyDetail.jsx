@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { optimizedImage, IMG_THUMB, IMG_CARD, IMG_FULL } from "@/lib/images";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -270,13 +271,13 @@ export default function PropertyDetail() {
           ? <div className="h-64 sm:h-96 rounded-xl bg-surface-dim flex items-center justify-center text-on-surface-variant text-sm font-mono">Sin fotos</div>
           : images.length === 1
           ? <button type="button" onClick={() => openLightbox(0)} className="block w-full h-64 sm:h-[420px] rounded-xl overflow-hidden bg-surface-dim">
-              <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
+              <img src={optimizedImage(images[0], IMG_FULL)} alt={property.title} className="w-full h-full object-cover" />
             </button>
           // En celular se ve solo la foto grande (con el contador de fotos;
           // al tocarla se abre el visor con todas). El mosaico aparece desde sm.
           : <div className="grid grid-cols-1 sm:grid-cols-4 sm:grid-rows-2 gap-1.5 h-64 sm:h-[420px] rounded-xl overflow-hidden">
               <button type="button" onClick={() => openLightbox(0)} className="sm:col-span-2 sm:row-span-2 relative bg-surface-dim">
-                <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
+                <img src={optimizedImage(images[0], IMG_CARD)} alt={property.title} className="w-full h-full object-cover" />
                 <span className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/60 text-white text-xs font-bold px-2.5 py-1 rounded-full">
                   <Camera className="w-3.5 h-3.5" /> {images.length}
                 </span>
@@ -294,7 +295,7 @@ export default function PropertyDetail() {
                   ? "col-span-2"
                   : "";
                 return <button key={url + i} type="button" onClick={() => openLightbox(i + 1)} className={cn("relative bg-surface-dim hidden sm:block", spanClass)}>
-                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <img src={optimizedImage(url, IMG_THUMB)} alt="" loading="lazy" className="w-full h-full object-cover" />
                     {showOverlay && <span className="absolute inset-0 bg-black/55 flex items-center justify-center text-white text-sm font-bold gap-1.5">
                         <Camera className="w-4 h-4" /> Ver todas las fotos
                       </span>}
@@ -309,7 +310,7 @@ export default function PropertyDetail() {
             <X className="w-5 h-5" />
           </button>
           <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
-            <img src={images[activeImage]} alt="" className="w-full max-h-[75vh] object-contain rounded-lg" />
+            <img src={optimizedImage(images[activeImage], IMG_FULL)} alt="" className="w-full max-h-[75vh] object-contain rounded-lg" />
             {images.length > 1 && <>
                 <button type="button" onClick={() => setActiveImage(i => (i - 1 + images.length) % images.length)} aria-label="Anterior" className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white">
                   <ChevronLeft className="w-6 h-6" />

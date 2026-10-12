@@ -10,9 +10,9 @@ import { QuotaNotice } from "@/components/ui/QuotaNotice";
 import { useBlueRate } from "@/lib/blueRate";
 import { cn } from "@/lib/utils";
 import {
-  STEP_IDS, REQUIRED_STEPS, OPTIONAL_STEP_IDS, OPERATION_OPTIONS, TYPE_OPTIONS, HOUSEHOLD_OPTIONS, ROOMS_CHOICES, WORK_IMPORTANCE_OPTIONS, DEALBREAKER_OPTIONS,
+  STEP_IDS, REQUIRED_STEPS, OPTIONAL_STEP_IDS, OPERATION_OPTIONS, TYPE_OPTIONS, HOUSEHOLD_OPTIONS, ROOMS_CHOICES, roomsLabel, toggleRoom, WORK_IMPORTANCE_OPTIONS, DEALBREAKER_OPTIONS,
   NOISE_OPTIONS, OVERPRICED_OPTIONS, PROXIMITY_CATEGORIES, IMPORTANCE_LEVELS, DETAIL_OPTIONS,
-  initialAnswers, effectiveMinRooms, shuffle, isStepAnswered, allRequiredAnswered, buildRequest, searchingSteps
+  initialAnswers, effectiveRooms, shuffle, isStepAnswered, allRequiredAnswered, buildRequest, searchingSteps
 } from "@/lib/recommender";
 import { Nidi } from "@/components/recommender/Nidi";
 import { BudgetSlider } from "@/components/recommender/BudgetSlider";
@@ -296,17 +296,17 @@ export default function Recomendador() {
               && <ExpensesSlider valuesArs={expenseValues} operationType={op} value={answers.expenses} onChange={expenses => update({ expenses })} />}
           </div>;
   } else if (stepId === "household") {
-    const minRooms = effectiveMinRooms(answers);
+    const selectedRooms = effectiveRooms(answers);
     body = <div className="space-y-6">
         <div role="radiogroup" aria-label={QUESTIONS.household} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {HOUSEHOLD_OPTIONS.map(o => <OptionCard key={o.value} selected={answers.household === o.value} onClick={() => update({ household: o.value })} label={o.label} hint={o.hint} />)}
         </div>
         {answers.household && <div className="space-y-2">
-            <p className="text-sm font-semibold text-on-surface">¿Cuántos ambientes necesitás como mínimo?</p>
-            <p className="text-xs text-on-surface-variant">Te sugerimos {SUGGESTED_FOR_TEXT[answers.household]}, pero lo podés cambiar. Solo te muestro propiedades con esa cantidad de ambientes o más.</p>
-            <div role="radiogroup" aria-label="Ambientes mínimos" className="flex flex-wrap gap-2">
-              {ROOMS_CHOICES.map(n => <button key={n} type="button" role="radio" aria-checked={minRooms === n} onClick={() => update({ minRooms: n })} className={cn("min-w-14 text-sm py-2 px-4 rounded-md border transition-colors", minRooms === n ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
-                  {n}+
+            <p className="text-sm font-semibold text-on-surface">¿Cuántos ambientes buscás?</p>
+            <p className="text-xs text-on-surface-variant">Te sugerimos {SUGGESTED_FOR_TEXT[answers.household]}, pero lo podés cambiar. Podés marcar más de una opción: solo te muestro propiedades con esa cantidad de ambientes (5+ es 5 o más).</p>
+            <div role="group" aria-label="Ambientes" className="flex flex-wrap gap-2">
+              {ROOMS_CHOICES.map(n => <button key={n} type="button" aria-pressed={selectedRooms.includes(n)} aria-label={`${roomsLabel(n)} ${n === 1 ? "ambiente" : "ambientes"}`} onClick={() => update({ rooms: toggleRoom(selectedRooms, n) })} className={cn("min-w-14 text-sm py-2 px-4 rounded-md border transition-colors", selectedRooms.includes(n) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
+                  {roomsLabel(n)}
                 </button>)}
             </div>
           </div>}

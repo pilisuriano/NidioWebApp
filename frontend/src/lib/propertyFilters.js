@@ -5,7 +5,22 @@
  * backend de nuevo por cada cambio de filtro).
  */
 
-export const ROOMS_OPTIONS = [0, 1, 2, 3, 4];
+// Ambientes: 1 a 4 son exactos y la última opción es "5 o más". Se pueden marcar varias a la vez.
+export const ROOMS_OPTIONS = [1, 2, 3, 4, 5];
+export const ROOMS_OPEN_ENDED = 5;
+export const roomsOptionLabel = n => (n >= ROOMS_OPEN_ENDED ? `${ROOMS_OPEN_ENDED}+` : String(n));
+
+/** Prende/apaga una opción de ambientes y deja la lista ordenada. */
+export function toggleRoomsOption(list, n) {
+  return list.includes(n) ? list.filter(x => x !== n) : [...list, n].sort((a, b) => a - b);
+}
+
+/** true si la propiedad tiene alguna de las cantidades de ambientes elegidas (lista vacía = todas). */
+export function matchesRooms(property, rooms) {
+  if (!rooms || rooms.length === 0) return true;
+  if (property.rooms == null) return false;
+  return rooms.some(n => (n >= ROOMS_OPEN_ENDED ? property.rooms >= ROOMS_OPEN_ENDED : property.rooms === n));
+}
 export const BATHROOMS_OPTIONS = [0, 1, 2, 3];
 export const AGE_OPTIONS = [["", "Cualquiera"], ["NEW", "A estrenar"], ["UNTIL5", "Hasta 5 años"], ["OVER5", "Más de 5 años"]];
 export const PUBLISHER_TYPE_OPTIONS = [["", "Todos"], ["AGENCY", "Inmobiliaria"], ["OWNER", "Dueño directo"]];
@@ -60,24 +75,53 @@ export const SORT_OPTIONS = [
   ["rooms_desc", "Más ambientes"]
 ];
 
+/** Minúsculas y sin tildes, para comparar "balcon" con "Balcón" o "nunez" con "Núñez". */
+export function normalizeSearchText(value) {
+  return String(value ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Características que se cargan al publicar (las "etiquetitas" de la ficha) y las palabras con las que la gente
+// las busca. Antes la búsqueda solo miraba el texto del título y la descripción, así que una propiedad con la
+// pileta tildada pero sin nombrarla en el texto no aparecía al buscar "pileta".
+const STRUCTURED_TERMS = [
+  ["hasPool", "pileta piscina"],
+  ["hasGarage", "cochera garage garaje"],
+  ["buildingAmenities", "amenities amenity"],
+  ["security24h", "seguridad 24hs 24 horas vigilancia"],
+  ["bright", "luminoso luminosa"],
+  ["aptoCredito", "apto credito"]
+];
+
+/** Palabras de las características cargadas al publicar que tiene la propiedad ("pileta piscina cochera ..."). */
+export function structuredTerms(property) {
+  const terms = STRUCTURED_TERMS.filter(([field]) => property[field] === true).map(([, words]) => words);
+  // "Amoblado" solo aplica a alquiler (en venta no se muestra aunque venga cargado).
+  if (property.furnished === true && property.operationType === "RENT") terms.push("amoblado amueblado");
+  return terms.join(" ");
+}
+
+function searchHaystack(property, fields) {
+  return normalizeSearchText([...fields.map(f => property[f]), structuredTerms(property)].filter(Boolean).join(" "));
+}
+
 /** Búsqueda por palabras (no por frase exacta): todas las palabras tienen
- * que aparecer en algún campo (barrio, título, dirección, ambientes o
- * descripción libre), no hace falta que estén juntas ni en ese orden. */
+ * que aparecer en algún campo (barrio, título, dirección, ambientes, descripción libre
+ * o alguna característica cargada al publicar, como pileta o cochera), no hace falta que
+ * estén juntas ni en ese orden. No distingue mayúsculas ni tildes. */
 export function matchesSearch(property, searchWords) {
   if (searchWords.length === 0) return true;
-  const haystack = [property.neighborhoodName, property.title, property.address, property.description, String(property.rooms)]
-    .filter(Boolean).join(" ").toLowerCase();
-  return searchWords.every(word => haystack.includes(word));
+  const haystack = searchHaystack(property, ["neighborhoodName", "title", "address", "description", "rooms"]);
+  return searchWords.every(word => haystack.includes(normalizeSearchText(word)));
 }
 
 /** Igual que matchesSearch pero para los chips de "Características": cada
- * tag elegido (ej. "Cochera", "Pileta") tiene que aparecer en el título o la
- * descripción de la propiedad. */
+ * tag elegido (ej. "Cochera", "Pileta") tiene que aparecer en el título, la
+ * descripción o entre las características cargadas al publicar. */
 export function matchesAmenities(property, amenities) {
   if (!amenities || amenities.length === 0) return true;
   if (amenities.includes(NO_AMENITIES)) return hasNoAmenities(property);
-  const haystack = [property.title, property.description].filter(Boolean).join(" ").toLowerCase();
-  return amenities.every(tag => haystack.includes(tag.trim().toLowerCase()));
+  const haystack = searchHaystack(property, ["title", "description"]);
+  return amenities.every(tag => haystack.includes(normalizeSearchText(tag.trim())));
 }
 
 export function matchesAgeFilter(property, ageFilter) {
@@ -91,7 +135,7 @@ export function matchesAgeFilter(property, ageFilter) {
 
 export function filterProperties(properties, {
   search = "",
-  minRooms = 0,
+  rooms = [],
   minBathrooms = 0,
   priceFrom = "",
   priceTo = "",
@@ -100,9 +144,9 @@ export function filterProperties(properties, {
   orientations = [],
   amenities = []
 } = {}) {
-  const searchWords = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const searchWords = normalizeSearchText(search).trim().split(/\s+/).filter(Boolean);
   return properties.filter(p => {
-    if (minRooms > 0 && p.rooms < minRooms) return false;
+    if (!matchesRooms(p, rooms)) return false;
     if (minBathrooms > 0 && (p.bathrooms == null || p.bathrooms < minBathrooms)) return false;
     if (priceFrom && Number(p.price) < Number(priceFrom)) return false;
     if (priceTo && Number(p.price) > Number(priceTo)) return false;
@@ -141,8 +185,8 @@ export function sortProperties(properties, sortKey) {
   return sorted;
 }
 
-export function countActiveFilters({ minRooms = 0, minBathrooms = 0, priceFrom = "", priceTo = "", ageFilter = "", publisherType = "", orientations = [], amenities = [] }) {
-  return [minRooms > 0, minBathrooms > 0, priceFrom !== "", priceTo !== "", ageFilter !== "", publisherType !== "", orientations.length > 0, amenities.length > 0]
+export function countActiveFilters({ rooms = [], minBathrooms = 0, priceFrom = "", priceTo = "", ageFilter = "", publisherType = "", orientations = [], amenities = [] }) {
+  return [rooms.length > 0, minBathrooms > 0, priceFrom !== "", priceTo !== "", ageFilter !== "", publisherType !== "", orientations.length > 0, amenities.length > 0]
     .filter(Boolean).length;
 }
 
@@ -150,13 +194,13 @@ export function countActiveFilters({ minRooms = 0, minBathrooms = 0, priceFrom =
  * otra (ej. del mapa al listado completo) sin perder lo que el usuario ya
  * eligió. */
 export function buildFilterQueryString({
-  operationType, propertyType, search, minRooms, minBathrooms, priceFrom, priceTo, ageFilter, publisherType, orientations, amenities, sort
+  operationType, propertyType, search, rooms, minBathrooms, priceFrom, priceTo, ageFilter, publisherType, orientations, amenities, sort
 }) {
   const params = new URLSearchParams();
   if (operationType) params.set("operationType", operationType);
   if (propertyType) params.set("propertyType", propertyType);
   if (search?.trim()) params.set("search", search.trim());
-  if (minRooms > 0) params.set("minRooms", String(minRooms));
+  if (rooms?.length) params.set("rooms", rooms.join(","));
   if (minBathrooms > 0) params.set("minBathrooms", String(minBathrooms));
   if (priceFrom !== "") params.set("priceFrom", String(priceFrom));
   if (priceTo !== "") params.set("priceTo", String(priceTo));
@@ -168,13 +212,21 @@ export function buildFilterQueryString({
   return params.toString();
 }
 
+/** Ambientes desde el query string: "rooms=2,3"; también entiende el viejo "minRooms=3" (3, 4 y 5+). */
+function parseRoomsParam(searchParams) {
+  const list = (searchParams.get("rooms") ?? "").split(",").map(Number).filter(n => ROOMS_OPTIONS.includes(n));
+  if (list.length > 0) return [...new Set(list)].sort((a, b) => a - b);
+  const legacyMin = Number(searchParams.get("minRooms") ?? 0);
+  return legacyMin > 0 ? ROOMS_OPTIONS.filter(n => n >= legacyMin) : [];
+}
+
 /** Lee de vuelta los filtros desde un query string (ver buildFilterQueryString). */
 export function parseFilterQueryString(searchParams) {
   return {
     operationType: searchParams.get("operationType") ?? "SALE",
     propertyType: searchParams.get("propertyType") ?? "",
     search: searchParams.get("search") ?? "",
-    minRooms: Number(searchParams.get("minRooms") ?? 0),
+    rooms: parseRoomsParam(searchParams),
     minBathrooms: Number(searchParams.get("minBathrooms") ?? 0),
     priceFrom: searchParams.get("priceFrom") ?? "",
     priceTo: searchParams.get("priceTo") ?? "",

@@ -70,13 +70,16 @@ describe('Recomendador', () => {
     expect(screen.getByText('5 de 10 propiedades publicadas entran en ese tope.')).toBeInTheDocument();
     await next();
     // 4 a 6
-    expect(screen.queryByRole('radiogroup', { name: 'Ambientes mínimos' })).not.toBeInTheDocument(); // aparece al elegir con quién
+    expect(screen.queryByRole('group', { name: 'Ambientes' })).not.toBeInTheDocument(); // aparece al elegir con quién
     await user.click(screen.getByRole('radio', { name: /en pareja/i }));
-    // Ambientes: arranca en lo que sugiere la convivencia (pareja = 2+) y se puede cambiar
-    expect(screen.getByRole('radio', { name: '2+' })).toHaveAttribute('aria-checked', 'true');
-    await user.click(screen.getByRole('radio', { name: '3+' }));
-    expect(screen.getByRole('radio', { name: '3+' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: '2+' })).toHaveAttribute('aria-checked', 'false');
+    // Ambientes: arranca en lo que sugiere la convivencia (pareja = 2, 3, 4 y 5+) y se pueden marcar varios
+    expect(screen.getByRole('button', { name: '2 ambientes' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '1 ambiente' })).toHaveAttribute('aria-pressed', 'false');
+    await user.click(screen.getByRole('button', { name: '2 ambientes' }));
+    await user.click(screen.getByRole('button', { name: '4 ambientes' }));
+    await user.click(screen.getByRole('button', { name: '5+ ambientes' }));
+    expect(screen.getByRole('button', { name: '3 ambientes' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '2 ambientes' })).toHaveAttribute('aria-pressed', 'false');
     await next();
     await user.click(screen.getByRole('radio', { name: /que sea insegura/i }));
     await next();
@@ -126,7 +129,8 @@ describe('Recomendador', () => {
       operationType: 'RENT', propertyTypes: ['HOUSE', 'PH'], budgetMin: null, budgetMax: 850000,
       household: 'COUPLE', dealbreaker: 'UNSAFE', noisePreference: 'QUIET', overpricedPolicy: 'HIDE', blueRate: 1515,
     });
-    expect(body.minRooms).toBe(3);
+    expect(body.roomsOptions).toEqual([3]);
+    expect('minRooms' in body).toBe(false);
     expect(body.proximity.TRANSPORT).toBe('KEY');
     expect('details' in body).toBe(false);
     expect('workLat' in body).toBe(false);

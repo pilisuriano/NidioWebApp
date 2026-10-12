@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { optimizedImage, IMG_CARD } from "@/lib/images";
+import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { cn } from "@/lib/utils";
+import { buildMapUrl } from "@/lib/heroSearch";
 import { ArrowRight, Map, Calculator, HeartPulse, Heart, Building2, ExternalLink, MapPin, Search, Plus, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatPrice, formatDate, formatNumber } from "@/lib/format";
@@ -30,7 +33,17 @@ export default function Dashboard() {
   // Cotización para comparar alquileres (ARS) contra la tasación (USD).
   const { blueRate } = useBlueRate();
   const navigate = useNavigate();
+  // Con el menú de la izquierda cerrado (solo compu), el logo de nidio se muestra arriba del título de la portada.
+  const { sidebarOpen = true } = useOutletContext() ?? {};
+  const showHeroLogo = !sidebarOpen;
+  // Cantidad de accesos rápidos visibles (para repartir las columnas): Explorar, Tasación y Publicar siempre;
+  // Life Score y Recomendación solo para quien busca.
+  const quickActionCount = 3 + (isProfessional ? 0 : 2);
   const [heroSearch, setHeroSearch] = useState("");
+  // Botones del buscador: operación y tipo. Lo que se escribe también se interpreta (ver lib/heroSearch.js),
+  // así "alquiler 2 ambientes palermo" funciona igual que elegir los botones y escribir el barrio.
+  const [heroOperation, setHeroOperation] = useState("SALE");
+  const [heroType, setHeroType] = useState("");
   const [properties, setProperties] = useState([]);
   // true si la lista son destacadas de verdad; si no hay ninguna activa se
   // muestran las publicaciones más recientes (con otro título).
@@ -64,8 +77,7 @@ export default function Dashboard() {
   }, [user, isProfessional]);
   function handleHeroSearch(e) {
     e.preventDefault();
-    const q = heroSearch.trim();
-    navigate(q ? `/mapa?search=${encodeURIComponent(q)}` : "/mapa");
+    navigate(buildMapUrl(heroSearch, { operationType: heroOperation, propertyType: heroType }));
   }
   return <div className="animate-in fade-in duration-500">
       {/* Hero: foto de portada + búsqueda que lleva directo al mapa con el
@@ -74,14 +86,29 @@ export default function Dashboard() {
         <img src={HERO_IMAGE_URL} alt="" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
         <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center gap-6">
+          {/* Logo arriba del título, alineado con su borde izquierdo. Va "absolute": no empuja el título ni cambia el alto de la
+              portada. En pantallas angostas (< 1400px) se corre a la derecha para no pisar el botón del menú. */}
+          {showHeroLogo && <Link to="/" aria-label="Ir al inicio" className="hidden lg:block absolute top-4 left-4 sm:left-6 lg:left-8 ml-14 min-[1400px]:ml-0">
+              <img src="/logo.svg" alt="nidio" className="h-14 w-auto drop-shadow-md" />
+            </Link>}
           <h1 className="text-5xl font-black text-white leading-[1.05] drop-shadow-sm">
             Menos búsqueda,
             <br />
             más certeza.
           </h1>
-          <form onSubmit={handleHeroSearch} className="max-w-md w-full">
+          <form onSubmit={handleHeroSearch} className="max-w-xl w-full space-y-2 relative top-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <div role="group" aria-label="Operación" className="inline-flex rounded-full bg-black/35 backdrop-blur p-1">
+                {[["SALE", "Comprar"], ["RENT", "Alquilar"]].map(([value, label]) => <button key={value} type="button" aria-pressed={heroOperation === value} onClick={() => setHeroOperation(value)} className={cn("px-4 py-1.5 rounded-full text-sm font-bold transition-colors", heroOperation === value ? "bg-white text-primary" : "text-white/90 hover:text-white")}>
+                    {label}
+                  </button>)}
+              </div>
+              <select value={heroType} onChange={e => setHeroType(e.target.value)} aria-label="Tipo de propiedad" className="h-9 pl-4 pr-8 rounded-full bg-white text-sm font-bold text-primary border-0 shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                {[["", "Tipo de propiedad"], ["APARTMENT", "Departamento"], ["HOUSE", "Casa"], ["PH", "PH"]].map(([value, label]) => <option key={value} value={value} className="text-on-surface">{label}</option>)}
+              </select>
+            </div>
             <div className="relative">
-              <Input type="text" value={heroSearch} onChange={e => setHeroSearch(e.target.value)} placeholder="Ingresá un barrio, dirección o título..." className="h-14 pl-5 pr-14 rounded-full text-base shadow-lg border-0" />
+              <Input type="text" value={heroSearch} onChange={e => setHeroSearch(e.target.value)} aria-label="Buscar propiedades" placeholder="Barrio o dirección. Ej: 2 ambientes en Palermo" className="h-14 pl-5 pr-14 rounded-full text-base shadow-lg border-0" />
               <button type="submit" aria-label="Buscar" className="absolute right-2 top-2 w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center hover:opacity-90 transition-opacity">
                 <Search className="w-5 h-5" />
               </button>
@@ -95,10 +122,8 @@ export default function Dashboard() {
         <h2 className="text-2xl font-bold text-on-surface">{user ? `¡Hola, ${user.name?.split(" ")[0]}!` : "Bienvenido a Nidio"}</h2>
       </div>
 
-      {/* Quick Actions. "Publicar" vivía como botón suelto en la barra de
-          arriba (ya sacada de MainLayout); ahora es una card más acá, con
-          la misma explicación breve que el resto. */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${isProfessional ? "lg:grid-cols-4" : "xl:grid-cols-5"}`}>
+      {/* Quick Actions. "Publicar" es una card más acá (no hay botón arriba), con la misma explicación breve que el resto. */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${quickActionCount >= 5 ? "xl:grid-cols-5" : quickActionCount === 4 ? "lg:grid-cols-4" : quickActionCount === 3 ? "lg:grid-cols-3" : ""}`}>
         <Link to="/mapa" className="flex h-full">
           <Card className="hover:shadow-md transition-shadow cursor-pointer group border-primary/20 h-full w-full flex flex-col justify-between">
             <CardHeader>
@@ -198,7 +223,7 @@ export default function Dashboard() {
             {properties.map(p => <Link key={p.id} to={`/propiedades/${p.id}`} className="shrink-0 w-72 snap-start">
                 <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer h-full">
                   <div className="h-40 bg-surface-dim relative">
-                    {p.imageUrl && <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover" />}
+                    {p.imageUrl && <img src={optimizedImage(p.imageUrl, IMG_CARD)} alt={p.title} loading="lazy" className="w-full h-full object-cover" />}
                     <OperationBadge operationType={p.operationType} className="absolute top-3 right-3" />
                     {showingFeatured && <FeaturedBadge className="absolute top-3 left-3" />}
                   </div>

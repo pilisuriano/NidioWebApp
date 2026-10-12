@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { optimizedImage, IMG_CARD } from "@/lib/images";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -6,7 +7,7 @@ import { FeaturedBadge } from "@/components/property/PropertyBadges";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { ClipboardList, Search, MapPin, Building2, Ruler, Heart, Eye, EyeOff, Trash2, ExternalLink, AlertTriangle, Pencil, Star, CalendarClock, CheckCircle2, Tag, KeyRound } from "lucide-react";
+import { ClipboardList, Plus, Search, MapPin, Building2, Ruler, Heart, Eye, EyeOff, Trash2, ExternalLink, AlertTriangle, Pencil, Star, CalendarClock, CheckCircle2, Tag, KeyRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { api, apiErrorMessage } from "@/lib/api";
 import { formatPrice, formatNumber, formatDate, PROPERTY_TYPE_LABEL, OPERATION_TYPE_LABEL } from "@/lib/format";
@@ -99,6 +100,11 @@ export default function MisPublicaciones() {
   const [reservation, setReservation] = useState(null);
   const isFeatured = id => featuredIdsFromServer.has(id) || justFeaturedIds.has(id);
   // Reserva propia que todavía no arrancó (startsAt en el futuro), por id de propiedad.
+  // Destacadas hoy (en curso) y reservadas (todavía no arrancaron), de las que tiene esta cuenta.
+  const nowMs = Date.now();
+  const myFeatured = billing?.featured?.active ?? [];
+  const featuredNow = myFeatured.filter(f => new Date(f.startsAt).getTime() <= nowMs).length;
+  const featuredReserved = myFeatured.length - featuredNow;
   const reservedFor = id => (billing?.featured?.active ?? []).find(f => f.propertyId === id && new Date(f.startsAt) > new Date()) ?? null;
 
   function markFeatured(id) {
@@ -237,14 +243,19 @@ export default function MisPublicaciones() {
 
   return <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <div className="border-b border-outline-variant pb-6 space-y-1">
-        <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-          <ClipboardList className="w-6 h-6" /> Mis publicaciones
-        </h1>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
+            <ClipboardList className="w-6 h-6" /> Mis publicaciones
+          </h1>
+          <Link to="/publicar" className="inline-flex items-center gap-1.5 h-9 pl-3 pr-4 rounded-full bg-primary text-on-primary text-sm font-bold shadow hover:opacity-90 transition-opacity">
+            <Plus className="w-4 h-4" /> Publicar
+          </Link>
+        </div>
         <p className="text-sm text-on-surface-variant font-mono">Gestioná las propiedades que publicaste en Nidio.</p>
       </div>
 
       {stats && <div className="space-y-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard icon={Building2} tone="primary" label="Publicadas">
               <p className="text-3xl font-bold text-on-surface leading-none">{stats.totalProperties}</p>
             </StatCard>
@@ -253,6 +264,10 @@ export default function MisPublicaciones() {
             </StatCard>
             <StatCard icon={EyeOff} tone={stats.inactiveCount > 0 ? "alert" : "muted"} label="Inactivas">
               <p className={cn("text-3xl font-bold leading-none", stats.inactiveCount > 0 ? "text-on-surface" : "text-on-surface-variant")}>{stats.inactiveCount}</p>
+            </StatCard>
+            <StatCard icon={Star} tone={featuredNow > 0 ? "good" : "muted"} label="Destacadas">
+              <p className={cn("text-3xl font-bold leading-none", featuredNow > 0 ? "text-on-surface" : "text-on-surface-variant")}>{billing ? featuredNow : "-"}</p>
+              {featuredReserved > 0 && <p className="text-xs text-on-surface-variant mt-1">{featuredReserved === 1 ? "1 reservada" : `${featuredReserved} reservadas`}</p>}
             </StatCard>
             <StatCard icon={Heart} tone="primary" label="Favoritos recibidos">
               <p className="text-3xl font-bold text-on-surface leading-none">{stats.totalFavorites}</p>
@@ -297,7 +312,7 @@ export default function MisPublicaciones() {
         {properties.map(p => <Card key={p.id} className="overflow-hidden h-full flex flex-col">
             <Link to={`/propiedades/${p.id}`}>
               <div className="h-40 bg-surface-dim relative">
-                {p.imageUrls?.[0] && <img src={p.imageUrls[0]} alt={p.title} className="w-full h-full object-cover" />}
+                {p.imageUrls?.[0] && <img src={optimizedImage(p.imageUrls[0], IMG_CARD)} alt={p.title} loading="lazy" className="w-full h-full object-cover" />}
                 <Badge className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur border border-good-value/20 shadow-sm" variant="good">{OPERATION_TYPE_LABEL[p.operationType]}</Badge>
                 <Badge
                   className={cn(

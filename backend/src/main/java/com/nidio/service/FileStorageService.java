@@ -1,6 +1,7 @@
 package com.nidio.service;
 
 import com.cloudinary.Cloudinary;
+import com.cloudinary.Transformation;
 import com.cloudinary.utils.ObjectUtils;
 import com.nidio.exception.InvalidFileException;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,9 @@ import java.util.Set;
 @Slf4j
 @Service
 public class FileStorageService {
+
+    // Lado máximo (px) con el que se guarda cada foto subida.
+    private static final int MAX_IMAGE_SIDE_PX = 1600;
 
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
 
@@ -58,9 +62,14 @@ public class FileStorageService {
         }
 
         try {
+            // Transformación entrante: Cloudinary guarda solo la versión reducida (máx. 1600 px de lado,
+            // calidad automática) y no el original de 3 a 5 MB. Baja el almacenamiento y el ancho de
+            // banda (créditos del plan gratuito); ver docs en nidio-costos-terceros.md.
             Map<?, ?> result = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
                     "folder", "nidio/properties",
-                    "resource_type", "image"));
+                    "resource_type", "image",
+                    "transformation", new Transformation().width(MAX_IMAGE_SIDE_PX).height(MAX_IMAGE_SIDE_PX)
+                            .crop("limit").quality("auto")));
             return (String) result.get("secure_url");
         } catch (Exception e) {
             // Amplio a propósito: el SDK de Cloudinary puede tirar tanto
