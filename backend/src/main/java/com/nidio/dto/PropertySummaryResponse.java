@@ -37,6 +37,16 @@ public record PropertySummaryResponse(
         // pero "Mis favoritos" puede incluir una que el dueño o un admin
         // desactivó después de que el usuario la guardó: el frontend la muestra
         // con la etiqueta "Inactiva" (ver Favoritos.jsx).
-        boolean active
+        boolean active,
+        // Características cargadas al publicar (ver Property.java). Viajan en el resumen para que la búsqueda y los
+        // filtros del mapa y del listado también las reconozcan ("pileta", "cochera"...) aunque el título y la
+        // descripción no las nombren. null = no se cargó. "furnished" solo se muestra en alquiler.
+        Boolean hasPool,
+        Boolean hasGarage,
+        Boolean buildingAmenities,
+        Boolean security24h,
+        Boolean bright,
+        Boolean aptoCredito,
+        Boolean furnished
 ) {
 }

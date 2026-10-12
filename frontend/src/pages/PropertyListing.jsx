@@ -14,10 +14,10 @@ import { EnvironmentChips } from "@/components/property/EnvironmentChips";
 import { usePropertyEnvironment } from "@/lib/environment";
 import {
   filterProperties, countActiveFilters, fetchAllProperties, parseFilterQueryString, sortProperties, buildFilterQueryString, interleaveFeatured,
-  ROOMS_OPTIONS, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, SORT_OPTIONS, NO_AMENITIES, toggleAmenityTag } from "@/lib/propertyFilters";
+  ROOMS_OPTIONS, roomsOptionLabel, toggleRoomsOption, BATHROOMS_OPTIONS, AGE_OPTIONS, PUBLISHER_TYPE_OPTIONS, ORIENTATION_OPTIONS, AMENITY_OPTIONS, SORT_OPTIONS, NO_AMENITIES, toggleAmenityTag } from "@/lib/propertyFilters";
 import { cn } from "@/lib/utils";
 
-const PROPERTY_TYPE_OPTIONS = [["", "Todos los tipos"], ["APARTMENT", "Departamento"], ["HOUSE", "Casa"], ["PH", "PH"]];
+const PROPERTY_TYPE_OPTIONS = [["", "Tipo de propiedad"], ["APARTMENT", "Departamento"], ["HOUSE", "Casa"], ["PH", "PH"]];
 const PAGE_SIZE = 12;
 
 // Página de listado completo, tipo Zonaprop: mismos filtros que el mapa
@@ -32,7 +32,7 @@ export default function PropertyListing() {
   const [operationType, setOperationType] = useState(initial.operationType);
   const [propertyType, setPropertyType] = useState(initial.propertyType);
   const [search, setSearch] = useState(initial.search);
-  const [minRooms, setMinRooms] = useState(initial.minRooms);
+  const [roomsFilter, setRoomsFilter] = useState(initial.rooms);
   const [minBathrooms, setMinBathrooms] = useState(initial.minBathrooms);
   const [priceFrom, setPriceFrom] = useState(initial.priceFrom);
   const [priceTo, setPriceTo] = useState(initial.priceTo);
@@ -63,9 +63,9 @@ export default function PropertyListing() {
   useEffect(() => {
     // Cualquier cambio de filtro u orden vuelve a la primera página.
     setPage(0);
-  }, [operationType, propertyType, search, minRooms, minBathrooms, priceFrom, priceTo, ageFilter, publisherTypeFilter, orientationFilter, amenityFilter, sort]);
+  }, [operationType, propertyType, search, roomsFilter, minBathrooms, priceFrom, priceTo, ageFilter, publisherTypeFilter, orientationFilter, amenityFilter, sort]);
 
-  const activeFilters = { minRooms, minBathrooms, priceFrom, priceTo, ageFilter, publisherType: publisherTypeFilter, orientations: orientationFilter, amenities: amenityFilter };
+  const activeFilters = { rooms: roomsFilter, minBathrooms, priceFrom, priceTo, ageFilter, publisherType: publisherTypeFilter, orientations: orientationFilter, amenities: amenityFilter };
   const activeFilterCount = countActiveFilters(activeFilters);
   // Destacadas (pagadas, rotuladas): una cada 5 resultados, empezando por la primera posición.
   const featuredIds = useFeaturedIds();
@@ -79,7 +79,7 @@ export default function PropertyListing() {
   const mapQueryString = buildFilterQueryString({ operationType, propertyType, search, ...activeFilters, sort });
 
   function clearFilters() {
-    setMinRooms(0);
+    setRoomsFilter([]);
     setMinBathrooms(0);
     setPriceFrom("");
     setPriceTo("");
@@ -148,8 +148,8 @@ export default function PropertyListing() {
               <div className="space-y-2">
                 <p className="text-xs font-bold text-outline uppercase tracking-widest">Ambientes</p>
                 <div className="flex gap-2">
-                  {ROOMS_OPTIONS.map(n => <button key={n} type="button" onClick={() => setMinRooms(n)} className={cn("flex-1 text-sm py-1.5 rounded-md border transition-colors", minRooms === n ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
-                      {n === 0 ? "Todos" : `${n}+`}
+                  {ROOMS_OPTIONS.map(n => <button key={n} type="button" aria-pressed={roomsFilter.includes(n)} aria-label={`${roomsOptionLabel(n)} ${n === 1 ? "ambiente" : "ambientes"}`} onClick={() => setRoomsFilter(list => toggleRoomsOption(list, n))} className={cn("flex-1 text-sm py-1.5 rounded-md border transition-colors", roomsFilter.includes(n) ? "border-primary bg-primary/10 text-primary font-bold" : "border-outline-variant text-on-surface-variant hover:border-outline")}>
+                      {roomsOptionLabel(n)}
                     </button>)}
                 </div>
               </div>

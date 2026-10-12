@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRequest, defaultProximity, formatBudgetRange, initialAnswers, isStepAnswered, allRequiredAnswered,
-  searchingSteps, shuffle, effectiveMinRooms, suggestedMinRooms, budgetAtPosition, countWithinBudget, expensesAtPosition, formatExpenses, formatDistance, funnelSummary, PROXIMITY_CATEGORIES, STEP_IDS, REQUIRED_STEPS
+  searchingSteps, shuffle, effectiveRooms, toggleRoom, roomsLabel, suggestedMinRooms, budgetAtPosition, countWithinBudget, expensesAtPosition, formatExpenses, formatDistance, funnelSummary, PROXIMITY_CATEGORIES, STEP_IDS, REQUIRED_STEPS
 } from '../lib/recommender';
 
 function completeAnswers(overrides = {}) {
@@ -97,19 +97,28 @@ describe('buildRequest', () => {
     expect(body.budgetMax).toBeNull();
   });
 
-  it('sends the minimum of rooms only when the person chose one', () => {
-    expect('minRooms' in buildRequest(completeAnswers(), 1500)).toBe(false);
-    expect(buildRequest(completeAnswers({ minRooms: 4 }), 1500).minRooms).toBe(4);
+  it('sends the rooms options only when the person chose some', () => {
+    expect('roomsOptions' in buildRequest(completeAnswers(), 1500)).toBe(false);
+    expect('minRooms' in buildRequest(completeAnswers({ rooms: [3, 2] }), 1500)).toBe(false);
+    expect(buildRequest(completeAnswers({ rooms: [3, 2] }), 1500).roomsOptions).toEqual([2, 3]);
   });
 
-  it('uses the household suggestion for the rooms until the person picks a number', () => {
+  it('starts the rooms from the household suggestion up to 5+ until the person picks some', () => {
     expect(suggestedMinRooms('SOLO')).toBe(1);
     expect(suggestedMinRooms('COUPLE')).toBe(2);
     expect(suggestedMinRooms('FAMILY')).toBe(3);
     expect(suggestedMinRooms('SHARED')).toBe(3);
     expect(suggestedMinRooms(null)).toBeNull();
-    expect(effectiveMinRooms(completeAnswers({ household: 'FAMILY' }))).toBe(3);
-    expect(effectiveMinRooms(completeAnswers({ household: 'FAMILY', minRooms: 2 }))).toBe(2);
+    expect(effectiveRooms(completeAnswers({ household: 'FAMILY' }))).toEqual([3, 4, 5]);
+    expect(effectiveRooms(completeAnswers({ household: 'FAMILY', rooms: [2] }))).toEqual([2]);
+    expect(effectiveRooms(completeAnswers({ household: null }))).toEqual([]);
+  });
+
+  it('toggles rooms options, keeps them sorted and never leaves none selected', () => {
+    expect(toggleRoom([2, 3], 1)).toEqual([1, 2, 3]);
+    expect(toggleRoom([1, 2, 3], 2)).toEqual([1, 3]);
+    expect(toggleRoom([4], 4)).toEqual([4]);
+    expect([1, 2, 3, 4, 5].map(roomsLabel)).toEqual(['1', '2', '3', '4', '5+']);
   });
 
   it('sends how much the work address matters only together with the address', () => {

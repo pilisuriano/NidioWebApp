@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { optimizedImage, IMG_CARD } from "@/lib/images";
 import { Link } from "react-router-dom";
-import { Briefcase, Building2, ChevronDown, DoorOpen, ExternalLink, Info, MapPin, Receipt, Ruler, RotateCcw, Pencil, Sparkles } from "lucide-react";
+import { Briefcase, Building2, ChevronDown, DoorOpen, ExternalLink, Info, Lock, MapPin, Receipt, Ruler, RotateCcw, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -103,16 +103,18 @@ export function RecommendationResults({ result, onEdit, onRestart }) {
           </Button>
         </div>}
 
-      {/* Sin pase o plan: se muestra cuántas más encajan y cómo verlas. El pago amplía la lista, nunca cambia el orden ni la explicación. */}
-      {found && !result.moreUnlocked && notShown > 0 && <div role="note" data-testid="more-locked" className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-4">
-          <div className="flex gap-3 items-start">
-            <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-on-surface">
-              <strong>{notShown === 1 ? "Hay 1 propiedad más que también encaja" : `Hay ${notShown} propiedades más que también encajan`}</strong> con lo que me contaste.
-              Con el Pase de análisis ves hasta 10, con el mismo orden y la misma explicación: pagar amplía la lista, no cambia el ranking.
-            </p>
-          </div>
-          <Link to="/planes" className="shrink-0"><Button type="button" size="sm">Ver planes</Button></Link>
+      {/* Sin pase o plan: el tope gratuito son 3. Se muestra el mismo botón "Ver N propiedades más" que ven los que tienen
+          pase (así se entiende que hay más para ver), pero candado y camino a Planes en vez de desplegarlas. El pago amplía
+          la lista, nunca cambia el orden ni la explicación. */}
+      {found && !result.moreUnlocked && notShown > 0 && <div data-testid="more-locked" className="flex flex-col items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 text-center">
+          <Link to="/planes" className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-outline bg-surface hover:bg-surface-container-low text-sm font-bold text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            <Lock className="w-4 h-4" /> Ver {notShown === 1 ? "1 propiedad más" : `${notShown} propiedades más`}
+          </Link>
+          <p role="note" className="text-sm text-on-surface max-w-xl">
+            <strong>Llegaste al tope gratuito: ves las {items.length} que mejor encajan.</strong>{" "}
+            {notShown === 1 ? "Hay 1 propiedad más que también encaja" : `Hay ${notShown} propiedades más que también encajan`} con lo que me contaste.
+            Con el Pase de análisis ves hasta 10, con el mismo orden y la misma explicación: pagar amplía la lista, no cambia el ranking.
+          </p>
         </div>}
       {result.moreUnlocked && hiddenCount === 0 && notShown > 0 && <p className="text-sm text-on-surface-variant text-center">
           Te muestro las {allItems.length} que mejor encajan; hay {notShown} más que también cumplen lo que pediste.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterProperties, toggleAmenityTag, NO_AMENITIES } from "@/lib/propertyFilters";
+import { filterProperties, toggleAmenityTag, NO_AMENITIES, normalizeSearchText, structuredTerms } from "@/lib/propertyFilters";
 
 const conPileta = { id: 1, title: "Depto con pileta", description: "", rooms: 2 };
 const conCocheraCampo = { id: 2, title: "Depto", description: "Luminoso", rooms: 2, hasGarage: true };
@@ -39,5 +39,46 @@ describe("filtro Sin amenities", () => {
     expect(toggleAmenityTag([NO_AMENITIES], "Pileta")).toEqual(["Pileta"]);
     expect(toggleAmenityTag([NO_AMENITIES], NO_AMENITIES)).toEqual([]);
     expect(toggleAmenityTag(["Pileta"], "pileta")).toEqual([]);
+  });
+});
+
+describe("búsqueda de texto", () => {
+  const conPiletaCargada = { id: 11, title: "Depto luminoso", description: "Lindo", neighborhoodName: "Palermo", address: "Honduras 4000", rooms: 2, operationType: "SALE", hasPool: true };
+  const conCocheraCargada = { id: 12, title: "Depto", description: "", neighborhoodName: "Núñez", address: "Cabildo 1", rooms: 3, operationType: "SALE", hasGarage: true, security24h: true };
+  const sinCaracteristicas = { id: 13, title: "Depto", description: "Tranquilo", neighborhoodName: "Palermo", address: "Gorriti 5", rooms: 2, operationType: "SALE", hasPool: false };
+  const amobladoAlquiler = { id: 14, title: "Depto", description: "", neighborhoodName: "Belgrano", address: "Juramento 1", rooms: 2, operationType: "RENT", furnished: true };
+  const amobladoVenta = { ...amobladoAlquiler, id: 15, operationType: "SALE" };
+  const todas = [conPiletaCargada, conCocheraCargada, sinCaracteristicas, amobladoAlquiler, amobladoVenta];
+  const ids = search => filterProperties(todas, { search }).map(p => p.id);
+
+  it("reconoce las características cargadas al publicar aunque el texto no las nombre", () => {
+    expect(ids("pileta")).toEqual([11]);
+    expect(ids("piscina")).toEqual([11]);
+    expect(ids("cochera")).toEqual([12]);
+    expect(ids("seguridad")).toEqual([12]);
+  });
+
+  it("se combina con el barrio y con el resto de las palabras", () => {
+    expect(ids("palermo pileta")).toEqual([11]);
+    expect(ids("nunez cochera")).toEqual([12]);
+    expect(ids("palermo cochera")).toEqual([]);
+  });
+
+  it("no distingue tildes ni mayúsculas", () => {
+    expect(ids("NUÑEZ")).toEqual([12]);
+    expect(ids("núnez")).toEqual([12]);
+    expect(normalizeSearchText("Balcón")).toBe("balcon");
+    expect(filterProperties([{ id: 1, title: "Con balcón", description: "", rooms: 2 }], { search: "balcon" })).toHaveLength(1);
+  });
+
+  it("amoblado solo cuenta en alquiler", () => {
+    expect(ids("amoblado")).toEqual([14]);
+    expect(structuredTerms(amobladoVenta)).toBe("");
+  });
+
+  it("los chips de características también leen los campos cargados", () => {
+    expect(filterProperties(todas, { amenities: ["Pileta"] }).map(p => p.id)).toEqual([11]);
+    expect(filterProperties(todas, { amenities: ["Cochera"] }).map(p => p.id)).toEqual([12]);
+    expect(filterProperties(todas, { amenities: ["Seguridad 24hs"] }).map(p => p.id)).toEqual([12]);
   });
 });

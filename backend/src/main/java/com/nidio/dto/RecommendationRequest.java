@@ -8,6 +8,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -84,6 +85,11 @@ public class RecommendationRequest {
     @Min(value = 1, message = "Los ambientes mínimos no pueden ser menos de 1")
     @Max(value = 10, message = "Los ambientes mínimos no pueden ser más de 10")
     private Integer minRooms;
+
+    // Pregunta 4 (ajuste 2): ambientes que acepta la persona, uno o varios. 1 a 4 son exactos y 5 significa
+    // "5 o más". Si viene, manda sobre minRooms; null o vacío = se usa minRooms o el que sugiere la convivencia.
+    @Size(max = 5, message = "Se pueden elegir hasta 5 opciones de ambientes")
+    private List<@Min(value = 1, message = "Los ambientes no pueden ser menos de 1") @Max(value = 5, message = "Los ambientes llegan hasta 5 (5 o más)") Integer> roomsOptions;
 
     @NotNull(message = "El campo 'dealbreaker' es obligatorio")
     private Dealbreaker dealbreaker;

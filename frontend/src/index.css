@@ -60,6 +60,15 @@
   --radius-xl: 0.75rem;
 }
 
+/* Texto de ejemplo ("placeholder") de todos los campos, incluidos los que no usan el componente Input
+   (textareas, campos sueltos): el gris claro anterior (outline-variant) casi no se leía. Se usa el color
+   "outline", que sigue distinguiéndose del texto escrito pero se lee bien (reportado en la prueba de SUS). */
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-outline);
+  opacity: 1;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--color-background);
