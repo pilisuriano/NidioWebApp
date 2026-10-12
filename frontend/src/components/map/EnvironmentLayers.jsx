@@ -134,7 +134,7 @@ export function EnvironmentLegend({ env, className = "bottom-6 right-2" }) {
             <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: MAP_LEVEL_COLORS[i + 1] }} />
             {label}
           </p>)}
-        <p className="text-[10px] text-on-surface-variant">Hechos denunciados 2023-2025, BA Data</p>
+        <p className="text-[10px] text-on-surface-variant">Hechos denunciados 2023-2025. Fuente: Delitos, BA Data (CC BY 2.5 AR)</p>
       </div>);
   }
   if (rows.length === 0) return null;
