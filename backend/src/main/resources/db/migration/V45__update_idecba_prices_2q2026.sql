@@ -1,0 +1,88 @@
+-- Actualiza al 2T 2026 (provisorio) los precios por barrio de IDECBA para el segmento del mapa:
+-- 2 ambientes usados. Venta: USD por m². Alquiler: ARS por mes (precio total). Último trimestre con
+-- dato propio del barrio (sin fallbacks, solo si es posterior a 2025-01-01); los demás barrios los completa el
+-- mapa con el valor de su comuna (V44).
+-- Generado con ml-service/scripts/update_idecba_prices_2amb_usados.py.
+
+DELETE FROM neighborhood_price_m2 WHERE rooms = 2 AND condition = 'USED';
+
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2105.54, '2026-04-01' FROM neighborhood WHERE name = 'Agronomía';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2116.86, '2026-04-01' FROM neighborhood WHERE name = 'Almagro';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1695.7, '2026-04-01' FROM neighborhood WHERE name = 'Balvanera';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1969.13, '2026-04-01' FROM neighborhood WHERE name = 'Barracas';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2958.49, '2026-04-01' FROM neighborhood WHERE name = 'Belgrano';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1505.66, '2026-04-01' FROM neighborhood WHERE name = 'La Boca';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1972.43, '2026-04-01' FROM neighborhood WHERE name = 'Boedo';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2316.67, '2026-04-01' FROM neighborhood WHERE name = 'Caballito';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2683.69, '2026-01-01' FROM neighborhood WHERE name = 'Chacarita';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2871.06, '2026-04-01' FROM neighborhood WHERE name = 'Coghlan';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2778.72, '2026-04-01' FROM neighborhood WHERE name = 'Colegiales';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1528.21, '2026-04-01' FROM neighborhood WHERE name = 'Constitución';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1973.67, '2026-04-01' FROM neighborhood WHERE name = 'Flores';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1639.19, '2026-04-01' FROM neighborhood WHERE name = 'Floresta';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2071.38, '2026-04-01' FROM neighborhood WHERE name = 'La Paternal';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1883.28, '2026-04-01' FROM neighborhood WHERE name = 'Liniers';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1808.25, '2026-04-01' FROM neighborhood WHERE name = 'Mataderos';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2226.23, '2026-04-01' FROM neighborhood WHERE name = 'Monte Castro';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1786.68, '2026-04-01' FROM neighborhood WHERE name = 'Monserrat';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1456.57, '2026-04-01' FROM neighborhood WHERE name = 'Nueva Pompeya';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 3266.45, '2026-04-01' FROM neighborhood WHERE name = 'Núñez';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 3118.04, '2026-04-01' FROM neighborhood WHERE name = 'Palermo';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1727.54, '2026-04-01' FROM neighborhood WHERE name = 'Parque Avellaneda';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2292.86, '2026-04-01' FROM neighborhood WHERE name = 'Parque Chacabuco';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2603.75, '2026-04-01' FROM neighborhood WHERE name = 'Parque Chas';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1713.13, '2026-04-01' FROM neighborhood WHERE name = 'Parque Patricios';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 5805.45, '2026-04-01' FROM neighborhood WHERE name = 'Puerto Madero';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2679.57, '2026-04-01' FROM neighborhood WHERE name = 'Recoleta';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2259.49, '2026-04-01' FROM neighborhood WHERE name = 'Retiro';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2888.23, '2026-04-01' FROM neighborhood WHERE name = 'Saavedra';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1803.34, '2026-04-01' FROM neighborhood WHERE name = 'San Cristóbal';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1777.31, '2026-04-01' FROM neighborhood WHERE name = 'San Nicolás';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1854.41, '2026-04-01' FROM neighborhood WHERE name = 'San Telmo';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1957.8, '2025-04-01' FROM neighborhood WHERE name = 'Versalles';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2413.47, '2026-04-01' FROM neighborhood WHERE name = 'Villa Crespo';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2351.74, '2026-04-01' FROM neighborhood WHERE name = 'Villa Devoto';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2010.66, '2026-04-01' FROM neighborhood WHERE name = 'Villa General Mitre';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1437.4, '2026-04-01' FROM neighborhood WHERE name = 'Villa Lugano';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2134.97, '2026-04-01' FROM neighborhood WHERE name = 'Villa Luro';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2826.14, '2026-04-01' FROM neighborhood WHERE name = 'Villa Ortúzar';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2594.01, '2026-04-01' FROM neighborhood WHERE name = 'Villa Pueyrredón';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2164.15, '2026-04-01' FROM neighborhood WHERE name = 'Villa Santa Rita';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2775.05, '2026-04-01' FROM neighborhood WHERE name = 'Villa Urquiza';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 2310.19, '2026-04-01' FROM neighborhood WHERE name = 'Villa del Parque';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'SALE', 2, 'USED', 1800.19, '2026-04-01' FROM neighborhood WHERE name = 'Vélez Sarsfield';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 733791.67, '2026-04-01' FROM neighborhood WHERE name = 'Almagro';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 672158.5, '2026-04-01' FROM neighborhood WHERE name = 'Balvanera';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 682869.48, '2026-04-01' FROM neighborhood WHERE name = 'Barracas';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 814246.72, '2026-04-01' FROM neighborhood WHERE name = 'Belgrano';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 539469.14, '2025-10-01' FROM neighborhood WHERE name = 'La Boca';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 706380.69, '2026-04-01' FROM neighborhood WHERE name = 'Boedo';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 767391.9, '2026-04-01' FROM neighborhood WHERE name = 'Caballito';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 815640.1, '2026-04-01' FROM neighborhood WHERE name = 'Chacarita';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 711653.98, '2025-10-01' FROM neighborhood WHERE name = 'Coghlan';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 846922.77, '2026-04-01' FROM neighborhood WHERE name = 'Colegiales';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 635719.99, '2026-04-01' FROM neighborhood WHERE name = 'Constitución';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 680323.2, '2026-04-01' FROM neighborhood WHERE name = 'Flores';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 649581.32, '2026-04-01' FROM neighborhood WHERE name = 'Floresta';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 698643.28, '2026-04-01' FROM neighborhood WHERE name = 'Liniers';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 715434.66, '2026-04-01' FROM neighborhood WHERE name = 'Monte Castro';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 678836.34, '2026-04-01' FROM neighborhood WHERE name = 'Monserrat';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 870185.08, '2026-04-01' FROM neighborhood WHERE name = 'Núñez';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 839052.74, '2026-04-01' FROM neighborhood WHERE name = 'Palermo';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 700178.34, '2026-04-01' FROM neighborhood WHERE name = 'Parque Chacabuco';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 800626.49, '2026-04-01' FROM neighborhood WHERE name = 'Recoleta';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 720728.23, '2026-04-01' FROM neighborhood WHERE name = 'Retiro';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 880824.19, '2026-04-01' FROM neighborhood WHERE name = 'Saavedra';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 715527.25, '2026-04-01' FROM neighborhood WHERE name = 'San Cristóbal';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 691408.63, '2026-04-01' FROM neighborhood WHERE name = 'San Nicolás';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 706698.88, '2026-04-01' FROM neighborhood WHERE name = 'San Telmo';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 795357.03, '2026-04-01' FROM neighborhood WHERE name = 'Villa Crespo';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 749523.73, '2026-04-01' FROM neighborhood WHERE name = 'Villa Devoto';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 667154.99, '2026-04-01' FROM neighborhood WHERE name = 'Villa General Mitre';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 750606.44, '2026-04-01' FROM neighborhood WHERE name = 'Villa Luro';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 644551.03, '2025-10-01' FROM neighborhood WHERE name = 'Villa Ortúzar';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 741140.43, '2026-04-01' FROM neighborhood WHERE name = 'Villa Pueyrredón';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 712621.63, '2026-04-01' FROM neighborhood WHERE name = 'Villa Santa Rita';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 817316.07, '2026-04-01' FROM neighborhood WHERE name = 'Villa Urquiza';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 708076.76, '2026-04-01' FROM neighborhood WHERE name = 'Villa del Parque';
+INSERT INTO neighborhood_price_m2 (neighborhood_id, operation_type, rooms, condition, avg_price_m2, period) SELECT id, 'RENT', 2, 'USED', 517807.69, '2025-07-01' FROM neighborhood WHERE name = 'Vélez Sarsfield';

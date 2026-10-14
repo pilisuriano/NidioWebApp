@@ -26,4 +26,7 @@ public class Neighborhood {
 
     @Column(nullable = false, columnDefinition = "geometry(Polygon,4326)")
     private Polygon boundary;
+
+    /** Comuna (1-15) a la que pertenece el barrio; se usa para completar el mapa de precios (V44). */
+    private Integer comuna;
 }

@@ -432,23 +432,24 @@ export default function MapPage() {
     // no se dibuja la capa con valores de otra operación.
     setPriceData(null);
     setNoPriceData(null);
-    api.get("/api/heatmaps/price", { params }).then(res => {
+    // Las dos capas (barrios con dato propio y barrios completados con la
+    // comuna / en gris) se piden juntas y se actualizan juntas: si llegaran
+    // por separado, la capa punteada se dibujaba un instante contra una
+    // escala de colores todavía vacía y "parpadeaba" al cambiar de operación.
+    const priceRequest = api.get("/api/heatmaps/price", { params })
+      .then(res => res.data)
+      .catch(() => null);
+    // Solo se acepta un GeoJSON válido: si el backend todavía no tiene el
+    // endpoint (o responde otra cosa), se ignora en vez de romper la pantalla.
+    const noDataRequest = api.get("/api/heatmaps/price/no-data", { params })
+      .then(res => Array.isArray(res.data?.features) ? res.data : null)
+      .catch(() => null);
+    Promise.all([priceRequest, noDataRequest]).then(([price, noData]) => {
       if (cancelled) return;
-      setPriceData(res.data);
+      setPriceData(price);
+      setNoPriceData(price ? noData : null);
       setPriceVersion(v => v + 1);
-    }).catch(() => {
-      if (!cancelled) setPriceData(null);
-    });
-    // Barrios sin precio propio en IDECBA para este segmento: se dibujan en
-    // gris para que no parezca un error.
-    api.get("/api/heatmaps/price/no-data", { params }).then(res => {
-      if (cancelled) return;
-      // Solo se acepta un GeoJSON válido: si el backend todavía no tiene el
-      // endpoint (o responde otra cosa), se ignora en vez de romper la pantalla.
-      setNoPriceData(Array.isArray(res.data?.features) ? res.data : null);
       setNoPriceVersion(v => v + 1);
-    }).catch(() => {
-      if (!cancelled) setNoPriceData(null);
     });
     return () => {
       cancelled = true;
@@ -593,7 +594,15 @@ export default function MapPage() {
     mapLayer.bindPopup(`<strong>${props.neighborhoodName}</strong><br/>` + `${formatNumber(props.avgPriceM2)} ${unit}`, popupOptions());
   }
   function onEachNoPriceFeature(feature, mapLayer) {
-    mapLayer.bindPopup(`<strong>${feature.properties.neighborhoodName}</strong><br/>` + `IDECBA no publica un precio propio para este barrio en ${operationType === "SALE" ? "venta" : "alquiler"}, por eso no se colorea.`, popupOptions());
+    const props = feature.properties;
+    const operacion = operationType === "SALE" ? "venta" : "alquiler";
+    const unit = operationType === "SALE" ? "USD/m²" : "ARS/mes";
+    // Con valor: IDECBA no publica el barrio pero sí su comuna (otro nivel de
+    // detalle, por eso se aclara). Sin valor: ni la comuna tiene dato.
+    const detalle = props.avgPriceM2 != null
+      ? `IDECBA no publica un precio propio para este barrio en ${operacion}. Se muestra el valor de la Comuna ${props.comuna}: <strong>${formatNumber(props.avgPriceM2)} ${unit}</strong>.`
+      : `IDECBA no publica un precio propio para este barrio en ${operacion}, ni tampoco para su comuna, por eso no se colorea.`;
+    mapLayer.bindPopup(`<strong>${props.neighborhoodName}</strong><br/>` + detalle, popupOptions());
   }
   function onEachSecurityFeature(feature, mapLayer) {
     const props = feature.properties;
@@ -917,13 +926,25 @@ export default function MapPage() {
             fillOpacity: 0.55
           })} onEachFeature={onEachPriceFeature} />}
 
-          {colorVisible && layer === "price" && noPriceData?.features?.length > 0 && <GeoJSON key={`price-nodata-${noPriceVersion}`} data={noPriceData} style={() => ({
-            color: "#9ca3af",
-            weight: 1,
-            dashArray: "3 3",
-            fillColor: "#9ca3af",
-            fillOpacity: 0.4
-          })} onEachFeature={onEachNoPriceFeature} />}
+          {colorVisible && layer === "price" && priceData && noPriceData?.features?.length > 0 && <GeoJSON key={`price-nodata-${noPriceVersion}`} data={noPriceData} style={feature => {
+            const value = (feature?.properties).avgPriceM2;
+            // Con valor de la comuna: mismo color que el resto del mapa (misma
+            // escala de percentiles de los barrios) pero con borde punteado,
+            // para distinguir que no es dato propio del barrio. Sin valor: gris.
+            return value != null ? {
+              color: "#4b5563",
+              weight: 1.5,
+              dashArray: "4 3",
+              fillColor: priceColor(percentileRank(value, sortedPrices)),
+              fillOpacity: 0.55
+            } : {
+              color: "#9ca3af",
+              weight: 1,
+              dashArray: "3 3",
+              fillColor: "#9ca3af",
+              fillOpacity: 0.4
+            };
+          }} onEachFeature={onEachNoPriceFeature} />}
 
           {colorVisible && layer === "security" && securityData && <GeoJSON key="security-fill" data={securityData} style={feature => ({
             color: "#ffffff",
@@ -1064,7 +1085,13 @@ export default function MapPage() {
             }}></span>
                 Más caro ({formatNumber(maxPrice)})
               </div>
-              {noPriceData?.features?.length > 0 && <div className="flex items-center gap-2">
+              {noPriceData?.features?.some(f => f.properties.avgPriceM2 != null) && <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full border border-dashed border-on-surface-variant" style={{
+                background: "hsl(25,95%,50%)"
+              }}></span>
+                  Valor de la comuna (IDECBA no publica el barrio)
+                </div>}
+              {noPriceData?.features?.some(f => f.properties.avgPriceM2 == null) && <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full border border-dashed border-outline" style={{
                 background: "#9ca3af"
               }}></span>

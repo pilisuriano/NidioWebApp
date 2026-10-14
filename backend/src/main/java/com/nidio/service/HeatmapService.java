@@ -6,9 +6,11 @@ import com.nidio.dto.NeighborhoodNoPriceProperties;
 import com.nidio.dto.NeighborhoodPriceProperties;
 import com.nidio.dto.NoiseZoneProperties;
 import com.nidio.dto.SecurityZoneProperties;
+import com.nidio.model.ComunaPriceM2;
 import com.nidio.model.NeighborhoodPriceM2;
 import com.nidio.model.OperationType;
 import com.nidio.model.PriceCondition;
+import com.nidio.repository.ComunaPriceM2Repository;
 import com.nidio.repository.NeighborhoodPriceM2Repository;
 import com.nidio.repository.NeighborhoodRepository;
 import com.nidio.repository.NoiseZoneRepository;
@@ -32,6 +34,7 @@ public class HeatmapService {
     private static final DateTimeFormatter PERIOD_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
 
     private final NeighborhoodPriceM2Repository neighborhoodPriceM2Repository;
+    private final ComunaPriceM2Repository comunaPriceM2Repository;
     private final NeighborhoodRepository neighborhoodRepository;
     private final NoiseZoneRepository noiseZoneRepository;
     private final SecurityZoneRepository securityZoneRepository;
@@ -63,10 +66,13 @@ public class HeatmapService {
     }
 
     // Barrios sin dato propio de IDECBA para el segmento elegido (hoy Villa
-    // Real y Villa Soldati). El mapa de precios no inventa un valor para
-    // ellos (sin fallbacks, ver V43), pero sí necesita saber cuáles son para
-    // dibujarlos en gris con la leyenda "Sin dato de IDECBA" en vez de dejar
-    // un hueco sin explicación.
+    // Real, Villa Soldati y Villa Riachuelo en venta, y varios más en
+    // alquiler). El mapa no inventa un valor para ellos (sin fallbacks entre
+    // fuentes, ver V43): si IDECBA publica el precio de su COMUNA se devuelve
+    // ese valor (dato oficial, de otro nivel de detalle, que el mapa dibuja
+    // con borde punteado y la leyenda "Valor de la comuna"); si ni la comuna
+    // tiene dato (alquiler en la Comuna 8), el valor viene en null y el barrio
+    // se dibuja en gris con la leyenda "Sin dato de IDECBA".
     @Transactional(readOnly = true)
     public GeoJsonFeatureCollection<NeighborhoodNoPriceProperties> getPriceHeatmapNoData(
             OperationType operationType, Integer rooms, PriceCondition condition) {
@@ -75,12 +81,28 @@ public class HeatmapService {
                 .map(p -> p.getNeighborhood().getId())
                 .collect(Collectors.toSet());
 
+        // Último período disponible por comuna para el mismo segmento.
+        Map<Integer, ComunaPriceM2> latestByComuna = comunaPriceM2Repository
+                .findByOperationTypeAndRoomsAndCondition(operationType, rooms, condition).stream()
+                .collect(Collectors.toMap(
+                        ComunaPriceM2::getComuna,
+                        c -> c,
+                        BinaryOperator.maxBy(Comparator.comparing(ComunaPriceM2::getPeriod))));
+
         return new GeoJsonFeatureCollection<>(neighborhoodRepository.findAll().stream()
                 .filter(n -> !withData.contains(n.getId()) && n.getBoundary() != null)
                 .sorted(Comparator.comparing(n -> n.getId()))
-                .map(n -> new GeoJsonFeature<>(
-                        GeoJsonMapper.toGeometry(n.getBoundary()),
-                        new NeighborhoodNoPriceProperties(n.getId(), n.getName())))
+                .map(n -> {
+                    ComunaPriceM2 comunaPrice = n.getComuna() != null ? latestByComuna.get(n.getComuna()) : null;
+                    return new GeoJsonFeature<>(
+                            GeoJsonMapper.toGeometry(n.getBoundary()),
+                            new NeighborhoodNoPriceProperties(
+                                    n.getId(),
+                                    n.getName(),
+                                    n.getComuna(),
+                                    comunaPrice != null ? comunaPrice.getAvgPriceM2() : null,
+                                    comunaPrice != null ? PERIOD_FORMAT.format(comunaPrice.getPeriod()) : null));
+                })
                 .toList());
     }
 
