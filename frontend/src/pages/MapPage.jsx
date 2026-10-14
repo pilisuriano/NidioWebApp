@@ -593,7 +593,7 @@ export default function MapPage() {
     mapLayer.bindPopup(`<strong>${props.neighborhoodName}</strong><br/>` + `${formatNumber(props.avgPriceM2)} ${unit}`, popupOptions());
   }
   function onEachNoPriceFeature(feature, mapLayer) {
-    mapLayer.bindPopup(`<strong>${feature.properties.neighborhoodName}</strong><br/>` + "IDECBA no publica un precio propio para este barrio en este segmento (2 ambientes usados), por eso no se colorea.", POPUP_OPTIONS);
+    mapLayer.bindPopup(`<strong>${feature.properties.neighborhoodName}</strong><br/>` + `IDECBA no publica un precio propio para este barrio en ${operationType === "SALE" ? "venta" : "alquiler"}, por eso no se colorea.`, popupOptions());
   }
   function onEachSecurityFeature(feature, mapLayer) {
     const props = feature.properties;
@@ -918,10 +918,11 @@ export default function MapPage() {
           })} onEachFeature={onEachPriceFeature} />}
 
           {colorVisible && layer === "price" && noPriceData?.features?.length > 0 && <GeoJSON key={`price-nodata-${noPriceVersion}`} data={noPriceData} style={() => ({
-            color: "#ffffff",
+            color: "#9ca3af",
             weight: 1,
+            dashArray: "3 3",
             fillColor: "#9ca3af",
-            fillOpacity: 0.55
+            fillOpacity: 0.4
           })} onEachFeature={onEachNoPriceFeature} />}
 
           {colorVisible && layer === "security" && securityData && <GeoJSON key="security-fill" data={securityData} style={feature => ({
@@ -1064,7 +1065,7 @@ export default function MapPage() {
                 Más caro ({formatNumber(maxPrice)})
               </div>
               {noPriceData?.features?.length > 0 && <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{
+                  <span className="w-3 h-3 rounded-full border border-dashed border-outline" style={{
                 background: "#9ca3af"
               }}></span>
                   Sin dato de IDECBA
