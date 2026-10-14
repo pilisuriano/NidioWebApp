@@ -419,7 +419,9 @@ export default function MapPage() {
     // gris para que no parezca un error.
     api.get("/api/heatmaps/price/no-data", { params }).then(res => {
       if (cancelled) return;
-      setNoPriceData(res.data);
+      // Solo se acepta un GeoJSON válido: si el backend todavía no tiene el
+      // endpoint (o responde otra cosa), se ignora en vez de romper la pantalla.
+      setNoPriceData(Array.isArray(res.data?.features) ? res.data : null);
       setNoPriceVersion(v => v + 1);
     }).catch(() => {
       if (!cancelled) setNoPriceData(null);
@@ -891,7 +893,7 @@ export default function MapPage() {
             fillOpacity: 0.55
           })} onEachFeature={onEachPriceFeature} />}
 
-          {colorVisible && layer === "price" && noPriceData?.features.length > 0 && <GeoJSON key={`price-nodata-${noPriceVersion}`} data={noPriceData} style={() => ({
+          {colorVisible && layer === "price" && noPriceData?.features?.length > 0 && <GeoJSON key={`price-nodata-${noPriceVersion}`} data={noPriceData} style={() => ({
             color: "#ffffff",
             weight: 1,
             fillColor: "#9ca3af",
@@ -1037,7 +1039,7 @@ export default function MapPage() {
             }}></span>
                 Más caro ({formatNumber(maxPrice)})
               </div>
-              {noPriceData?.features.length > 0 && <div className="flex items-center gap-2">
+              {noPriceData?.features?.length > 0 && <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full" style={{
                 background: "#9ca3af"
               }}></span>
