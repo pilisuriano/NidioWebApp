@@ -1,0 +1,14 @@
+{
+  "name": "nidio-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pruebas automáticas de extremo a extremo de Nidio (Playwright)",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}
