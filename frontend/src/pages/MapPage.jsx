@@ -317,6 +317,15 @@ export default function MapPage() {
   const rooms = 2;
   const condition = "USED";
   const [priceData, setPriceData] = useState(null);
+  const [noPriceData, setNoPriceData] = useState(null);
+  // react-leaflet no vuelve a dibujar un GeoJSON cuando cambia `data`, solo
+  // cuando cambia la `key`: se incrementa cada vez que llega una respuesta
+  // nueva, así la capa siempre se arma con los datos que realmente le
+  // corresponden (si la key dependiera solo de la operación, al pasar de
+  // Alquiler a Compra la capa quedaba con los polígonos y valores viejos
+  // coloreados contra los percentiles nuevos, y salía toda en rojo).
+  const [priceVersion, setPriceVersion] = useState(0);
+  const [noPriceVersion, setNoPriceVersion] = useState(0);
   const [noiseData, setNoiseData] = useState(null);
   const [securityData, setSecurityData] = useState(null);
   // Contorno de toda CABA (unión de los barrios, la calcula el backend con
@@ -384,16 +393,40 @@ export default function MapPage() {
     setNearbyPanelExpanded(false);
   }, [search]);
   useEffect(() => {
-    api.get("/api/heatmaps/price", {
-      params: {
-        operationType,
-        rooms,
-        // Alquiler solo existe como "usado" en IDECBA: se fuerza acá para no
-        // depender de que el usuario haya dejado el selector en el valor
-        // correcto al cambiar de Venta a Alquiler.
-        condition: operationType === "RENT" ? "USED" : condition
-      }
-    }).then(res => setPriceData(res.data)).catch(() => setPriceData(null));
+    const params = {
+      operationType,
+      rooms,
+      // Alquiler solo existe como "usado" en IDECBA: se fuerza acá para no
+      // depender de que el usuario haya dejado el selector en el valor
+      // correcto al cambiar de Venta a Alquiler.
+      condition: operationType === "RENT" ? "USED" : condition
+    };
+    // `cancelled` evita que una respuesta lenta de la operación anterior pise
+    // a la actual si la persona cambia rápido de Alquiler a Compra.
+    let cancelled = false;
+    // Se descartan los datos viejos de entrada: mientras llega la respuesta
+    // no se dibuja la capa con valores de otra operación.
+    setPriceData(null);
+    setNoPriceData(null);
+    api.get("/api/heatmaps/price", { params }).then(res => {
+      if (cancelled) return;
+      setPriceData(res.data);
+      setPriceVersion(v => v + 1);
+    }).catch(() => {
+      if (!cancelled) setPriceData(null);
+    });
+    // Barrios sin precio propio en IDECBA para este segmento: se dibujan en
+    // gris para que no parezca un error.
+    api.get("/api/heatmaps/price/no-data", { params }).then(res => {
+      if (cancelled) return;
+      setNoPriceData(res.data);
+      setNoPriceVersion(v => v + 1);
+    }).catch(() => {
+      if (!cancelled) setNoPriceData(null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [operationType, rooms, condition]);
   useEffect(() => {
     api.get("/api/heatmaps/noise").then(res => setNoiseData(res.data)).catch(() => {});
@@ -532,6 +565,9 @@ export default function MapPage() {
     // permanente sobre el polígono, para no saturar el mapa con un pill por
     // barrio.
     mapLayer.bindPopup(`<strong>${props.neighborhoodName}</strong><br/>` + `${formatNumber(props.avgPriceM2)} ${unit}`, POPUP_OPTIONS);
+  }
+  function onEachNoPriceFeature(feature, mapLayer) {
+    mapLayer.bindPopup(`<strong>${feature.properties.neighborhoodName}</strong><br/>` + "IDECBA no publica un precio propio para este barrio en este segmento (2 ambientes usados), por eso no se colorea.", POPUP_OPTIONS);
   }
   function onEachSecurityFeature(feature, mapLayer) {
     const props = feature.properties;
@@ -848,12 +884,19 @@ export default function MapPage() {
           {/* Botón para recentrar en CABA, apilado con los +/- nativos. */}
           <RecenterControl />
 
-          {colorVisible && layer === "price" && priceData && <GeoJSON key={`price-${operationType}`} data={priceData} style={feature => ({
+          {colorVisible && layer === "price" && priceData && <GeoJSON key={`price-${priceVersion}`} data={priceData} style={feature => ({
             color: "#ffffff",
             weight: 1,
             fillColor: priceColor(percentileRank((feature?.properties).avgPriceM2, sortedPrices)),
             fillOpacity: 0.55
           })} onEachFeature={onEachPriceFeature} />}
+
+          {colorVisible && layer === "price" && noPriceData?.features.length > 0 && <GeoJSON key={`price-nodata-${noPriceVersion}`} data={noPriceData} style={() => ({
+            color: "#ffffff",
+            weight: 1,
+            fillColor: "#9ca3af",
+            fillOpacity: 0.55
+          })} onEachFeature={onEachNoPriceFeature} />}
 
           {colorVisible && layer === "security" && securityData && <GeoJSON key="security-fill" data={securityData} style={feature => ({
             color: "#ffffff",
@@ -994,6 +1037,12 @@ export default function MapPage() {
             }}></span>
                 Más caro ({formatNumber(maxPrice)})
               </div>
+              {noPriceData?.features.length > 0 && <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full" style={{
+                background: "#9ca3af"
+              }}></span>
+                  Sin dato de IDECBA
+                </div>}
               <div className="text-[10px] font-mono text-on-surface-variant">
                 {operationType === "SALE" ? "USD/m²" : "ARS/mes (precio total)"}
               </div>

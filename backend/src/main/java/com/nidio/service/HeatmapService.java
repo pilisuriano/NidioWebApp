@@ -2,6 +2,7 @@ package com.nidio.service;
 
 import com.nidio.dto.GeoJsonFeature;
 import com.nidio.dto.GeoJsonFeatureCollection;
+import com.nidio.dto.NeighborhoodNoPriceProperties;
 import com.nidio.dto.NeighborhoodPriceProperties;
 import com.nidio.dto.NoiseZoneProperties;
 import com.nidio.dto.SecurityZoneProperties;
@@ -9,6 +10,7 @@ import com.nidio.model.NeighborhoodPriceM2;
 import com.nidio.model.OperationType;
 import com.nidio.model.PriceCondition;
 import com.nidio.repository.NeighborhoodPriceM2Repository;
+import com.nidio.repository.NeighborhoodRepository;
 import com.nidio.repository.NoiseZoneRepository;
 import com.nidio.repository.SecurityZoneRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,7 @@ public class HeatmapService {
     private static final DateTimeFormatter PERIOD_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
 
     private final NeighborhoodPriceM2Repository neighborhoodPriceM2Repository;
+    private final NeighborhoodRepository neighborhoodRepository;
     private final NoiseZoneRepository noiseZoneRepository;
     private final SecurityZoneRepository securityZoneRepository;
 
@@ -56,6 +60,28 @@ public class HeatmapService {
                 .toList();
 
         return new GeoJsonFeatureCollection<>(features);
+    }
+
+    // Barrios sin dato propio de IDECBA para el segmento elegido (hoy Villa
+    // Real y Villa Soldati). El mapa de precios no inventa un valor para
+    // ellos (sin fallbacks, ver V43), pero sí necesita saber cuáles son para
+    // dibujarlos en gris con la leyenda "Sin dato de IDECBA" en vez de dejar
+    // un hueco sin explicación.
+    @Transactional(readOnly = true)
+    public GeoJsonFeatureCollection<NeighborhoodNoPriceProperties> getPriceHeatmapNoData(
+            OperationType operationType, Integer rooms, PriceCondition condition) {
+        Set<Long> withData = neighborhoodPriceM2Repository
+                .findByOperationTypeAndRoomsAndCondition(operationType, rooms, condition).stream()
+                .map(p -> p.getNeighborhood().getId())
+                .collect(Collectors.toSet());
+
+        return new GeoJsonFeatureCollection<>(neighborhoodRepository.findAll().stream()
+                .filter(n -> !withData.contains(n.getId()) && n.getBoundary() != null)
+                .sorted(Comparator.comparing(n -> n.getId()))
+                .map(n -> new GeoJsonFeature<>(
+                        GeoJsonMapper.toGeometry(n.getBoundary()),
+                        new NeighborhoodNoPriceProperties(n.getId(), n.getName())))
+                .toList());
     }
 
     @Transactional(readOnly = true)
