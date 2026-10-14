@@ -27,6 +27,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthEntryPointJwt authEntryPointJwt;
+    private final AccessDeniedHandlerJwt accessDeniedHandlerJwt;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -42,7 +43,9 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(eh -> eh.authenticationEntryPoint(authEntryPointJwt))
+                .exceptionHandling(eh -> eh
+                        .authenticationEntryPoint(authEntryPointJwt)
+                        .accessDeniedHandler(accessDeniedHandlerJwt))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/register",

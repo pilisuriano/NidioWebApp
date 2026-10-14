@@ -1,0 +1,407 @@
+{
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "explorar": {
+                "name": "explorar",
+                "path": "::explorar",
+                "id": "bebd9f0a09a32b1578df634f267f2cc1",
+                "groups": {},
+                "checks": {
+                        "catálogo 200": {
+                            "path": "::explorar::catálogo 200",
+                            "id": "8fbd516bf38199d1bccbfcc9c9290d5b",
+                            "passes": 1868,
+                            "fails": 0,
+                            "name": "catálogo 200"
+                        },
+                        "detalle 200": {
+                            "id": "812b55acbb554d470a0d2c7da5b4dc69",
+                            "passes": 1868,
+                            "fails": 0,
+                            "name": "detalle 200",
+                            "path": "::explorar::detalle 200"
+                        },
+                        "mapa_precios 200": {
+                            "path": "::explorar::mapa_precios 200",
+                            "id": "8e6d5d1229fe3460dc692d2fdef173a8",
+                            "passes": 313,
+                            "fails": 0,
+                            "name": "mapa_precios 200"
+                        },
+                        "mapa_seguridad 200": {
+                            "name": "mapa_seguridad 200",
+                            "path": "::explorar::mapa_seguridad 200",
+                            "id": "cfb87e0a22356fa272f42dc4bdff696f",
+                            "passes": 330,
+                            "fails": 0
+                        },
+                        "mapa_ruido 200": {
+                            "fails": 0,
+                            "name": "mapa_ruido 200",
+                            "path": "::explorar::mapa_ruido 200",
+                            "id": "0eb6f6ba1212a37585c6bc9fad401883",
+                            "passes": 321
+                        }
+                    }
+            },
+            "valuacion": {
+                "id": "7f279e8be1047c4b196ac32e7f16302a",
+                "groups": {},
+                "checks": {
+                        "valuación 2xx": {
+                            "passes": 577,
+                            "fails": 0,
+                            "name": "valuación 2xx",
+                            "path": "::valuacion::valuación 2xx",
+                            "id": "3461168987dc41e9a194560af47fdca5"
+                        }
+                    },
+                "name": "valuacion",
+                "path": "::valuacion"
+            },
+            "recomendador": {
+                "name": "recomendador",
+                "path": "::recomendador",
+                "id": "a3ad58d15f8c621a6487d38a4116babe",
+                "groups": {},
+                "checks": {
+                        "recomendador 2xx": {
+                            "fails": 0,
+                            "name": "recomendador 2xx",
+                            "path": "::recomendador::recomendador 2xx",
+                            "id": "07540ec25912a903201a75fd3939811c",
+                            "passes": 583
+                        }
+                    }
+            },
+            "life_score": {
+                "name": "life_score",
+                "path": "::life_score",
+                "id": "293acdcff675b9589b55bd0441cfc812",
+                "groups": {},
+                "checks": {
+                        "life score 2xx": {
+                            "path": "::life_score::life score 2xx",
+                            "id": "cf683de01a9d84ca4c5bf81e201162eb",
+                            "passes": 542,
+                            "fails": 0,
+                            "name": "life score 2xx"
+                        }
+                    }
+            }
+        },
+        "checks": {},
+        "name": ""
+    },
+    "metrics": {
+        "http_req_tls_handshaking": {
+            "med": 0,
+            "max": 65.2854,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.2593451295660319,
+            "min": 0
+        },
+        "vus": {
+            "min": 0,
+            "max": 50,
+            "value": 1
+        },
+        "http_req_blocked": {
+            "avg": 0.45095316890415227,
+            "min": 0,
+            "med": 0,
+            "max": 111.987,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "data_sent": {
+            "count": 2115806,
+            "rate": 4600.863197944988
+        },
+        "data_received": {
+            "count": 453488242,
+            "rate": 986119.4094914992
+        },
+        "http_reqs": {
+            "count": 6406,
+            "rate": 13.92997734482065
+        },
+        "http_req_sending": {
+            "avg": 0.31990522947236927,
+            "min": 0,
+            "med": 0.4275,
+            "max": 1.4292,
+            "p(90)": 0.6126,
+            "p(95)": 0.6649750000000001
+        },
+        "http_req_duration{tipo:consulta}": {
+            "avg": 272.188500749465,
+            "min": 190.8683,
+            "med": 237.5663,
+            "max": 1932.5668,
+            "p(90)": 353.21569999999997,
+            "p(95)": 474.554525,
+            "thresholds": {
+                "p(95)<2000": false
+            }
+        },
+        "iteration_duration": {
+            "avg": 9678.639083351172,
+            "min": 2586.0651,
+            "med": 9499.0546,
+            "max": 20918.5956,
+            "p(90)": 13900.79379,
+            "p(95)": 15480.477379999998
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 6406,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_req_duration{endpoint:mapa_seguridad}": {
+            "avg": 599.658465757576,
+            "min": 293.6337,
+            "med": 489.81455,
+            "max": 1911.4014,
+            "p(90)": 1047.8417400000003,
+            "p(95)": 1218.62056,
+            "thresholds": {
+                "p(95)<3000": false
+            }
+        },
+        "http_req_duration{tipo:mapa}": {
+            "max": 2759.124,
+            "p(90)": 1013.4838200000002,
+            "p(95)": 1198.2351999999998,
+            "avg": 531.1880203319495,
+            "min": 230.9764,
+            "med": 422.35805,
+            "thresholds": {
+                "p(95)<3000": false
+            }
+        },
+        "vus_max": {
+            "max": 50,
+            "value": 50,
+            "min": 50
+        },
+        "http_req_duration": {
+            "p(95)": 696.50385,
+            "avg": 335.2677621136424,
+            "min": 190.8683,
+            "med": 271.88635,
+            "max": 2759.124,
+            "p(90)": 523.3749
+        },
+        "http_req_duration{tipo:calculo}": {
+            "med": 320.8144,
+            "max": 2599.1236,
+            "p(90)": 525.0816599999999,
+            "p(95)": 648.5692549999992,
+            "avg": 362.86724412455817,
+            "min": 211.4241,
+            "thresholds": {
+                "p(95)<5000": false
+            }
+        },
+        "group_duration": {
+            "min": 1233.7005,
+            "med": 4258.0836,
+            "max": 12649.868,
+            "p(90)": 9029.302689999999,
+            "p(95)": 9936.05037,
+            "avg": 5064.328731036406
+        },
+        "http_req_duration{endpoint:life_score}": {
+            "p(90)": 590.60829,
+            "p(95)": 685.6693749999989,
+            "avg": 384.14123690036894,
+            "min": 264.8962,
+            "med": 322.73760000000004,
+            "max": 1219.5706,
+            "thresholds": {
+                "p(95)<5000": false
+            }
+        },
+        "http_req_duration{endpoint:mapa_precios}": {
+            "med": 277.9578,
+            "max": 1973.0831,
+            "p(90)": 561.69298,
+            "p(95)": 753.1755799999996,
+            "avg": 369.64232300319486,
+            "min": 230.9764,
+            "thresholds": {
+                "p(95)<3000": false
+            }
+        },
+        "http_req_duration{endpoint:mapa_ruido}": {
+            "avg": 618.3174791277264,
+            "min": 305.7804,
+            "med": 482.1152,
+            "max": 2759.124,
+            "p(90)": 1094.8258,
+            "p(95)": 1402.2403,
+            "thresholds": {
+                "p(95)<3000": false
+            }
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(90)": 523.3749,
+            "p(95)": 696.50385,
+            "avg": 335.2677621136424,
+            "min": 190.8683,
+            "med": 271.88635,
+            "max": 2759.124
+        },
+        "http_req_waiting": {
+            "p(95)": 571.8198,
+            "avg": 306.4061910864823,
+            "min": 189.594,
+            "med": 260.9763,
+            "max": 2598.583,
+            "p(90)": 425.62435
+        },
+        "iterations": {
+            "count": 1868,
+            "rate": 4.062004008761313
+        },
+        "http_req_connecting": {
+            "avg": 0.18480416796753046,
+            "min": 0,
+            "med": 0,
+            "max": 46.7016,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_receiving": {
+            "avg": 28.541665797689657,
+            "min": 0,
+            "med": 0.70175,
+            "max": 1014.8072,
+            "p(90)": 92.05675,
+            "p(95)": 200.0515
+        },
+        "checks": {
+            "passes": 6402,
+            "fails": 0,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 1
+        }
+    },
+    "setup_data": {
+        "lon": -58.3992133906825,
+        "neighborhoods": [
+            21,
+            9,
+            10,
+            18,
+            3,
+            16,
+            8,
+            22,
+            23,
+            5,
+            24,
+            17,
+            25,
+            19,
+            26,
+            27,
+            28,
+            15,
+            29,
+            30,
+            4,
+            1,
+            31,
+            32,
+            33,
+            34,
+            12,
+            2,
+            13,
+            35,
+            36,
+            14,
+            11,
+            37,
+            38,
+            7,
+            39,
+            20,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            6
+        ],
+        "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbkBuaWRpby5jb20iLCJpYXQiOjE3OTE5Mzc0MTUsImV4cCI6MTc5MjAyMzgxNX0.N0wKwtdEa5dU9FuRlkIIvVX0n8yx1jF0BDboFsOCLPQ",
+        "address": "Bartolome Mitre 2300, Comuna 3, Ciudad Autónoma de Buenos Aires",
+        "ids": [
+            398,
+            396,
+            395,
+            394,
+            393,
+            392,
+            391,
+            390,
+            389,
+            388,
+            387,
+            386,
+            385,
+            384,
+            383,
+            382,
+            381,
+            380,
+            379,
+            378,
+            377,
+            376,
+            375,
+            374,
+            373,
+            372,
+            371,
+            370,
+            369,
+            368,
+            367,
+            366,
+            365,
+            364,
+            363,
+            362,
+            361,
+            360,
+            359,
+            358,
+            357,
+            356,
+            355,
+            354,
+            353,
+            352,
+            351,
+            350,
+            349,
+            348
+        ],
+        "lat": -34.6084716203051
+    }
+}
