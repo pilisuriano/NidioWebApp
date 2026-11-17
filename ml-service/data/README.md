@@ -1,6 +1,6 @@
 # Datos
 
-- `raw/` — datasets crudos de entrenamiento (Kaggle/IDECBA). No versionado en git.
+- `raw/` — datasets crudos de entrenamiento (ver la Tabla III del informe). No versionado en git.
 - `processed/` — datasets limpios, listos para entrenamiento. No versionado en git.
 - `paradas-de-colectivo.csv` — SÍ versionado: lo lee `ml-service/src/geo/life_score.py` en tiempo de ejecución
   (categoría TRANSPORT del Life Score). No es un dataset de entrenamiento.
@@ -88,5 +88,4 @@ Los shapefiles vienen en `.zip` (se descomprimen solos). "Centros de salud priva
 
 ## Otras fuentes del proyecto (entrenamiento del modelo de valuación)
 
-- Kaggle / IDECBA / UADE-INECO / Properati: ver la Tabla III de la entrega y `claude/nidio-licencias-datos-y-life-score-datasets.md`
-  (licencias de cada dataset, algunas todavía sin verificar).
+- IDECBA / UADE-INECO / Properati y demás datasets de publicaciones: ver la Tabla III del informe, que detalla la licencia de cada uno.

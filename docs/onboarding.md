@@ -2,8 +2,6 @@
 
 Guía para levantar los tres servicios (`frontend`, `backend`, `ml-service`) por primera vez. Pensada para alguien que arranca de cero, sin nada instalado.
 
-> El `README.md` de la raíz menciona un `setup.sh` que automatizaría todo esto. Ese script no está en el repo todavía, así que por ahora se hace a mano siguiendo esta guía.
-
 ## 1. Qué instalar
 
 | Herramienta | Versión | Para qué |
@@ -12,10 +10,10 @@ Guía para levantar los tres servicios (`frontend`, `backend`, `ml-service`) por
 | [Node.js](https://nodejs.org/) | 20.x | `frontend/` |
 | JDK | 17 (recomendado [Temurin](https://adoptium.net/)) | `backend/` |
 | Maven | — | **no hace falta instalarlo**: `backend/` trae el wrapper `./mvnw` |
-| [Python](https://www.python.org/) | 3.11.x | `ml-service/` |
+| [Python](https://www.python.org/) | 3.12 | `ml-service/` |
 | PostgreSQL + PostGIS | Postgres 16 + PostGIS 3.4 | base de datos (ver opción A/B abajo) |
 
-Nada de Docker (decisión del proyecto).
+Docker no hace falta para desarrollo local: solo se usa para desplegar el backend en Render.
 
 Para verificar lo que ya tenés instalado:
 
@@ -29,8 +27,8 @@ python3 --version
 ## 2. Clonar el repo
 
 ```bash
-git clone <URL-del-repo>
-cd nidio-project
+git clone https://github.com/pilisuriano/NidioWebApp.git
+cd NidioWebApp
 ```
 
 ## 3. Base de datos
@@ -69,6 +67,7 @@ DATABASE_URL=jdbc:postgresql://localhost:5432/nidio   # o la connection string d
 DATABASE_USERNAME=postgres
 DATABASE_PASSWORD=postgres
 JWT_SECRET=cualquier-string-largo-random
+CUSTOM_PLACE_ENCRYPTION_KEY=<salida de: openssl rand -base64 32>   # obligatoria: sin ella el backend no arranca
 ```
 
 El resto (`MAIL_*`, `CLOUDINARY_*`) se puede dejar vacío para arrancar — más abajo hay una forma de evitar depender de eso. Sin `MAIL_*` configurado, el registro de cuentas nuevas y "olvidé mi contraseña" no van a mandar mail de verdad (queda solo logueado como warning en la consola del backend); sin `CLOUDINARY_*`, subir fotos de una propiedad va a fallar. Ninguna de las dos cosas bloquea correr el resto de la app.
@@ -86,7 +85,7 @@ cd backend
 ```
 
 ```bash
-# ml-service (puerto 8000) — Python 3.11
+# ml-service (puerto 8000) — Python 3.12
 cd ml-service
 python3 -m venv .venv
 source .venv/bin/activate
@@ -126,7 +125,7 @@ UPDATE "user" SET role = 'ADMIN' WHERE email = 'tu@email.com';
 
 ## 7. Verificar que quedó todo bien
 
-- `http://localhost:5173` carga el mapa con propiedades sintéticas de CABA.
+- `http://localhost:5173` carga el mapa con el catálogo anonimizado de propiedades de CABA.
 - Login con `inmobiliaria.demo@nidio.app` / `Demo1234!` funciona.
 - `http://localhost:8080/api/neighborhoods` devuelve JSON (backend arriba).
 - `http://localhost:8000/docs` muestra la documentación interactiva de FastAPI (ml-service arriba).
@@ -136,4 +135,3 @@ UPDATE "user" SET role = 'ADMIN' WHERE email = 'tu@email.com';
 - **El backend no arranca / error de conexión a la DB**: revisar `DATABASE_URL`/`DATABASE_USERNAME`/`DATABASE_PASSWORD` en `backend/.env`, y que Postgres esté corriendo (`brew services list` si es local).
 - **Error de la extensión `postgis`**: correr `CREATE EXTENSION IF NOT EXISTS postgis;` a mano contra la base (paso 3).
 - **`./mvnw` sin permiso de ejecución**: `chmod +x backend/mvnw`.
-- **`npm run lint`/`npm run test` fallan en CI pero no existen en `package.json`**: es un pendiente conocido del proyecto (ver "Estado del proyecto" en el `README.md` de la raíz), no es algo roto de tu setup.
