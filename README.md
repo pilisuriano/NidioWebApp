@@ -1,95 +1,84 @@
 # Nidio
 
-Plataforma web de análisis del mercado inmobiliario en CABA (Argentina), pensada para compradores e inquilinos. A diferencia de portales como Zonaprop, Argenprop o Mercado Libre —que solo publican avisos—, Nidio aporta análisis objetivo basado en datos para la toma de decisiones.
+Plataforma de apoyo a la toma de decisiones inmobiliarias mediante valuación y análisis geoespacial en la Ciudad Autónoma de Buenos Aires (CABA), pensada para compradores e inquilinos. A diferencia de portales como Zonaprop, Argenprop o Mercado Libre (que se enfocan en publicar avisos), Nidio aporta análisis objetivo basado en datos para apoyar la toma de decisiones.
 
-Trabajo Final de la carrera de Ingeniería Informática.
+Trabajo Final de la carrera de Ingeniería Informática (UADE).
 
-## Componentes del MVP
+## Componentes principales
 
-- **Modelo de valuación** — entrenado con datasets públicos de Kaggle (2019-2026, nivel individual) ajustado con datos agregados de IDECBA (Instituto de Estadística y Censos de CABA, 2010-2026). Variables: superficie, ubicación, ambientes, tipo de propiedad, tipo de operación. Devuelve un rango de precio esperado (no un valor exacto), para detectar sobre/subvaluaciones.
-- **Visualización geoespacial** — mapas de calor de precios por m² segmentados por barrio, más mapas de ruido y seguridad (estos últimos también funcionan como variables de penalización/bonificación del Life Score).
-- **Life Score** — indicador de entorno urbano basado en cercanía a 7 categorías de POIs (transporte, comercios, espacios verdes, salud, gastronomía, vida nocturna, educación) usando datasets abiertos de BA Data (Gobierno de la Ciudad de Buenos Aires). El usuario pondera cada categoría según sus preferencias. El cálculo debe completarse en menos de 5 segundos.
+- **Modelo de valuación** — dos modelos XGBoost independientes (venta, sobre USD/m²; alquiler, sobre USD/mes), entrenados con datasets públicos de publicaciones de CABA (muestras públicas de Zonaprop y Properati, período 2019–2026) y con una referencia de precio de mercado de IDECBA/UADE-INECO como variable adicional. Variables: superficie cubierta, barrio, ambientes, tipo y estado de la propiedad, amenities y tipo de operación. Devuelve un **rango de precio esperado** (no un valor exacto), que permite identificar si una propiedad está subvaluada, en rango o sobrevaluada, junto con una explicación de los factores que más influyen (SHAP).
+- **Mapas de calor** — precio por m² por barrio y tipo de operación (IDECBA), niveles de ruido por calle en horario diurno y nocturno (Mapa de Ruido de la Ciudad) y condiciones de seguridad por barrio (dataset de Delitos de la Ciudad). Cuando IDECBA no publica un barrio, el mapa muestra el valor de su comuna; si tampoco la comuna tiene dato, el barrio se muestra en gris.
+- **Life Score** — indicador de entorno urbano basado en la cercanía a 7 categorías de puntos de interés (transporte, comercios, espacios verdes, salud, gastronomía, vida nocturna y educación). El usuario pondera cada categoría y puede sumar "Mis lugares" (direcciones personales, guardadas cifradas con AES-256-GCM).
+- **Recomendador, favoritos y publicación** — recomendación de propiedades según las preferencias del usuario, favoritos, publicación de propiedades con fotos y panel de administración.
 
-La plataforma no muestra propiedades reales: usa una base de datos sintética para validar los flujos sin riesgo legal (no hay scraping, por los términos de los portales y por la Ley 25.326 de Protección de Datos Personales). Las imágenes son ilustrativas (bancos abiertos o IA).
+### Sobre los datos
+
+- El catálogo de la plataforma es un **catálogo anonimizado** de 200 propiedades (144 de venta y 56 de alquiler, en 33 barrios), armado con una muestra estratificada del dataset de entrenamiento. El precio de referencia se cargó manualmente a partir de propiedades reales comparables. Las direcciones son anonimizadas (calle real del barrio con altura generada, validada con Georef), los publicadores son 32 cuentas ficticias y las fotos son ilustrativas (Pexels y Unsplash). No son avisos publicados.
+- Los precios por m² de los mapas provienen de series de IDECBA (migraciones `V43`–`V45`); las capas de ruido y seguridad se procesan con los scripts de `ml-service/scripts/`.
 
 ## Servicios
 
-Monorepo compuesto por tres servicios independientes:
+Monorepo con tres servicios independientes:
 
-- [`frontend/`](frontend/README.md) — Épica 4: cliente React + Vite (deploy en Vercel).
-- [`backend/`](backend/README.md) — Épica 3: API REST en Spring Boot (deploy en Render).
-- [`ml-service/`](ml-service/README.md) — Épica 2: servicio de Machine Learning en Python/FastAPI (deploy en Render).
+| Carpeta | Descripción | Tecnología | Deploy |
+|---|---|---|---|
+| [`frontend/`](frontend/README.md) | Cliente web (SPA) | React 19 + Vite, React Router, Axios, React Leaflet, Tailwind CSS 4, Recharts (JavaScript) | Vercel |
+| [`backend/`](backend/README.md) | API REST | Java 17, Spring Boot 3.3, Spring Security + JWT (jjwt), Spring Data JPA, Hibernate Spatial, Flyway, Spring Mail | Render (Docker) |
+| [`ml-service/`](ml-service/README.md) | Valuación, Life Score y ruido | Python, FastAPI, XGBoost, scikit-learn, pandas, geopandas, shapely | Render |
 
-## Stack
-
-- **Frontend**: React + Vite, React Router, Axios, React Leaflet, Tailwind CSS, Recharts. JavaScript (sin TypeScript).
-- **Backend**: Spring Boot (Java) + Maven. Spring Web, Spring Data JPA, Spring Security, Validation, driver PostgreSQL, Hibernate Spatial, Flyway, JWT (jjwt), Lombok.
-- **ML Service**: Python + FastAPI. pandas, numpy, scikit-learn, joblib, geopandas, shapely, sqlalchemy, psycopg2-binary, python-dotenv, pytest.
-- **Base de datos**: PostgreSQL + PostGIS.
-- **Seguridad**: JWT, BCrypt, HTTPS, tokens de 24h (sesión activa) / 30min (inactiva).
-- **Infraestructura**: sin Docker — Postgres local o gestionado gratuito (Render/Neon/Supabase) para desarrollo. Deploy en Vercel (frontend) + Render (backend y ml-service).
+- **Base de datos**: PostgreSQL + PostGIS (esquema versionado con Flyway, 23 tablas y 45 migraciones en `backend/src/main/resources/db/migration/`).
+- **Servicios externos**: CARTO (mapa base, opcional), dolarapi.com (cotización del dólar), georef.ar (autocompletado y validación de direcciones), Cloudinary (fotos), Gmail SMTP (verificación de email y recuperación de contraseña).
+- **Seguridad**: JWT con expiración de 24 h, contraseñas con BCrypt, HTTPS en producción.
 
 ## Documentación
 
-- [`docs/architecture/`](docs/architecture/) — diagramas de arquitectura (ERD, diagrama de sistema) y ADRs.
-- [`docs/api/endpoints.md`](docs/api/endpoints.md) — contratos REST entre los tres servicios.
+- [`docs/onboarding.md`](docs/onboarding.md) — guía paso a paso para levantar el proyecto desde cero.
+- [`docs/architecture/`](docs/architecture/) — ERD, diagrama de sistema y decisiones de arquitectura.
+- [`docs/api/endpoints.md`](docs/api/endpoints.md) — contratos REST entre los servicios.
+- [`docs/pruebas/`](docs/pruebas/) — registro de prueba de carga y prueba de usabilidad (SUS).
+- [`docs/viabilidad/`](docs/viabilidad/) — análisis de viabilidad económica.
 
-## CI
+## Pruebas y CI
 
-Cada servicio tiene su propio workflow de GitHub Actions, que se dispara solo ante cambios en su carpeta:
-
-- [`.github/workflows/frontend-ci.yml`](.github/workflows/frontend-ci.yml)
-- [`.github/workflows/backend-ci.yml`](.github/workflows/backend-ci.yml)
-- [`.github/workflows/ml-service-ci.yml`](.github/workflows/ml-service-ci.yml)
+- **Backend**: `./mvnw test` (JUnit, JaCoCo). **Frontend**: `npm run test` (Vitest + Testing Library) y `npm run lint` (oxlint). **ml-service**: `pytest` y `ruff`.
+- **End-to-end**: Playwright en [`tests/e2e/`](tests/e2e/README.md). **Carga**: k6 en [`tests/carga/`](tests/carga/README.md).
+- Un workflow de GitHub Actions por servicio, que se dispara solo ante cambios en su carpeta: [`frontend-ci.yml`](.github/workflows/frontend-ci.yml), [`backend-ci.yml`](.github/workflows/backend-ci.yml) y [`ml-service-ci.yml`](.github/workflows/ml-service-ci.yml).
 
 ## Cómo levantar el proyecto localmente
 
-### Primera vez en una máquina nueva
+Requisitos: Git, Node.js 20, JDK 17, Python 3.12 y PostgreSQL con PostGIS. Maven no hace falta: el backend trae `./mvnw`. La guía detallada está en [`docs/onboarding.md`](docs/onboarding.md).
 
 ```bash
-git clone <URL-del-repo>
-cd nidio-project
-chmod +x setup.sh
-./setup.sh
+git clone https://github.com/pilisuriano/NidioWebApp.git
+cd NidioWebApp
 ```
-
-Ese script instala las dependencias de ml-service, backend y frontend en orden, creando el entorno virtual de Python (`.venv`) si no existe.
 
 ### Variables de entorno
 
-Cada servicio tiene un `.env.example` con las variables necesarias. Copiarlos a `.env` antes de correr cualquier servicio:
+Cada servicio tiene un `.env.example`. Copiarlos a `.env` y completar lo necesario:
 
 ```bash
-cp frontend/.env.example frontend/.env
 cp backend/.env.example backend/.env
 cp ml-service/.env.example ml-service/.env
+cp frontend/.env.example frontend/.env
 ```
+
+En `backend/.env` son obligatorias `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `JWT_SECRET` y `CUSTOM_PLACE_ENCRYPTION_KEY` (sin esta última el backend no arranca; se genera con `openssl rand -base64 32`). Las variables `MAIL_*` y `CLOUDINARY_*` pueden quedar vacías para desarrollo: solo se pierden el envío de mails y la subida de fotos.
 
 ### Correr cada servicio
 
 ```bash
-# Backend (puerto 8080)
-cd backend && mvn spring-boot:run
+# Backend (puerto 8080) — crea las tablas y carga datos al arrancar vía Flyway
+cd backend && ./mvnw spring-boot:run
 
 # ml-service (puerto 8000)
-cd ml-service && source .venv/bin/activate && uvicorn src.api.main:app --reload
+cd ml-service
+python -m venv .venv && source .venv/bin/activate   # en Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn src.api.main:app --reload
 
 # Frontend (puerto 5173)
-cd frontend && npm run dev
+cd frontend && npm install && npm run dev
 ```
 
-## Estado del proyecto
-
-Cronograma de 6 sprints de 2 semanas vía Jira (plazo realista: diciembre).
-
-- [x] Documentación formal (propuesta de tema + informe)
-- [x] Scaffolding de los tres servicios
-- [x] ERD de la base de datos sintética
-- [x] Wireframes de la interfaz (UI implementada sobre el export de AI Studio)
-- [x] Datos sintéticos placeholder de CABA (migración `V2__seed_synthetic_caba.sql`: 20 barrios, precios m², zonas de ruido/seguridad, 80 propiedades) — pendiente el pipeline real (limpieza IQR, Kaggle + IDECBA)
-- [x] Componente de mapas con heatmap en frontend (React Leaflet: precios, ruido, seguridad)
-- [x] Auth end-to-end (Épica 1)
-- [x] Backend conectado al frontend y a ml-service (`/predict` y `/life-score` con lógica sintética temporal)
-- [x] Frontend migrado de TypeScript a JavaScript (el export de AI Studio había venido en TS)
-- [ ] Modelo de valuación real y Life Score con datasets de BA Data en ml-service
-- [ ] Reinstalar linter JS (`oxlint`) y tests de frontend — el CI (`frontend-ci.yml`) invoca `npm run lint`/`npm run test`, que no existen todavía en `package.json`
+Con los tres servicios corriendo, la aplicación queda en `http://localhost:5173`.
