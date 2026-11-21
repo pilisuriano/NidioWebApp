@@ -50,6 +50,8 @@ Requiere JDK 17 y una base PostgreSQL con la extensión PostGIS. Maven no hace f
 ./mvnw verify    # ciclo completo, el mismo que corre el CI
 ```
 
+El workflow `backend-ci` corre `./mvnw verify` contra una base PostGIS en cada cambio dentro de `backend/`.
+
 ## Despliegue
 
 El `Dockerfile` hace un build en dos etapas (Maven y JRE 17) y limita el heap de la JVM a 400 MB. Render inyecta la variable `PORT`, que la aplicación toma de `server.port`.
